@@ -70,6 +70,33 @@ call). Have the user log in if not already. Then walk the app breadth-first:
 - Write features into `teardown.json` as you go (crash-safe), and a human
   `inventory.md` table at the end.
 
+## Phase 1b — Technical extraction (the five data planes)
+
+The browser walk shows surface area; the data planes show truth. When tenant
+access exists, run all five per `references/extraction-playbook.md` (full
+technique matrix, platform specifics, gotchas, and the ranked default order):
+
+1. **Configuration/metadata census** — export every custom object, field, form,
+   workflow, role, saved search, enabled module (platform metadata API or SDF/
+   Metadata-API export). The delta from vanilla is the requirements list the
+   client paid for. Run FIRST — highest evidence value per effort.
+2. **Transactional archaeology** — transaction-type frequencies, volume
+   time-series, human-vs-integration `created_by` attribution, row counts +
+   max(modified) per table. Empty tables = unused modules in one query.
+3. **Master-data profiling** — field fill rates, cardinality, custom-field
+   population %. A 0.3%-populated field is an abandoned experiment.
+4. **Setup census** — entities, periods, tax, scheduled jobs, integration
+   tokens, role assignments (join grants to login telemetry before trusting).
+5. **Code static analysis** — export all scripts/workflow definitions; fan out
+   agents to summarize each into trigger + entities + business rule + external
+   calls. Pair with execution logs to separate live from dead code.
+
+Also on day 1: start telemetry capture (login/report/saved-search access logs —
+retention windows are often 30–90 days) and inventory integrations (API logs +
+iPaaS flows + file-drop/scheduled exports). Breaking an unknown integration is
+the classic rebuild failure. Fold all outputs into `teardown.json` features
+with `evidence` citing the plane.
+
 ## Phase 2 — Usage evidence
 
 Four independent evidence streams; gather all four:
@@ -108,6 +135,12 @@ For every feature, score and classify:
 - Attribute unused-ness: never-needed vs. too-complex vs. duplicate vs.
   wrong-fit vs. unknown. This drives redesign, not just deletion.
 
+Join rules (where Phase 1b ran): a feature is only "used" when STRUCTURE
+evidence (it exists/is configured) joins with RUNTIME evidence (transactions,
+telemetry, executions) — configured-alone defaults to `configured-never-enabled`
+until proven. Score recency and criticality separately: year-end close runs
+once and is still KEEP.
+
 Sanity pass: any KEEP without cited evidence, or DROP with high criticality,
 gets re-checked. Write `usage-analysis.md` (verdict table + the why column)
 and update `teardown.json`.
@@ -138,11 +171,25 @@ Design the replacement:
   anything needing real multi-user state or external writes — recommend the
   right home for those (app, automation, or keep in old system).
 
+Structure the plan around a **capability map** populated from the data planes
+(not interviews alone — interview-only maps reproduce the org chart), sequence
+it **strangler-fig** (capability-by-capability behind the CSV/API bridges,
+never big-bang), and validate by **replay**: re-run a sample of real historical
+transactions through the rebuilt skill and diff outputs against the system of
+record at posting, document, and total level. Behavioral equivalence on
+historical data is the acceptance test.
+
 Write `REBUILD_PLAN.md` per `templates/rebuild-plan-template.md`: phased
 milestones (walking skeleton → core workflow → bridges → parallel-run →
-cutover), each milestone with a verification step. If the finished skill will
-be deployed to a team workspace, package it as a versioned zip and verify the
-installed version after upload.
+cutover), each milestone with a verification step.
+
+**Org deployment (Claude for Work):** package as a versioned zip (no angle
+brackets in the SKILL.md description — the workspace uploader rejects them),
+upload to the org's Claude workspace, and verify the installed version
+end-to-end after upload. Plan the operational envelope: corpus refresh cadence
+and owner, append-only audit log location, role/permission mapping from the
+old system's SoD model (mined, not copied), and a rollback path (previous zip
+version retained).
 
 ## Deliverables recap
 
