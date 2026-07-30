@@ -1,0 +1,132 @@
+---
+name: saas-rebuild
+description: Tear down a SaaS application the user administers - log in via browser automation, inventory every screen and feature, gather used-vs-unused evidence from tenant data and user interviews, map data extraction routes, and produce a plan to rebuild the kept workflows as a Claude skill. Trigger phrases include "tear down this app", "extract and redesign", "rebuild this software as a skill", "what do we actually use in [app]", "replace [app] with a skill".
+---
+
+# SaaS Rebuild — teardown, usage analysis, and skill rebuild plan
+
+Systematic pipeline: inventory a SaaS app's full surface area → score what is
+actually used and why → map how to get the data out → design the replacement
+as a Claude skill (schema + corpus + CSV bridge + audit trail).
+
+## Guardrails (do these before anything else)
+
+1. Confirm the user **owns or administers** the account and is analyzing their
+   own tenant/data for migration purposes. Never probe other tenants, other
+   users' private data, or anything the account doesn't legitimately expose.
+2. Note that mass scraping may sit awkwardly with some vendors' ToS; prefer
+   built-in exports, reports, and APIs over screen-scraping wherever they exist.
+   Flag it to the user, don't decide for them.
+3. Never capture credentials. The user logs in themselves in the browser; you
+   drive the already-authenticated session.
+4. All outputs go to `~/Dev/teardowns/<app-slug>/` (create it; ask the user for
+   a different location if they prefer). Never use scratch/tmp directories.
+
+## Phase 0 — Scope
+
+Ask (one AskUserQuestion batch): which app, login URL, which modules matter
+most, who are the users (names/roles count), and whether an admin/audit-log
+area is accessible. Create the output dir and `teardown.json` state file:
+
+```json
+{"app": "", "url": "", "started": "", "phase": 0,
+ "features": [], "evidence": {}, "extraction": [], "decisions": []}
+```
+
+State is resumable — on re-invocation, read `teardown.json` and continue from
+the recorded phase. Each phase updates `phase` on completion.
+
+## Phase 1 — Feature inventory (browser walk)
+
+Load browser-automation tools (e.g. Claude in Chrome MCP; one ToolSearch
+call). Have the user log in if not already. Then walk the app breadth-first:
+
+- Start from the main nav; enumerate every top-level item, then sub-nav,
+  settings pages, report libraries, admin panels.
+- For each screen: read the page text (+ screenshot for complex screens),
+  record a feature entry per `templates/feature-inventory.schema.json`:
+  id, nav_path, name, kind (screen | form | report | setting | integration |
+  automation), data_entities touched, actions available, notes.
+- Record counts where the UI shows them ("312 records", empty-state screens,
+  "last modified" columns) — this is usage evidence, capture it inline as
+  `observed_signals` on the feature.
+- Cap the walk sensibly: if the app has more than ~60 screens, inventory nav
+  labels for the long tail and deep-walk only the modules the user named in
+  Phase 0. Log what was skipped — no silent truncation.
+- Write features into `teardown.json` as you go (crash-safe), and a human
+  `inventory.md` table at the end.
+
+## Phase 2 — Usage evidence
+
+Three independent evidence streams; gather all three:
+
+1. **Tenant data signals** (from Phase 1 + targeted revisits): record counts
+   per module, newest/oldest record dates, empty modules, configured-but-unused
+   automations, stale saved reports, user list with last-login if visible,
+   audit log samples if accessible.
+2. **Exports**: download whatever CSV/report exports the app offers for the
+   core entities (guide the user through clicks if downloads need approval).
+   Store under `exports/` in the output dir; summarize row counts and date
+   ranges.
+3. **User interviews**: AskUserQuestion batches per user group — which screens
+   do you touch daily/weekly/never, what do you do OUTSIDE the app that the
+   app should do (spreadsheet workarounds are gold), what do you dread, what
+   would you keep if you could keep only three things. If teammates aren't in
+   the room, generate `interview-questions.md` for the user to circulate and
+   accept answers pasted back later (state file makes this resumable).
+
+## Phase 3 — Used vs. unused analysis
+
+For every feature, score and classify:
+
+- `usage`: daily | weekly | rare | never | unknown (from evidence, not vibes —
+  cite which signal)
+- `criticality`: does a business process break without it?
+- `replaceability`: trivial (a prompt), moderate (skill workflow), hard
+  (needs external integration/state)
+- `verdict`: KEEP | SIMPLIFY | DROP | DEFER, plus one-sentence **why**
+- Attribute unused-ness: never-needed vs. too-complex vs. duplicate vs.
+  wrong-fit vs. unknown. This drives redesign, not just deletion.
+
+Sanity pass: any KEEP without cited evidence, or DROP with high criticality,
+gets re-checked. Write `usage-analysis.md` (verdict table + the why column)
+and update `teardown.json`.
+
+## Phase 4 — Data extraction map
+
+For each KEEP/SIMPLIFY entity, choose the best extraction route in order of
+preference: official API or an already-connected MCP connector (check
+ToolSearch for one first) → built-in export → report-builder CSV →
+screen-scrape (last resort, flag ToS). Produce `extraction-runbook.md`: per
+entity — route, steps, expected fields, refresh cadence for the transition
+period (the old app usually runs in parallel for a while).
+
+## Phase 5 — Rebuild plan as a skill
+
+Design the replacement:
+
+- **Schema first**: one JSON schema per core entity (fields, confidence
+  labels where extraction is fuzzy).
+- **Corpus**: extracted data lives as a JSON corpus the skill loads (a single
+  list file keeps the loader simple).
+- **Workflows**: each KEEP verdict becomes a skill workflow section; each
+  SIMPLIFY gets redesigned around what users actually did, not what the app
+  offered. Spreadsheet workarounds from interviews become first-class flows.
+- **Bridges**: CSV in/out for whatever systems remain (accounting, ERP).
+- **Audit**: append-only audit log entries for every state-changing action.
+- **Out of scope honestly**: DEFER/DROP list with revisit conditions, plus
+  anything needing real multi-user state or external writes — recommend the
+  right home for those (app, automation, or keep in old system).
+
+Write `REBUILD_PLAN.md` per `templates/rebuild-plan-template.md`: phased
+milestones (walking skeleton → core workflow → bridges → parallel-run →
+cutover), each milestone with a verification step. If the finished skill will
+be deployed to a team workspace, package it as a versioned zip and verify the
+installed version after upload.
+
+## Deliverables recap
+
+`~/Dev/teardowns/<app-slug>/`: teardown.json (state), inventory.md,
+usage-analysis.md, extraction-runbook.md, exports/, interview-questions.md
+(if used), REBUILD_PLAN.md. Send REBUILD_PLAN.md to the user at the end and
+summarize KEEP/SIMPLIFY/DROP counts and the top 3 findings.

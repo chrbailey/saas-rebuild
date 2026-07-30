@@ -1,0 +1,10 @@
+{
+  "name": "saas-rebuild",
+  "displayName": "SaaS Rebuild",
+  "description": "Tear down a SaaS app you administer: browser-walk every feature, gather used-vs-unused evidence, map data extraction, and plan a rebuild as a Claude skill.",
+  "version": "0.1.0",
+  "skills": "./skills/",
+  "author": { "name": "Chris Bailey", "url": "https://github.com/chrbailey" },
+  "license": "MIT",
+  "keywords": ["saas", "teardown", "migration", "usage-analysis", "skill-authoring"]
+}
