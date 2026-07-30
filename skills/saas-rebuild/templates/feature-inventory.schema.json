@@ -2,31 +2,126 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "SaaS teardown feature entry",
   "type": "object",
-  "required": ["id", "nav_path", "name", "kind"],
+  "required": [
+    "id",
+    "nav_path",
+    "name",
+    "kind"
+  ],
   "properties": {
-    "id": {"type": "string", "description": "kebab-case, stable across runs, e.g. invoices-aging-report"},
-    "nav_path": {"type": "string", "description": "UI breadcrumb, e.g. Reports > Billing > Aging"},
-    "name": {"type": "string"},
-    "kind": {"enum": ["screen", "form", "report", "setting", "integration", "automation"]},
-    "data_entities": {"type": "array", "items": {"type": "string"}},
-    "actions": {"type": "array", "items": {"type": "string"}},
+    "id": {
+      "type": "string",
+      "description": "kebab-case, stable across runs, e.g. invoices-aging-report"
+    },
+    "nav_path": {
+      "type": "string",
+      "description": "UI breadcrumb, e.g. Reports > Billing > Aging"
+    },
+    "name": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "screen",
+        "form",
+        "report",
+        "setting",
+        "integration",
+        "automation"
+      ]
+    },
+    "data_entities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "observed_signals": {
       "type": "object",
       "description": "usage evidence seen in the UI, captured during the walk",
       "properties": {
-        "record_count": {"type": ["integer", "null"]},
-        "newest_record": {"type": ["string", "null"]},
-        "oldest_record": {"type": ["string", "null"]},
-        "empty_state": {"type": "boolean"},
-        "notes": {"type": "string"}
+        "record_count": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "newest_record": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "oldest_record": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "empty_state": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string"
+        }
       }
     },
-    "usage": {"enum": ["daily", "weekly", "rare", "never", "unknown"]},
-    "usage_evidence": {"type": "string", "description": "cite the signal or interview answer"},
-    "criticality": {"enum": ["critical", "important", "nice-to-have", "none"]},
-    "replaceability": {"enum": ["trivial", "moderate", "hard"]},
-    "verdict": {"enum": ["KEEP", "SIMPLIFY", "DROP", "DEFER"]},
-    "why": {"type": "string"},
-    "unused_reason": {"enum": ["never-needed", "too-complex", "duplicate", "wrong-fit", "unknown", null]}
+    "usage": {
+      "enum": [
+        "daily",
+        "weekly",
+        "rare",
+        "never",
+        "workaround-external",
+        "unknown"
+      ]
+    },
+    "usage_evidence": {
+      "type": "string",
+      "description": "cite the signal or interview answer"
+    },
+    "criticality": {
+      "enum": [
+        "critical",
+        "important",
+        "nice-to-have",
+        "none"
+      ]
+    },
+    "replaceability": {
+      "enum": [
+        "trivial",
+        "moderate",
+        "hard"
+      ]
+    },
+    "verdict": {
+      "enum": [
+        "KEEP",
+        "SIMPLIFY",
+        "DROP",
+        "DEFER"
+      ]
+    },
+    "why": {
+      "type": "string"
+    },
+    "unused_reason": {
+      "enum": [
+        "never-needed",
+        "too-complex",
+        "duplicate",
+        "wrong-fit",
+        "configured-never-enabled",
+        "unknown",
+        null
+      ]
+    }
   }
 }

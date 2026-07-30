@@ -36,6 +36,20 @@ area is accessible. Create the output dir and `teardown.json` state file:
 State is resumable — on re-invocation, read `teardown.json` and continue from
 the recorded phase. Each phase updates `phase` on completion.
 
+## Alternate mode — document-based teardown (no tenant access needed)
+
+If the user has engagement archives instead of (or in addition to) live tenant
+access — FRDs/change tickets, test plans, training manuals, selection
+scorecards, recovery-project findings, meeting notes — run Phases 1–2 against
+the documents: fan out one extraction agent per evidence stream, each returning
+the feature schema with cited evidence. Two hard-won rules: **change-ticket
+corpora beat UI walks for mature tenants** (churn concentration maps directly
+to poor-fit features), and **recovery/rescue-project findings docs are teardown
+gold** (they enumerate broken and never-enabled features with CFO-level candor).
+Label the report's methodology honestly as document-based. Sanitize from the
+first artifact: client names become codes (keep a local-only names map),
+individual names never appear (roles only), and figures are rounded.
+
 ## Phase 1 — Feature inventory (browser walk)
 
 Load browser-automation tools (e.g. Claude in Chrome MCP; one ToolSearch
@@ -58,7 +72,7 @@ call). Have the user log in if not already. Then walk the app breadth-first:
 
 ## Phase 2 — Usage evidence
 
-Three independent evidence streams; gather all three:
+Four independent evidence streams; gather all four:
 
 1. **Tenant data signals** (from Phase 1 + targeted revisits): record counts
    per module, newest/oldest record dates, empty modules, configured-but-unused
@@ -74,13 +88,19 @@ Three independent evidence streams; gather all three:
    would you keep if you could keep only three things. If teammates aren't in
    the room, generate `interview-questions.md` for the user to circulate and
    accept answers pasted back later (state file makes this resumable).
+4. **Contracts and renewals**: order forms, renewal quotes, seat counts vs.
+   assigned users, module line items. Purchased-vs-used is often the single
+   strongest signal — modules bought and never enabled, seats paid and never
+   assigned, upsells that quantify what the vendor thinks is missing.
 
 ## Phase 3 — Used vs. unused analysis
 
 For every feature, score and classify:
 
-- `usage`: daily | weekly | rare | never | unknown (from evidence, not vibes —
-  cite which signal)
+- `usage`: daily | weekly | rare | never | workaround-external | unknown (from
+  evidence, not vibes — cite which signal). `workaround-external` means the job
+  is actively done in a satellite tool or spreadsheet instead — that is a
+  different, more actionable finding than "unused"
 - `criticality`: does a business process break without it?
 - `replaceability`: trivial (a prompt), moderate (skill workflow), hard
   (needs external integration/state)

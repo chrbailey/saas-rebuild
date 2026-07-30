@@ -5,7 +5,7 @@
     {
       "name": "saas-rebuild",
       "description": "Tear down a SaaS app you administer: browser-walk every feature, gather used-vs-unused evidence, map data extraction, and plan a rebuild as a Claude skill.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "source": {
         "type": "github",
         "repo": "chrbailey/saas-rebuild"
