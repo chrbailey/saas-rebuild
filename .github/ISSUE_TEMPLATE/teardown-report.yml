@@ -1,0 +1,73 @@
+name: Teardown Report
+description: Share sanitized results from a SaaS teardown so others can build on it
+title: "[Teardown] <app or category>"
+labels: ["teardown-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing! **Sanitize first**: no record contents, exports,
+        customer/employee names, real-data screenshots, or internal URLs.
+        Structure only — verdicts, categories, ranges. Name the app or just
+        its category, whichever you're comfortable with.
+  - type: input
+    id: app
+    attributes:
+      label: App (or category)
+      placeholder: "e.g. AppFolio, or just 'property management suite'"
+    validations:
+      required: true
+  - type: input
+    id: team-size
+    attributes:
+      label: Team size using the app (rough)
+      placeholder: "e.g. 5-10 users"
+  - type: textarea
+    id: verdicts
+    attributes:
+      label: Verdict counts
+      description: How many features landed in each bucket?
+      placeholder: |
+        Total features inventoried: ~60
+        KEEP: 9  |  SIMPLIFY: 6  |  DROP: 38  |  DEFER: 7
+    validations:
+      required: true
+  - type: textarea
+    id: keep-set
+    attributes:
+      label: The KEEP set
+      description: The workflows that actually earn the subscription (names + one line each)
+    validations:
+      required: true
+  - type: textarea
+    id: why-unused
+    attributes:
+      label: Top "why unused" reasons
+      placeholder: "e.g. duplicate-of-spreadsheet (12), too-complex (9), never-needed (17)"
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: Workarounds discovered
+      description: Things users did OUTSIDE the app that the replacement should make first-class
+  - type: textarea
+    id: pipeline-gaps
+    attributes:
+      label: What this skill missed
+      description: Steps, signals, or template fields the pipeline should have but doesn't — this is how the skill improves
+  - type: dropdown
+    id: rebuild-status
+    attributes:
+      label: Rebuild status
+      options:
+        - Analysis only
+        - Rebuild planned
+        - Rebuild in progress
+        - Running in parallel with the app
+        - Fully cut over
+  - type: checkboxes
+    id: sanitized
+    attributes:
+      label: Sanitization check
+      options:
+        - label: I confirm this report contains no tenant data, PII, or confidential information
+          required: true

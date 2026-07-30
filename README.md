@@ -48,6 +48,37 @@ Say things like:
 You'll need a browser-automation MCP connected (e.g. Claude in Chrome) for
 the inventory phase, and admin access to the app you're analyzing.
 
+## Share your teardown — let's replace SaaS collectively
+
+Every teardown produces the same artifact: a feature map with evidence-backed
+KEEP / SIMPLIFY / DROP / DEFER verdicts. Those maps are far more valuable
+shared than siloed:
+
+- **The used-fraction repeats.** If your team uses 20% of your CRM, odds are
+  the next team uses a similar 20%. One shared teardown is a head start for
+  everyone on the same app or category.
+- **Others uncover what you missed.** A second teardown of the same app finds
+  the modules, workflows, and workarounds your walk skipped — and gaps in
+  this pipeline itself (a phase that needs a step, a signal the schema
+  doesn't capture).
+- **Convergent verdicts become community skills.** When several teardowns of
+  an app category agree on the KEEP set, that's a spec: the community can
+  build and maintain one replacement skill instead of each team rebuilding
+  alone.
+
+**How to post results:** open a
+[Teardown Report issue](../../issues/new?template=teardown-report.yml) with
+the app (or just its category, if you'd rather not name it), feature counts
+by verdict, your top "why unused" reasons, and anything the pipeline missed.
+PRs improving the phases, templates, or schema are very welcome.
+
+**Sanitize before you share.** Your teardown output contains your business
+data — the report you post must not. No record contents, no exports, no
+customer or employee names, no screenshots with real data, no internal URLs.
+Share the *structure* (feature names, verdicts, why-categories, rough record
+counts as ranges). If in doubt, leave it out — a verdict table with no
+numbers is still useful.
+
 ## Responsible use
 
 This skill is for analyzing **your own tenant** of software you legitimately
