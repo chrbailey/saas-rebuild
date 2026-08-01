@@ -75,6 +75,62 @@ requirement vanilla couldn't meet — this is the richest "why" source.
   swivel-chair flows. Requires agent installs + privacy sign-off; offer it,
   never assume it.
 
+## Field-tested gotchas (learned the hard way on a live tenant)
+
+- **"Last run / last used" columns lie in one direction.** Platform usage
+  columns typically stamp UI and scheduler executions only — searches, reports,
+  and queries invoked by scripts or APIs never stamp them. A blank means "no
+  recorded UI execution," NOT "never used." Say it that way, or a hostile
+  reviewer will dismantle the finding. Cross-check against script/API logs
+  before calling anything dead.
+- **The same proxy is contaminated in both directions.** Scheduled jobs stamp
+  "last run" with zero human involvement (inflating "alive"); script-invoked
+  artifacts never stamp (inflating "dead"). What you have is an *execution
+  histogram*, not a usage histogram — label it as such.
+- **Check the earliest timestamp before trusting the oldest bucket.** If no
+  stamp predates a certain date despite an earlier go-live, the column may only
+  populate from some enablement point; everything "older" is uninterpretable.
+- **Verify retention rather than assuming it** — it can surprise in both
+  directions (a platform documented as 90-day may hold years). Retention length
+  changes whether telemetry is a rush job or a considered one.
+- **Paginated list segments are a free histogram.** When a list paginates by
+  sorted-column ranges, the segment boundary labels give you a distribution
+  over that column without exporting anything. Watch the arithmetic: N/page-size
+  rarely divides evenly, so report a *range*, not a point estimate, until you
+  export the list.
+- **Browser-driven CSV exports fail silently.** An export click may produce no
+  file and no dialog, and you may not be able to check the download list from an
+  automated session. Plan a manual export step; never claim exportability you
+  haven't demonstrated.
+- **Log every action for audit.** Every tenant-session artifact should carry an
+  action log. State the read-only claim precisely: list-sort and pagination
+  clicks can persist per-user view preferences, and an export click may queue a
+  server-side job you cannot verify. Claim "no record/config/data changes," not
+  "nothing touched the tenant."
+- **Note PII you saw but didn't store.** List pages show owner and last-modified
+  names. Record that they were visible and excluded, so compliance is
+  documented rather than inferred.
+
+## Validate findings adversarially before they enter the evidence base
+
+Extraction output is a draft, not a fact. Run a critic pass over it — ideally
+independent agents with distinct lenses:
+
+1. **Data-consistency critic**: attack the arithmetic, the internal
+   contradictions, and every leap from signal to conclusion. Ask "which of
+   these would not survive a hostile CFO, and what one cheap check fixes it?"
+2. **Process-compliance critic**: audit the session's action log against its own
+   read-only rules, score each runsheet item done/partial/failed, and hunt for
+   *silent* gaps — items quietly dropped rather than disclosed.
+3. **Verification pass**: after applying corrections, re-check that each one
+   actually landed AND that the fixes introduced no new errors. They do:
+   scrubbing an identifier can leave a stale pointer claiming it lives somewhere
+   it doesn't.
+
+Expect the critics to find errors that flatter your own narrative — arithmetic
+that overstates how much is unused is the characteristic failure mode of this
+work. Retract in place, keep the retraction visible in the artifact.
+
 ## Human evidence (C) — multipliers on everything above
 
 Interviews/shadowing ("show me", not questionnaires), UI crawl (per-role — one

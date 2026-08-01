@@ -91,11 +91,21 @@ technique matrix, platform specifics, gotchas, and the ranked default order):
    agents to summarize each into trigger + entities + business rule + external
    calls. Pair with execution logs to separate live from dead code.
 
-Also on day 1: start telemetry capture (login/report/saved-search access logs —
-retention windows are often 30–90 days) and inventory integrations (API logs +
-iPaaS flows + file-drop/scheduled exports). Breaking an unknown integration is
-the classic rebuild failure. Fold all outputs into `teardown.json` features
-with `evidence` citing the plane.
+Also on day 1: start telemetry capture (login/report/access logs — verify the
+actual retention window rather than assuming) and inventory integrations (API
+logs + iPaaS flows + file-drop/scheduled exports). Breaking an unknown
+integration is the classic rebuild failure. Fold all outputs into
+`teardown.json` features with `evidence` citing the plane.
+
+**Every tenant session carries an action log** in its artifact, and the
+read-only claim is stated precisely (sort/pagination clicks can persist view
+preferences; export clicks may queue unverifiable server-side jobs). Note PII
+seen on-screen but excluded from capture. Then **run the critic pass in
+`references/extraction-playbook.md` before any extraction finding enters the
+evidence base** — usage-column semantics and segment arithmetic produce
+confident-sounding errors that reliably overstate how much is unused. Flag any
+stale/unexpected integration credentials you encounter as a security finding
+for the client, separate from the teardown.
 
 ## Phase 2 — Usage evidence
 
