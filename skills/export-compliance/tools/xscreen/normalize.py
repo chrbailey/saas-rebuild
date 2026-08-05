@@ -114,7 +114,31 @@ CSL_FIELDS: dict[str, tuple[str, ...]] = {
     "ids": ("ids", "identifications", "id_numbers"),
     "license_requirement": ("license_requirement",),
     "license_policy": ("license_policy",),
+    # Identity discriminators. The adjudication playbook names date and place
+    # of birth as among the few facts that genuinely distinguish two similarly
+    # named individuals -- and they were being reported as unmapped columns
+    # and dropped before the adjudicator ever saw them. Vessel identifiers are
+    # the same argument for the vessel entries.
+    "dates_of_birth": ("dates_of_birth", "date_of_birth", "dob"),
+    "places_of_birth": ("places_of_birth", "place_of_birth", "pob"),
+    "title": ("title",),
+    "call_sign": ("call_sign",),
+    "vessel_flag": ("vessel_flag",),
+    "vessel_owner": ("vessel_owner",),
+    "vessel_type": ("vessel_type",),
 }
+
+# Fields folded into `ListedParty.ids` as labelled discriminators, because
+# that is the field the adjudicator is shown.
+CSL_DISCRIMINATORS: tuple[tuple[str, str], ...] = (
+    ("dates_of_birth", "DOB"),
+    ("places_of_birth", "POB"),
+    ("title", "title"),
+    ("call_sign", "call sign"),
+    ("vessel_flag", "vessel flag"),
+    ("vessel_owner", "vessel owner"),
+    ("vessel_type", "vessel type"),
+)
 
 BIS_ENTITY_FIELDS: dict[str, tuple[str, ...]] = {
     "name": ("entity_name", "name", "listed_name"),
@@ -222,7 +246,11 @@ def parse_csl(text: str, source_filter: str | None = None) -> ParseOutcome:
                 addresses=_split_multi(_get(row, mapping, "addresses")),
                 countries=_split_multi(_get(row, mapping, "countries")),
                 programs=_split_multi(_get(row, mapping, "programs")),
-                ids=_split_multi(_get(row, mapping, "ids")),
+                ids=_split_multi(_get(row, mapping, "ids")) + [
+                    f"{label}: {v}"
+                    for field, label in CSL_DISCRIMINATORS
+                    for v in _split_multi(_get(row, mapping, field))
+                ],
                 remarks=" | ".join(p for p in remarks_parts if p),
                 federal_register=_get(row, mapping, "federal_register"),
                 effective_date=_get(row, mapping, "effective_date"),

@@ -146,6 +146,47 @@ class TestCSL(unittest.TestCase):
         self.assertTrue(any("no recognizable name column" in w for w in out.warnings))
 
 
+class TestIdentityDiscriminators(unittest.TestCase):
+    """The adjudication playbook names date and place of birth as among the
+    few facts that genuinely distinguish two similarly named individuals.
+    They were being reported as unmapped columns and dropped before the
+    adjudicator ever saw them."""
+
+    HEADER = ("_id,source,entity_number,type,programs,name,title,addresses,"
+              "alt_names,dates_of_birth,places_of_birth,nationalities,ids,remarks\n")
+    ROW = ('d1,"Specially Designated Nationals (SDN) - Treasury Department",'
+           'SDN-1,Individual,SDGT,"PETROV, Vasiliy",Director General,Moscow,'
+           '"PETROFF, V",14 Mar 1968,"Leningrad, USSR",Russia,'
+           '"Passport 71234567",Linked to X\n')
+
+    def test_dob_and_pob_reach_the_record(self):
+        out = parse_csl(self.HEADER + self.ROW)
+        ids = out.parties[0].ids
+        self.assertIn("DOB: 14 Mar 1968", ids)
+        self.assertIn("POB: Leningrad, USSR", ids)
+
+    def test_native_identifiers_are_preserved_alongside(self):
+        out = parse_csl(self.HEADER + self.ROW)
+        self.assertIn("Passport 71234567", out.parties[0].ids)
+
+    def test_they_are_no_longer_reported_as_unmapped(self):
+        out = parse_csl(self.HEADER + self.ROW)
+        for col in ("dates_of_birth", "places_of_birth", "title"):
+            self.assertNotIn(col, out.unmapped_columns)
+
+    def test_absent_columns_are_simply_skipped(self):
+        # Adding aliases must be safe on a file that does not have them.
+        out = parse_csl("id,source,name\nd1,SDN,Acme\n")
+        self.assertEqual(out.parties[0].ids, [])
+
+    def test_vessel_identifiers_are_captured(self):
+        text = ("id,source,name,type,call_sign,vessel_flag,vessel_owner\n"
+                "d1,SDN,MV ARCTIC DAWN,Vessel,J8B2199,Panama,ARCTIC DAWN SHIPPING\n")
+        ids = parse_csl(text).parties[0].ids
+        self.assertIn("call sign: J8B2199", ids)
+        self.assertIn("vessel flag: Panama", ids)
+
+
 class TestPositionalDrift(unittest.TestCase):
     """The OFAC flat files are positionally defined, so a column-count check
     cannot detect a same-width reorder. A misaligned parse builds names out of
