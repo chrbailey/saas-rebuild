@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chrbailey/saas-rebuild/export-compliance/party-file.schema.json",
+  "title": "Screening party file row",
+  "description": "One counterparty to screen. Supplied as CSV; column headers are matched case- and punctuation-insensitively against the `csv_aliases` of each field, so an ERP export usually needs no renaming. Unmapped columns are reported as warnings and carried through as raw context, never silently dropped.",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "ref": {
+      "type": "string",
+      "description": "Your own reference for this row. Appears in every report and audit entry. Defaults to the row number when absent, which makes results hard to reconcile back to your system -- supply it.",
+      "csv_aliases": ["ref", "id", "row_id", "account", "account_number", "customer_id", "reference"]
+    },
+    "name": {
+      "type": "string",
+      "description": "The counterparty name as your system holds it. Do not pre-clean it; normalization is the matcher's job and cleaning by hand loses signal.",
+      "csv_aliases": ["name", "party", "party_name", "customer", "customer_name", "vendor", "vendor_name", "company", "company_name", "consignee", "end_user"]
+    },
+    "aliases": {
+      "type": "string",
+      "description": "Other names for the SAME party: DBA, trading-as, former name, transliteration. Semicolon or pipe separated. Each is screened independently. A customer master that keeps these in a free-text notes field is keeping your recall in a place the matcher cannot reach -- mine it.",
+      "csv_aliases": ["aliases", "alias", "aka", "dba", "trade_name", "also_known_as"]
+    },
+    "party_type": {
+      "type": "string",
+      "enum": ["individual", "entity", "vessel", "aircraft", "unknown"],
+      "description": "Improves adjudication quality; not required.",
+      "csv_aliases": ["party_type", "type", "entity_type"]
+    },
+    "country": {
+      "type": "string",
+      "description": "Country of the party itself. ISO 3166-1 alpha-2 preferred; common free-text names resolve via the policy file's alias table. An unresolvable value raises DEST.UNRESOLVED rather than being ignored.",
+      "csv_aliases": ["country", "party_country", "ship_to_country"]
+    },
+    "address": {
+      "type": "string",
+      "description": "Full address. Matters more than it looks: regional embargoes (Crimea, DNR, LNR) are detected from address text, because the country field says only 'Ukraine'.",
+      "csv_aliases": ["address", "street", "full_address", "ship_to_address"]
+    },
+    "role": {
+      "type": "string",
+      "description": "Role in the transaction: customer, end-user, consignee, intermediate-consignee, freight-forwarder, bank, broker. Intermediary roles raise KYC.INTERMEDIARY, because screening a forwarder does not discharge the duty to know the ultimate end user.",
+      "csv_aliases": ["role", "party_role", "relationship"]
+    },
+    "destination_country": {
+      "type": "string",
+      "description": "ULTIMATE destination of the goods, which is often not this party's country. Drives the destination rules. Falls back to `country` when absent.",
+      "csv_aliases": ["destination_country", "destination", "ultimate_destination", "ship_to", "final_destination"]
+    },
+    "eccn": {
+      "type": "string",
+      "description": "Export Control Classification Number, or EAR99. Format-checked against the CCL pattern (e.g. 3A001, 5A002.a.1). Absent raises CLASS.MISSING: party screening alone never establishes whether a licence is required.",
+      "csv_aliases": ["eccn", "classification", "ccl"]
+    },
+    "item_description": {
+      "type": "string",
+      "description": "What is being shipped. Screened for proliferation and military end-use keywords. A keyword hit is a prompt to look, never a classification.",
+      "csv_aliases": ["item_description", "item", "product", "description", "commodity"]
+    },
+    "end_use": {
+      "type": "string",
+      "description": "The stated end use, in the customer's own words where possible. Screened against BIS Know Your Customer red flags (15 CFR Part 732, Supplement No. 3). Record refusals to answer verbatim -- 'customer declined to provide end use' is itself a red flag the rules engine detects.",
+      "csv_aliases": ["end_use", "enduse", "intended_use", "application"]
+    }
+  },
+  "examples": [
+    {
+      "ref": "CUST-10482",
+      "name": "Boreal Optics Manufacturing Co Ltd",
+      "aliases": "Boreal Optics Mfg; BOMC",
+      "party_type": "entity",
+      "country": "CN",
+      "address": "3 Lens Road, Chengdu, Sichuan",
+      "role": "end-user",
+      "destination_country": "CN",
+      "eccn": "6A004",
+      "item_description": "Precision optical mounts",
+      "end_use": "Assembly of industrial inspection cameras"
+    }
+  ]
+}

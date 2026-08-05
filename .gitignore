@@ -2,3 +2,7 @@
 *.log
 exports/
 teardowns/
+__pycache__/
+*.pyc
+lists/
+runs/

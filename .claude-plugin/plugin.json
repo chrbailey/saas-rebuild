@@ -1,10 +1,10 @@
 {
   "name": "saas-rebuild",
   "displayName": "SaaS Rebuild",
-  "description": "Tear down a SaaS app you administer: browser-walk every feature, gather used-vs-unused evidence, map data extraction, and plan a rebuild as a Claude skill.",
-  "version": "0.3.1",
+  "description": "Replace SaaS you don't control. Tear down an app you administer and plan its rebuild as a skill, and run U.S. export-control restricted-party screening on premise against the official government lists.",
+  "version": "0.4.0",
   "skills": "./skills/",
   "author": { "name": "Chris Bailey", "url": "https://github.com/chrbailey" },
   "license": "MIT",
-  "keywords": ["saas", "teardown", "migration", "usage-analysis", "skill-authoring"]
+  "keywords": ["saas", "teardown", "migration", "usage-analysis", "skill-authoring", "export-compliance", "sanctions-screening", "ofac", "denied-party", "on-premise"]
 }
