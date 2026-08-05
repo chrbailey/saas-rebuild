@@ -1,0 +1,97 @@
+name: Screening discrepancy report
+description: A match xscreen missed, a false positive it produced, or a disagreement with another screening tool
+title: "[screening] "
+labels: ["export-compliance", "matching"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Discrepancies are the only real evidence for tuning
+        a matcher — especially **missed matches**, which are the expensive error
+        in this domain and the hardest to find without a second opinion.
+
+        **Sanitize before you post.** Do not include real counterparty names from
+        your book of business, real addresses, or anything that identifies your
+        customers. Reconstruct the discrepancy with a *structurally equivalent*
+        made-up pair: keep the shape of the problem (transliteration, dropped
+        patronymic, corporate-suffix swap, reordering), change the identities.
+        Listed-party names are public, so those are fine to quote — it is your
+        side of the comparison that needs care.
+
+        If you genuinely cannot reproduce it without real data, describe the
+        *category* of failure and leave the names out. A described category is
+        still useful; a leaked customer list is not.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of discrepancy
+      options:
+        - Missed match (false negative) — highest priority
+        - False positive
+        - Wrong band (e.g. WEAK where STRONG was right)
+        - Wrong legal effect for a list hit
+        - Disagreement with another screening tool
+        - Parser problem (a government file changed shape)
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: pair
+    attributes:
+      label: The name pair (sanitized)
+      description: The subject name as your system holds it, and the listed name it should or should not have matched.
+      placeholder: |
+        Subject:  Vasiliy Petroff
+        Listed:   PETROV, Vasiliy Ivanovich  (SDN)
+        Expected: STRONG or better
+        Got:      no candidate
+    validations:
+      required: true
+
+  - type: textarea
+    id: explain
+    attributes:
+      label: Output of `xscreen explain`
+      description: Run `python3 -m xscreen.cli --home <your home> explain "<subject name>"` and paste the result. The signal breakdown is what makes this actionable.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: Engine version
+      description: From `xscreen --version`, plus the list manifest digest from your run if you have it.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Which normalization category does this fall in
+      description: Best guess is fine — it helps route the fix.
+      multiple: true
+      options:
+        - Transliteration (Cyrillic, Arabic, Persian, pinyin)
+        - Corporate legal form / suffix
+        - Name ordering (surname first vs last)
+        - Dropped or added name part (patronymic, division, qualifier)
+        - Initialism or acronym
+        - Non-Latin script
+        - Punctuation, spacing or diacritics
+        - Numbers or alphanumerics in the name
+        - Not sure
+
+  - type: textarea
+    id: comparison
+    attributes:
+      label: If this came from a parallel run against another tool
+      description: Which tool, and what it concluded. Do not paste licensed vendor output — describe it. Note that the other tool being different does not mean it is right; both directions are worth investigating.
+
+  - type: checkboxes
+    id: sanitized
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have removed real counterparty names, addresses and any customer-identifying data from this report.
+          required: true
+        - label: I understand this issue is public.
+          required: true
