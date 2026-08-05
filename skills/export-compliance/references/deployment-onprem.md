@@ -82,6 +82,7 @@ human. Slower, not wrong.
 | Verify the audit chain | Weekly | `audit verify` |
 | Publish the head hash | Daily, to write-once storage | `audit head` |
 | Attest the country policy file | Quarterly, and on any FR action | `policy verify --by "Name"` |
+| Confirm corpus coverage | After any narrow refresh | `status` |
 
 Screening at onboarding only is the most common design mistake. Destination and
 end use change per shipment even when the customer does not, and a party you
@@ -179,7 +180,11 @@ chain records who ran what; the human decision record (see
 ## Audit and retention
 
 The log is append-only and hash-chained. `audit verify` detects modified
-payloads, deleted entries and reordering. It is tamper-*evident*, not
+payloads, deleted entries, reordering, and — via the `HEAD` marker written
+beside it — truncation of the most recent entries, which forward verification
+alone cannot see. Make `HEAD` root-owned in a real deployment: an attacker who
+has to edit two files in agreement is doing something far more deliberate than
+running `truncate`. It is tamper-*evident*, not
 tamper-proof — a person with write access can recompute the whole chain. What
 makes it real evidence is publishing the daily head hash somewhere that person
 cannot rewrite: write-once object storage, a ticketing system, a signed email

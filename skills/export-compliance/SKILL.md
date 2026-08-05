@@ -111,6 +111,10 @@ Hard rules:
 - **A degraded refresh is not a successful refresh.** If a source fails to
   download, the manifest says so and the run is marked degraded. Never present
   a partial list load as a complete screen.
+- **A narrower refresh is a degraded refresh.** `refresh --sources DPL` rebuilds
+  the corpus from that one list. The manifest records which sources it covers
+  and screening refuses anything short of the default set, because the failure
+  mode is otherwise invisible: a blocked party comes back CLEAR at exit 0.
 - **Unrecognized columns are reported, not dropped.** Government files change
   shape without notice; a new `alt_names_2` column must surface as a warning,
   not vanish.
@@ -225,9 +229,16 @@ it. A case with any candidate above the review floor can never end as CLEAR.
 Outputs land in `runs/<timestamp>/`: `REPORT.md` (worklist, case detail,
 provenance, limitations), `dispositions.csv`, `results.jsonl`, `summary.json`.
 
+Every result also carries a **policy digest** and a **tuning digest**
+alongside the list manifest digest. Without them the rule half of a screening
+decision is not reproducible: one edited line in the country policy file turns
+REVIEW into CLEAR with nothing on the record to tell the two runs apart.
+
 The audit log is append-only and hash-chained: each entry carries the SHA-256
 of the previous one, so editing history invalidates every hash after it and
-deleting an entry breaks the sequence. This is tamper-*evident*, not
+deleting an entry breaks the sequence. A `HEAD` marker beside the log records
+the expected length, because forward verification alone cannot see a truncated
+tail — a valid prefix is still a valid chain. This is tamper-*evident*, not
 tamper-proof — a person with write access can recompute the chain. Publish the
 daily head hash somewhere the operator cannot rewrite (`xscreen audit head`);
 that is what converts it into real evidence.
