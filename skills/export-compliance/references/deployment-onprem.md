@@ -185,10 +185,41 @@ makes it real evidence is publishing the daily head hash somewhere that person
 cannot rewrite: write-once object storage, a ticketing system, a signed email
 to the compliance officer, a commit in a repository they do not control.
 
-Retain five years (EAR 762.6; OFAC 501.601). Back up `lists/` snapshots
-alongside the audit log — a disposition cannot be reconstructed without the
-list data it was computed against, and the manifest hash is what ties them
-together.
+Retain five years (EAR 762.6; OFAC 501.601).
+
+### Backup and restore
+
+The three things that must survive together, because none is useful alone:
+
+| Path | Why it is needed |
+|---|---|
+| `audit/screening-audit.jsonl` | The record itself. Losing any line breaks the chain. |
+| `lists/*.raw` + `lists/manifest.json` | A disposition cannot be reconstructed without the list snapshot it was computed against. The manifest hash is the join. |
+| `runs/*/` | The reports and per-case results an auditor will actually read. |
+
+```bash
+tar -czf "xscreen-$(date -u +%Y%m%d).tar.gz" \
+    -C /var/lib/xscreen audit lists runs
+```
+
+Restore is a plain extract, followed immediately by `audit verify` — if the
+chain does not verify after a restore, the backup is incomplete or the archive
+is truncated, and that must be resolved before the log is appended to again.
+Appending to a broken chain buries the break under new entries.
+
+Two operational notes:
+
+- **`lists/*.raw` dominates the size** and is the part people are tempted to
+  skip. Skipping it means a five-year-old disposition can no longer be
+  explained, which is the one thing the retention rule exists to make possible.
+- **Verify a restore somewhere else once**, before you need it. A backup you
+  have never extracted is a hypothesis.
+
+If the audit log is truncated or half-written after a crash, `audit verify`
+reports the break with the sequence number where it occurred. Do not repair it
+by editing — that is indistinguishable from tampering. Start a new log file,
+note the discontinuity and its cause in writing, and retain the damaged file
+alongside it.
 
 ## Replacing a screening SaaS
 
