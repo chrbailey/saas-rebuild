@@ -1,0 +1,152 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  xscreen:
+    name: xscreen (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Confirm zero dependencies
+        # The package must import and run with nothing installed. If this step
+        # ever needs a pip install, the on-premise story is broken.
+        working-directory: skills/export-compliance/tools
+        run: python -c "import xscreen; print('xscreen', xscreen.__version__)"
+
+      - name: Run the suite
+        working-directory: skills/export-compliance/tools
+        run: python -m unittest discover -s xscreen/tests -t . -v
+
+      - name: Run the suite under a different hash seed
+        # Determinism is a load-bearing claim: a screening result must be
+        # reproducible from its inputs. A different PYTHONHASHSEED changes
+        # set and dict iteration order, which is where non-determinism hides.
+        working-directory: skills/export-compliance/tools
+        env:
+          PYTHONHASHSEED: "12345"
+        run: python -m unittest discover -s xscreen/tests -t .
+
+      - name: End-to-end screening run against the fixtures
+        working-directory: skills/export-compliance/tools
+        run: |
+          set -euo pipefail
+          HOME_DIR="${RUNNER_TEMP}/xs"
+          mkdir -p "$HOME_DIR/lists"
+          cp xscreen/tests/fixtures/*.raw "$HOME_DIR/lists/"
+          export XSCREEN_ACTOR="ci"
+          python -m xscreen.cli --home "$HOME_DIR" refresh --offline \
+            --sources CSL SDN SDN_ALT SDN_ADD DPL
+          python -m xscreen.cli --home "$HOME_DIR" status
+          # Exit 2 is the expected, correct outcome: the fixture party file
+          # contains real hits that require human review. Exit 0 here would
+          # mean the engine cleared parties it should not have.
+          set +e
+          python -m xscreen.cli --home "$HOME_DIR" screen \
+            xscreen/tests/fixtures/parties.csv --no-llm --as-of 2026-01-15 \
+            --out "$HOME_DIR/run"
+          code=$?
+          set -e
+          if [ "$code" -ne 2 ]; then
+            echo "::error::screen exited $code, expected 2 (cases require human review)"
+            exit 1
+          fi
+          python -m xscreen.cli --home "$HOME_DIR" audit verify
+
+      - name: Two runs must produce identical dispositions
+        working-directory: skills/export-compliance/tools
+        run: |
+          set -uo pipefail
+          HOME_DIR="${RUNNER_TEMP}/xs"
+          export XSCREEN_ACTOR="ci"
+          python -m xscreen.cli --home "$HOME_DIR" screen \
+            xscreen/tests/fixtures/parties.csv --no-llm --as-of 2026-01-15 \
+            --out "$HOME_DIR/run2" || true
+          python - "$HOME_DIR/run/dispositions.csv" "$HOME_DIR/run2/dispositions.csv" <<'PY'
+          import csv, sys
+
+          # screened_at is a wall-clock stamp and differs by design. Every
+          # other column is a screening conclusion and must be identical, or
+          # the reproducibility claim behind the audit trail is false.
+          VOLATILE = {"screened_at"}
+
+          def load(path):
+              with open(path, newline="", encoding="utf-8") as fh:
+                  return [
+                      {k: v for k, v in row.items() if k not in VOLATILE}
+                      for row in csv.DictReader(fh)
+                  ]
+
+          a, b = load(sys.argv[1]), load(sys.argv[2])
+          if a != b:
+              print("::error::two identical runs produced different dispositions")
+              for i, (x, y) in enumerate(zip(a, b)):
+                  if x != y:
+                      print(f"row {i}: {x} != {y}")
+              sys.exit(1)
+          print(f"deterministic across runs ({len(a)} rows compared)")
+          PY
+
+  manifests:
+    name: manifests and skill frontmatter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate JSON and SKILL.md frontmatter
+        run: |
+          python - <<'PY'
+          import json, pathlib, re, sys
+
+          fail = []
+          for p in pathlib.Path(".").rglob("*.json"):
+              if ".git" in p.parts:
+                  continue
+              try:
+                  json.loads(p.read_text(encoding="utf-8"))
+              except Exception as e:
+                  fail.append(f"{p}: {e}")
+
+          for p in pathlib.Path("skills").rglob("SKILL.md"):
+              text = p.read_text(encoding="utf-8")
+              if not text.startswith("---"):
+                  fail.append(f"{p}: missing YAML frontmatter")
+                  continue
+              fm = text.split("---")[1]
+              if "<" in fm or ">" in fm:
+                  # The Claude for Work skill uploader rejects angle brackets
+                  # in the description field.
+                  fail.append(f"{p}: angle brackets in frontmatter")
+              for key in ("name:", "description:"):
+                  if key not in fm:
+                      fail.append(f"{p}: frontmatter missing {key}")
+
+          plugin = json.loads(pathlib.Path(".claude-plugin/plugin.json").read_text())
+          market = json.loads(pathlib.Path(".claude-plugin/marketplace.json").read_text())
+          entry = next((x for x in market["plugins"] if x["name"] == plugin["name"]), None)
+          if entry is None:
+              fail.append("marketplace.json has no entry for the plugin")
+          elif entry["version"] != plugin["version"]:
+              fail.append(
+                  f"version drift: plugin.json {plugin['version']} "
+                  f"vs marketplace.json {entry['version']}"
+              )
+
+          for f in fail:
+              print(f"::error::{f}")
+          sys.exit(1 if fail else 0)
+          PY
