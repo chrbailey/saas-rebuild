@@ -23,7 +23,7 @@ from typing import Callable, Iterable
 from .adjudicate import adjudicate_result, resolve_disposition
 from .audit import AuditLog
 from .critic import CriticReview, Route, run_loop
-from .fetch import Manifest, load_manifest, load_parties, staleness_check
+from .fetch import Manifest, corpus_check, load_manifest, load_parties, staleness_check
 from .llm import Backend
 from .match import ListIndex, screen_name, tuning_digest
 from .models import ScreeningResult, SubjectParty
@@ -211,6 +211,13 @@ def run(
     as_of = as_of or date.today()
     log = AuditLog(audit_path)
 
+    # Completeness first, and it is NOT overridable. `--allow-stale` is for
+    # deliberately re-screening a historical snapshot the operator knows is old
+    # but whole; it must not also wave through a corpus missing entire lists.
+    complete, corpus_msg = corpus_check(manifest)
+    if not complete:
+        raise RuntimeError(f"Refusing to screen: {corpus_msg}")
+
     fresh, staleness_msg = staleness_check(manifest)
     if not fresh and not allow_stale:
         raise RuntimeError(
@@ -231,6 +238,7 @@ def run(
             for f in manifest.files
         ],
         "staleness": staleness_msg,
+        "corpus": corpus_msg,
         "stale_override": (not fresh) and allow_stale,
         "policy_as_of": policy.as_of,
         "policy_verified": policy.verified,

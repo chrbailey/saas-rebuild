@@ -25,7 +25,7 @@ from pathlib import Path
 from . import __version__
 from .audit import AuditLog
 from .fetch import age_days, load_manifest, refresh, staleness_check
-from .llm import BackendError, get_backend
+from .llm import BackendError, get_backend, is_offline
 from .models import ScreeningResult
 from .pipeline import build_index, parse_party_file, run, screen_subject
 from .report import markdown_report, summary_csv
@@ -174,6 +174,20 @@ def cmd_screen(args) -> int:
             print(f"! No model backend ({e}). Falling back to deterministic-only; "
                   "every candidate will route to human review.", file=sys.stderr)
             use_llm = False
+        else:
+            # `get_backend` returns the offline sentinel rather than raising
+            # when nothing is configured, so catching BackendError alone left
+            # the model stages enabled on a default install. Every case then
+            # burned four failing adjudications and four failing critic passes
+            # before landing on ESCALATE -- instead of the documented, and much
+            # clearer, deterministic human-review path.
+            if is_offline(backend):
+                print("! No model backend configured. Running deterministic-only; "
+                      "every candidate routes to human review. Set "
+                      "XSCREEN_LLM_BASE_URL/XSCREEN_LLM_MODEL or ANTHROPIC_API_KEY "
+                      "to enable adjudication.", file=sys.stderr)
+                use_llm = False
+                backend = None
     use_critic = use_llm and not args.no_critic
     if use_critic:
         try:
@@ -181,6 +195,12 @@ def cmd_screen(args) -> int:
         except BackendError as e:
             print(f"! Critic backend unavailable ({e}); critic disabled.", file=sys.stderr)
             use_critic = False
+        else:
+            if is_offline(critic_backend):
+                print("! No critic backend configured; critic disabled. "
+                      "Adjudications will not be independently reviewed.", file=sys.stderr)
+                use_critic = False
+                critic_backend = None
     if use_critic and getattr(critic_backend, "name", "a") == getattr(backend, "name", "b"):
         print("! Adjudicator and critic are the same model. Cross-model review is "
               "stronger: set XSCREEN_CRITIC_BACKEND to a different family.", file=sys.stderr)

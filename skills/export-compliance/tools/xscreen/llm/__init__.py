@@ -253,7 +253,13 @@ class OpenAICompatBackend:
 
 @dataclass
 class OfflineBackend:
-    """No model available. Every case escalates to a human, loudly."""
+    """Sentinel for "no model configured". Never call it.
+
+    Constructing this does not raise, so a caller that only catches
+    BackendError at construction time will happily carry it into the pipeline
+    and then fail on every single call. Use `is_offline()` to detect it before
+    enabling the model stages.
+    """
 
     name: str = "offline"
 
@@ -263,6 +269,16 @@ class OfflineBackend:
             "ANTHROPIC_API_KEY, or run with --no-llm to route every candidate "
             "to human review"
         )
+
+
+def is_offline(backend: Backend | None) -> bool:
+    """True when no usable model is configured.
+
+    Checked by name as well as by type so a custom backend can advertise the
+    same "nothing configured" meaning.
+    """
+    return backend is None or isinstance(backend, OfflineBackend) or \
+        getattr(backend, "name", "") == "offline"
 
 
 def get_backend(spec: str | None = None) -> Backend:

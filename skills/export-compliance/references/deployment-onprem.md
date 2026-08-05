@@ -82,7 +82,7 @@ human. Slower, not wrong.
 | Verify the audit chain | Weekly | `audit verify` |
 | Publish the head hash | Daily, to write-once storage | `audit head` |
 | Attest the country policy file | Quarterly, and on any FR action | `policy verify --by "Name"` |
-| Confirm corpus coverage | After any narrow refresh | `status` |
+| Confirm corpus coverage | After any narrow refresh | `status` (screening refuses an incomplete corpus outright; `--allow-stale` does not override it) |
 
 Screening at onboarding only is the most common design mistake. Destination and
 end use change per shipment even when the customer does not, and a party you

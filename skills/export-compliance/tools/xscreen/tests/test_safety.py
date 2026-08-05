@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from xscreen.audit import AuditLog
-from xscreen.fetch import load_manifest, refresh, staleness_check
+from xscreen.fetch import corpus_check, load_manifest, refresh, staleness_check
 from xscreen.models import Candidate, ListedParty, ScreeningResult, SubjectParty
 
 FIX = Path(__file__).parent / "fixtures"
@@ -50,9 +50,59 @@ class TestCorpusCoverage(CorpusCase):
 
     def test_narrow_refresh_is_refused_at_screening_time(self):
         refresh(self.data, ("DPL",), offline=True)
-        ok, msg = staleness_check(load_manifest(self.data))
+        ok, msg = corpus_check(load_manifest(self.data))
         self.assertFalse(ok)
         self.assertIn("does not cover", msg)
+
+    def test_completeness_is_not_an_age_question(self):
+        """Coverage must live outside staleness_check, because --allow-stale
+        suppresses everything staleness_check returns."""
+        refresh(self.data, ("DPL",), offline=True)
+        m = load_manifest(self.data)
+        self.assertFalse(corpus_check(m)[0])
+        # Freshly written, so age alone is fine -- the two checks are orthogonal.
+        self.assertTrue(staleness_check(m)[0], "coverage leaked back into the age check")
+
+    def test_allow_stale_cannot_bypass_an_incomplete_corpus(self):
+        """Regression for the P1 review finding.
+
+        `--allow-stale` exists so an operator can deliberately re-screen a
+        historical snapshot they know is old but *whole*. It must not also
+        wave through a corpus missing entire lists: a party listed only on an
+        omitted list would come back CLEAR.
+        """
+        from xscreen.pipeline import parse_party_file, run
+
+        refresh(self.data, ("DPL",), offline=True)
+        subjects, _ = parse_party_file("name\nNorthwind Heavy Machinery OAO\n")
+        audit = self.tmp / "audit.jsonl"
+
+        for allow_stale in (False, True):
+            with self.assertRaises(RuntimeError, msg=f"allow_stale={allow_stale}") as ctx:
+                run(subjects, self.data, audit, use_llm=False, use_critic=False,
+                    allow_stale=allow_stale)
+            self.assertIn("does not cover", str(ctx.exception),
+                          f"allow_stale={allow_stale} bypassed the coverage refusal")
+
+    def test_allow_stale_still_works_for_a_complete_but_old_corpus(self):
+        """The override must keep functioning for what it was built for."""
+        from xscreen.pipeline import parse_party_file, run
+
+        refresh(self.data, FULL, offline=True)
+        p = self.data / "manifest.json"
+        man = json.loads(p.read_text())
+        for f in man["files"]:
+            if f.get("fetched_at"):
+                f["fetched_at"] = "2023-01-01T00:00:00+00:00"
+        p.write_text(json.dumps(man))
+
+        subjects, _ = parse_party_file("name\nSunny Day Bakery\n")
+        audit = self.tmp / "audit2.jsonl"
+        with self.assertRaises(RuntimeError):
+            run(subjects, self.data, audit, use_llm=False, use_critic=False)
+        results, summary = run(subjects, self.data, audit, use_llm=False,
+                               use_critic=False, allow_stale=True)
+        self.assertEqual(len(results), 1)
 
     def test_coverage_is_recorded_on_the_manifest(self):
         m = refresh(self.data, FULL, offline=True)
@@ -369,3 +419,83 @@ class TestReportEscaping(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestOfflineBackendIsRecognized(unittest.TestCase):
+    """Regression for the P2 review finding.
+
+    `get_backend()` returns the offline sentinel rather than raising when
+    nothing is configured, so a caller catching only BackendError carried it
+    into the pipeline. Every case then burned four failing adjudications and
+    four failing critic passes before landing on ESCALATE, instead of the
+    documented deterministic human-review path.
+    """
+
+    def test_default_environment_yields_the_offline_sentinel(self):
+        from xscreen.llm import get_backend, is_offline
+
+        saved = {k: os.environ.pop(k, None)
+                 for k in ("XSCREEN_BACKEND", "XSCREEN_LLM_BASE_URL",
+                           "XSCREEN_LLM_MODEL", "ANTHROPIC_API_KEY")}
+        try:
+            self.assertTrue(is_offline(get_backend()))
+        finally:
+            for k, v in saved.items():
+                if v is not None:
+                    os.environ[k] = v
+
+    def test_is_offline_recognizes_none_and_name(self):
+        from xscreen.llm import OfflineBackend, is_offline
+
+        self.assertTrue(is_offline(None))
+        self.assertTrue(is_offline(OfflineBackend()))
+
+        class Custom:
+            name = "offline"
+
+        self.assertTrue(is_offline(Custom()), "a backend advertising offline was not recognized")
+
+    def test_a_real_backend_is_not_offline(self):
+        from xscreen.llm import is_offline
+        from xscreen.tests.test_guardrails import FakeBackend
+
+        self.assertFalse(is_offline(FakeBackend()))
+
+    def test_cli_disables_model_stages_when_unconfigured(self):
+        """The whole point: an unconfigured install must not enter the loop."""
+        import io
+        import shutil
+        import contextlib
+        from xscreen.cli import main
+
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            data = tmp / "lists"
+            data.mkdir(parents=True)
+            for f in FIX.glob("*.raw"):
+                shutil.copy(f, data / f.name)
+            refresh(data, FULL, offline=True)
+
+            saved = {k: os.environ.pop(k, None)
+                     for k in ("XSCREEN_BACKEND", "XSCREEN_LLM_BASE_URL",
+                               "XSCREEN_LLM_MODEL", "ANTHROPIC_API_KEY")}
+            err = io.StringIO()
+            try:
+                with contextlib.redirect_stderr(err):
+                    code = main(["--home", str(tmp), "screen",
+                                 str(FIX / "parties.csv"), "--as-of", "2026-01-15",
+                                 "--out", str(tmp / "run")])
+            finally:
+                for k, v in saved.items():
+                    if v is not None:
+                        os.environ[k] = v
+
+            self.assertIn("No model backend configured", err.getvalue())
+            self.assertEqual(code, 2, "expected human-review exit, not an escalation storm")
+
+            import csv as _csv
+            rows = list(_csv.DictReader((tmp / "run" / "dispositions.csv").open()))
+            self.assertNotIn("ESCALATE", {r["disposition"] for r in rows},
+                             "unconfigured install produced ESCALATE cases")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)

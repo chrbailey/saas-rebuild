@@ -107,7 +107,10 @@ Hard rules:
 
 - **Stale lists are a false clear.** Screening refuses to run on a snapshot
   older than seven days. `--allow-stale` exists for deliberate historical
-  re-screening and records the override in the audit log.
+  re-screening and records the override in the audit log. It overrides **age
+  only** — a corpus missing entire lists is refused regardless, because that
+  is not a considered judgement about old-but-whole data, it is the false
+  clear the tool exists to prevent.
 - **A degraded refresh is not a successful refresh.** If a source fails to
   download, the manifest says so and the run is marked degraded. Never present
   a partial list load as a complete screen.

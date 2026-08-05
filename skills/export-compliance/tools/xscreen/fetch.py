@@ -363,10 +363,40 @@ def age_days(manifest: Manifest, now: datetime | None = None) -> float:
     return (now - min(stamps)).total_seconds() / 86400.0
 
 
+def corpus_check(manifest: Manifest) -> tuple[bool, str]:
+    """(ok, message) for corpus COMPLETENESS. Not overridable.
+
+    Deliberately separate from `staleness_check`. `--allow-stale` exists so an
+    operator can deliberately re-screen against a historical snapshot for an
+    audit -- a considered act on data they know is old but *whole*. It must not
+    also wave through a corpus that is missing entire lists, because that is
+    not a considered act, it is the false clear this system exists to prevent:
+    a party that appears only on the omitted list comes back CLEAR.
+
+    Age is a judgement the operator may make. Completeness is not.
+    """
+    missing = [c for c in DEFAULT_REFRESH
+               if c not in set(manifest.covered_sources or []) and c not in ("SDN_ALT", "SDN_ADD")]
+    if manifest.covered_sources and missing:
+        return False, (
+            f"The loaded corpus does not cover {missing}. It was built by a "
+            "narrower refresh and is not a complete screening corpus -- a party "
+            "listed only on a missing list would screen CLEAR. Run "
+            "`xscreen refresh` with the default source set."
+        )
+    if manifest.degraded:
+        return False, f"Manifest is degraded: {manifest.degraded_reason}"
+    return True, f"Corpus covers {manifest.covered_sources or 'unknown sources'}."
+
+
 def staleness_check(manifest: Manifest, max_age_days: int = MAX_LIST_AGE_DAYS,
                     now: datetime | None = None) -> tuple[bool, str]:
-    """(ok, message). Screening must refuse to proceed on a False without an
-    explicit operator override recorded in the audit log."""
+    """(ok, message) for list AGE only.
+
+    A False here is overridable with `--allow-stale`, and the override is
+    recorded in the audit log. Completeness lives in `corpus_check` precisely
+    so that override cannot reach it.
+    """
     a = age_days(manifest, now)
     if a == float("inf"):
         return False, "No successfully fetched source files in the manifest."
@@ -378,20 +408,10 @@ def staleness_check(manifest: Manifest, max_age_days: int = MAX_LIST_AGE_DAYS,
             "system clock is wrong or the manifest was edited; neither is a "
             "basis for screening."
         )
-    missing = [c for c in DEFAULT_REFRESH
-               if c not in set(manifest.covered_sources or []) and c not in ("SDN_ALT", "SDN_ADD")]
-    if manifest.covered_sources and missing:
-        return False, (
-            f"The loaded corpus does not cover {missing}. It was built by a "
-            "narrower refresh and is not a complete screening corpus. Run "
-            "`xscreen refresh` with the default source set."
-        )
     if a > max_age_days:
         return False, (
             f"List data is {a:.1f} days old (limit {max_age_days}). Government "
             "lists change weekly or faster; screening against a stale snapshot "
             "produces a false clear. Run `xscreen refresh`."
         )
-    if manifest.degraded:
-        return False, f"Manifest is degraded: {manifest.degraded_reason}"
     return True, f"List data is {a:.1f} days old across {len(manifest.files)} sources."
