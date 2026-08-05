@@ -7,7 +7,7 @@ from pathlib import Path
 
 from xscreen.audit import AuditLog
 from xscreen.fetch import Manifest, load_manifest, refresh, staleness_check
-from xscreen.pipeline import parse_party_file, run
+from xscreen.pipeline import build_index, parse_party_file, run
 from xscreen.report import markdown_report, summary_csv
 
 FIX = Path(__file__).parent / "fixtures"
@@ -173,8 +173,44 @@ class TestEndToEnd(PipelineCase):
         self.assertIn("KYC.RELUCTANT_END_USE", flags)
         self.assertIn("KYC.INTERMEDIARY", flags)
 
-    def test_benign_party_is_clear(self):
-        self.assertEqual(self.by_ref["C-006"].disposition, "CLEAR")
+    def test_benign_party_is_flagged_only_by_the_unattested_policy(self):
+        """A Canada-bound bakery has nothing wrong with it. The only thing
+        standing between it and CLEAR is that nobody has attested the country
+        policy file, so 'no entry for CA' cannot yet be read as 'no
+        restriction for CA'."""
+        r = self.by_ref["C-006"]
+        flags = {f["rule_id"] for f in r.rule_flags}
+        self.assertIn("DEST.NO_POLICY_ENTRY", flags)
+        self.assertEqual(
+            {f for f in flags if f.startswith(("LIST.", "DEST.COMPREHENSIVE",
+                                               "DEST.EXTENSIVE", "DEST.ITAR"))},
+            set(),
+            "the benign party picked up a substantive restriction it should not have",
+        )
+
+    def test_attesting_the_policy_lets_a_benign_party_reach_clear(self):
+        """The unattested-policy flag must be a gate an operator can clear,
+        not permanent noise. Without this, CLEAR would be unreachable."""
+        import json as _json
+        from xscreen.rules import load_policy
+
+        raw = _json.loads((Path(__file__).parents[1] / "policy" / "destinations.json")
+                          .read_text(encoding="utf-8"))
+        raw["verified_by"] = "test attester"
+        raw["verified_on"] = "2026-01-15"
+        attested = Path(self.dir) / "attested-policy.json"
+        attested.write_text(_json.dumps(raw), encoding="utf-8")
+
+        policy = load_policy(attested)
+        self.assertTrue(policy.verified)
+
+        from xscreen.pipeline import screen_subject
+        index, manifest = build_index(self.data)
+        subject = [s for s in parse_party_file((FIX / "parties.csv").read_text())[0]
+                   if s.ref == "C-006"][0]
+        r = screen_subject(subject, index, manifest, policy, date(2026, 1, 15))
+        self.assertNotIn("DEST.NO_POLICY_ENTRY", {f["rule_id"] for f in r.rule_flags})
+        self.assertEqual(r.disposition, "CLEAR")
 
     def test_no_llm_means_no_adjudications_asserted(self):
         for r in self.results:

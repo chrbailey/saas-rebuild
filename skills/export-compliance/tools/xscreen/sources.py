@@ -180,7 +180,10 @@ DPL = Source(
         "subject to the EAR involving the denied person is prohibited for the "
         "term of the order. No license exception is available."
     ),
-    authority="15 CFR Part 764, Supplement No. 2; denial orders",
+    authority=(
+        "15 CFR 736.2(b)(4) (General Prohibition Four); Supplement No. 1 to "
+        "Part 764 (standard terms of denial orders); Part 766"
+    ),
     caveats=(
         "Denial orders have effective and expiration dates. A stale copy of "
         "this file can both miss new denials and over-flag expired ones -- "
@@ -203,7 +206,7 @@ ENTITY = Source(
         "presumption or policy of denial). License exceptions are limited or "
         "unavailable as specified in the entry."
     ),
-    authority="15 CFR Part 744, Supplement No. 4",
+    authority="15 CFR 744.16; Supplement No. 4 to Part 744",
     caveats=(
         "The license requirement is entry-specific: it applies to the items "
         "named in that entry, not automatically to all items. Reading a hit "
@@ -247,15 +250,20 @@ MEU = Source(
     fmt="csv",
     parser="bis_entity",
     legal_effect=(
-        "License required for export/reexport/transfer of items listed in "
-        "Supplement No. 2 to Part 744 to the listed party, with a presumption "
-        "of denial."
+        "License required, with a presumption of denial. THE SCOPE DEPENDS ON "
+        "THE DESTINATION: for Burma, Cambodia, China, Nicaragua and Venezuela "
+        "the requirement covers items listed in Supplement No. 2 to Part 744; "
+        "for Russia and Belarus it reaches ALL items subject to the EAR. Read "
+        "744.21 for the destination in question rather than assuming the "
+        "narrower scope."
     ),
-    authority="15 CFR Part 744, Supplement No. 7; 15 CFR 744.21",
+    authority="15 CFR 744.21 and Supplement No. 7 to Part 744",
     caveats=(
         "744.21 also imposes an end-user/end-use obligation independent of "
         "this list: a party NOT on the MEU List can still be a military end "
         "user. List screening does not discharge the 744.21 duty.",
+        "The 744.21 obligation is scoped to the destinations named in the "
+        "rule, not to every country.",
     ),
 )
 
@@ -340,17 +348,21 @@ CSL_SOURCE_MAP: dict[str, str] = {
 def resolve_csl_source(raw: str) -> str:
     """Map a CSL `source` label to the governing list code.
 
-    Returns "UNKNOWN" rather than guessing when the label is unrecognized --
-    an unrecognized source must surface as an explicit gap, never be silently
-    absorbed into a neighbouring list's legal effect.
+    Exact match only. Returns "UNKNOWN" rather than guessing when the label is
+    unrecognized -- an unrecognized source must surface as an explicit gap,
+    never be silently absorbed into a neighbouring list's legal effect.
+
+    There used to be a substring fallback here, and it was actively dangerous.
+    Because the bare key "sdn" is a substring of every "Non-SDN ..." label, a
+    label variant like "Non-SDN Menu-Based Sanctions List" resolved to SDN and
+    inherited full blocking effect -- telling a compliance officer to freeze
+    property and file a report within 10 business days over what is actually a
+    securities-investment restriction. That is precisely the error the Non-SDN
+    caveats above exist to prevent, and returning UNKNOWN (which routes to
+    LIST.UNKNOWN_SOURCE and escalates) is strictly safer than a good guess.
     """
     key = " ".join((raw or "").lower().split())
-    if key in CSL_SOURCE_MAP:
-        return CSL_SOURCE_MAP[key]
-    for label, code in CSL_SOURCE_MAP.items():
-        if label in key or key in label:
-            return code
-    return "UNKNOWN"
+    return CSL_SOURCE_MAP.get(key, "UNKNOWN")
 
 
 def legal_effect_for(code: str) -> str:

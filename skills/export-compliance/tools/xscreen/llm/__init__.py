@@ -78,14 +78,56 @@ def extract_json(text: str) -> dict[str, Any]:
     raise BackendError("model response contained no JSON object")
 
 
-def _post(url: str, headers: dict[str, str], payload: dict[str, Any], timeout: int) -> dict[str, Any]:
+# Transient HTTP statuses worth retrying rather than treating as a verdict.
+RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504, 529})
+MAX_TRANSPORT_ATTEMPTS = 4
+BACKOFF_BASE_S = 1.0
+BACKOFF_CAP_S = 30.0
+
+
+def _sleep_for(attempt: int, retry_after: str | None) -> float:
+    """Backoff delay. Honours Retry-After when the server sends one."""
+    if retry_after:
+        try:
+            return min(BACKOFF_CAP_S, max(0.0, float(retry_after)))
+        except ValueError:
+            pass
+    return min(BACKOFF_CAP_S, BACKOFF_BASE_S * (2 ** attempt))
+
+
+def _post(url: str, headers: dict[str, str], payload: dict[str, Any],
+          timeout: int) -> dict[str, Any]:
+    """POST with backoff on transient failures.
+
+    Rate limiting must not be mistaken for a model verdict. Without this, a
+    book-of-business re-screen against a rate-limited endpoint burns all three
+    adjudication retries on 429s and dumps the entire batch to human review --
+    safe, but it defeats the automation. Genuine failures still surface as
+    BackendError after the attempts are exhausted, and a BackendError is still
+    never a pass.
+    """
+    import time
+
     body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except Exception as e:  # noqa: BLE001 - every transport failure is a BackendError
-        raise BackendError(f"{type(e).__name__}: {e}") from e
+    last = ""
+    for attempt in range(MAX_TRANSPORT_ATTEMPTS):
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            last = f"HTTP {e.code}"
+            if e.code not in RETRYABLE_STATUS or attempt == MAX_TRANSPORT_ATTEMPTS - 1:
+                raise BackendError(f"HTTPError: {e.code} {e.reason}") from e
+            time.sleep(_sleep_for(attempt, e.headers.get("Retry-After") if e.headers else None))
+        except (TimeoutError, urllib.error.URLError, ConnectionError) as e:
+            last = f"{type(e).__name__}: {e}"
+            if attempt == MAX_TRANSPORT_ATTEMPTS - 1:
+                raise BackendError(f"{last} (after {MAX_TRANSPORT_ATTEMPTS} attempts)") from e
+            time.sleep(_sleep_for(attempt, None))
+        except Exception as e:  # noqa: BLE001 - anything else is not transient
+            raise BackendError(f"{type(e).__name__}: {e}") from e
+    raise BackendError(f"exhausted {MAX_TRANSPORT_ATTEMPTS} attempts: {last}")
 
 
 @dataclass

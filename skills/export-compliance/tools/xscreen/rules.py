@@ -56,6 +56,7 @@ class Policy:
     regions: list[dict]
     transshipment: set[str]
     aliases: dict[str, str]
+    known_iso2: set[str] = field(default_factory=set)
     tiers: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -63,32 +64,47 @@ class Policy:
         return bool(self.verified_by and self.verified_on)
 
     def resolve_country(self, raw: str) -> str:
-        """Free-text country -> ISO2, or "" when unresolvable."""
+        """Free-text country -> ISO2, or "" when unresolvable.
+
+        A two-letter string is accepted only if it is a *known* ISO 3166-1
+        alpha-2 code. Accepting any two characters was a false-clear hole: an
+        unrecognized code like "KH" passed straight through, matched no policy
+        entry, produced no destination flag at all, and the case reached CLEAR
+        with exit code 0 -- while the schema told operators that "an
+        unresolvable value raises DEST.UNRESOLVED rather than being ignored."
+        Now it does.
+        """
         s = fold(raw)
         if not s:
             return ""
-        if len(s) == 2 and s.upper() in self.countries:
-            return s.upper()
         if s in self.aliases:
             return self.aliases[s]
-        if len(s) == 2:
+        if len(s) == 2 and s.upper() in self.known_iso2:
             return s.upper()
-        for alias, iso in self.aliases.items():
-            if s == alias:
-                return iso
         return ""
+
+    def has_entry(self, iso: str) -> bool:
+        return iso in self.countries or iso in self.transshipment
 
 
 def load_policy(path: Path | None = None) -> Policy:
     raw = json.loads(Path(path or POLICY_PATH).read_text(encoding="utf-8"))
+    countries = {c["iso2"]: c for c in raw.get("countries", [])}
+    transshipment = set(raw.get("transshipment_watch", {}).get("countries", []))
+    aliases = {fold(k): v for k, v in raw.get("aliases", {}).items() if not k.startswith("$")}
+    # Anything named anywhere in the file is a known code, plus the published
+    # ISO 3166-1 alpha-2 list. Codes outside this set are typos or made up,
+    # and must not resolve.
+    known = set(raw.get("known_iso2", [])) | set(countries) | transshipment | set(aliases.values())
     return Policy(
         as_of=raw.get("as_of", ""),
         verified_by=raw.get("verified_by", ""),
         verified_on=raw.get("verified_on", ""),
-        countries={c["iso2"]: c for c in raw.get("countries", [])},
+        countries=countries,
         regions=raw.get("regions", []),
-        transshipment=set(raw.get("transshipment_watch", {}).get("countries", [])),
-        aliases={fold(k): v for k, v in raw.get("aliases", {}).items() if not k.startswith("$")},
+        transshipment=transshipment,
+        aliases=aliases,
+        known_iso2=known,
         tiers=raw.get("tiers", {}),
     )
 
@@ -250,6 +266,31 @@ def destination_rules(subject: SubjectParty, p: Policy) -> list[RuleFlag]:
                 policy_as_of=p.as_of, unverified_policy=unverified,
             ))
 
+    # Absence of a country entry means "no restriction recorded in this file",
+    # which is only trustworthy if somebody checked the file. While it is
+    # unattested, say so on the destinations where saying nothing would
+    # otherwise read as a clean bill of health. Attesting the file removes
+    # this flag, which is the point -- the unverified state should cost
+    # something rather than sit in a footnote.
+    if entry is None and iso not in p.transshipment and unverified:
+        out.append(RuleFlag(
+            rule_id="DEST.NO_POLICY_ENTRY",
+            severity="diligence",
+            title=f"No country restriction recorded for {iso}, and the policy file is unattested",
+            basis="15 CFR Part 740 Supp. 1; Part 746; 22 CFR 126.1",
+            detail=(
+                f"{note}. The shipped policy file lists restricted destinations "
+                "only; a country's absence from it is not evidence that no "
+                "restriction applies."
+            ),
+            action_required=(
+                f"Confirm {iso} against the current Country Groups, Part 746 and "
+                "22 CFR 126.1, then attest the policy file with `xscreen policy "
+                "verify --by \"<name>\"` to clear this flag."
+            ),
+            policy_as_of=p.as_of, unverified_policy=True,
+        ))
+
     if iso in p.transshipment:
         out.append(RuleFlag(
             rule_id="DEST.TRANSSHIP",
@@ -331,11 +372,16 @@ def list_hit_rules(cands: list[Candidate], as_of: date) -> list[RuleFlag]:
                 rule_id="LIST.SDN",
                 severity="prohibitive",
                 title=f"OFAC SDN {strength}: {c.listed_name}",
-                basis="31 CFR Chapter V",
+                basis="31 CFR Chapter V; 31 CFR 501.603, 501.604",
                 detail=c.legal_effect,
                 action_required=(
-                    "If the match is confirmed, block or reject the transaction and "
-                    "file the required OFAC report within 10 business days."
+                    "If the match is confirmed, determine whether the transaction "
+                    "must be BLOCKED or REJECTED -- they are different legal acts "
+                    "with different reports (blocked property: 31 CFR 501.603; "
+                    "rejected transaction: 501.604), both generally due within 10 "
+                    "business days. Returning property that must be blocked is "
+                    "itself a prohibited transfer of blocked property. Do not "
+                    "treat the two as interchangeable."
                 ),
             ))
             if (c.listed_party or {}).get("party_type") in ("entity", "unknown"):
@@ -376,7 +422,7 @@ def list_hit_rules(cands: list[Candidate], as_of: date) -> list[RuleFlag]:
                 rule_id="LIST.ENTITY",
                 severity="license",
                 title=f"BIS Entity List {strength}: {c.listed_name}",
-                basis="15 CFR Part 744, Supplement No. 4",
+                basis="15 CFR 744.16; Supplement No. 4 to Part 744",
                 detail=(
                     f"{c.legal_effect} Entry remarks: "
                     f"{(c.listed_party or {}).get('remarks', '') or 'none captured'}"
@@ -432,6 +478,35 @@ def list_hit_rules(cands: list[Candidate], as_of: date) -> list[RuleFlag]:
                 basis="INKSNA / CBW Act / related determinations",
                 detail=c.legal_effect,
                 action_required="Read the Federal Register determination for the applicable measures.",
+            ))
+
+        # Ownership diligence on the Commerce side. OFAC's 50 Percent Rule is
+        # well known and handled above for SDN hits; BIS adopted an analogous
+        # Affiliates Rule extending Entity List, MEU and denial-order
+        # restrictions to majority-owned affiliates. It was suspended for a
+        # year in November 2025, and a suspension is not a repeal -- an
+        # operator standing this up now may be inside the snap-back before
+        # their first policy re-attestation.
+        if src in ("EL", "MEU", "DPL"):
+            out.append(RuleFlag(
+                rule_id="LIST.BIS_AFFILIATE",
+                severity="diligence",
+                title="BIS affiliate-ownership analysis may be required",
+                basis="15 CFR Part 744 (Affiliates Rule); one-year suspension published Nov 2025",
+                detail=(
+                    "The rule extends these restrictions to entities owned 50 percent "
+                    "or more, directly or indirectly, in the aggregate, by listed "
+                    "parties -- the Commerce analogue of OFAC's 50 Percent Rule. "
+                    "Suspended as of this build. VERIFY THE CURRENT STATUS rather "
+                    "than relying on this note; suspensions expire. Either way, "
+                    "majority-owned affiliates appear on no list and cannot be found "
+                    "by name screening."
+                ),
+                action_required=(
+                    "Confirm whether the Affiliates Rule is in force on the "
+                    "transaction date. If it is, obtain beneficial-ownership "
+                    "information for the counterparty and its parents."
+                ),
             ))
     return out
 
@@ -520,7 +595,11 @@ def classification_rules(subject: SubjectParty) -> list[RuleFlag]:
             ),
             action_required="Confirm no destination, end-user or end-use control applies.",
         ))
-    elif not re.fullmatch(r"\d[A-E]\d{3}([.]?[a-z0-9.]*)?", eccn, re.IGNORECASE):
+    elif not re.fullmatch(r"\d[A-E]\d{3}(\.[a-z0-9]+)*", eccn, re.IGNORECASE):
+        # The suffix separator is required. The previous pattern made the dot
+        # optional while still allowing trailing alphanumerics, so "3A0011"
+        # and "3A001XYZ" passed as well-formed and the operator never got the
+        # prompt to correct a mistyped classification.
         out.append(RuleFlag(
             rule_id="CLASS.MALFORMED",
             severity="diligence",

@@ -174,6 +174,90 @@ class TestDispositionFloor(unittest.TestCase):
                 self.assertTrue(r.requires_human, f"{band}/{verdict}")
 
 
+class TestTransportBackoff(unittest.TestCase):
+    """Rate limiting must not be mistaken for a model verdict.
+
+    Without backoff, a book-of-business re-screen against a rate-limited
+    endpoint burns every adjudication retry on 429s and dumps the whole batch
+    to human review. Safe, but it defeats the automation the tool exists for.
+    """
+
+    def setUp(self):
+        import urllib.request
+        import xscreen.llm as llm
+        self.llm = llm
+        self._orig = urllib.request.urlopen
+        self.calls = 0
+
+    def tearDown(self):
+        import urllib.request
+        urllib.request.urlopen = self._orig
+
+    def _install(self, handler):
+        import urllib.request
+        urllib.request.urlopen = handler
+
+    class _Resp:
+        def __init__(self, body):
+            self._b = body.encode()
+
+        def read(self):
+            return self._b
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def test_transient_429_is_retried_then_succeeds(self):
+        import json
+        import urllib.error
+
+        def handler(req, timeout=None, context=None):
+            self.calls += 1
+            if self.calls <= 2:
+                raise urllib.error.HTTPError(
+                    req.full_url, 429, "Too Many Requests", {"Retry-After": "0"}, None)
+            return self._Resp(json.dumps({"ok": True}))
+
+        self._install(handler)
+        self.assertEqual(self.llm._post("https://x.invalid", {}, {}, 5), {"ok": True})
+        self.assertEqual(self.calls, 3)
+
+    def test_auth_failure_is_not_retried(self):
+        import urllib.error
+
+        def handler(req, timeout=None, context=None):
+            self.calls += 1
+            raise urllib.error.HTTPError(req.full_url, 401, "Unauthorized", {}, None)
+
+        self._install(handler)
+        with self.assertRaises(BackendError):
+            self.llm._post("https://x.invalid", {}, {}, 5)
+        self.assertEqual(self.calls, 1, "a permanent failure burned retry attempts")
+
+    def test_persistent_rate_limiting_eventually_raises(self):
+        import urllib.error
+
+        def handler(req, timeout=None, context=None):
+            self.calls += 1
+            raise urllib.error.HTTPError(
+                req.full_url, 429, "Too Many Requests", {"Retry-After": "0"}, None)
+
+        self._install(handler)
+        with self.assertRaises(BackendError):
+            self.llm._post("https://x.invalid", {}, {}, 5)
+        self.assertEqual(self.calls, self.llm.MAX_TRANSPORT_ATTEMPTS)
+
+    def test_backoff_is_bounded_and_honours_retry_after(self):
+        self.assertLessEqual(self.llm._sleep_for(10, None), self.llm.BACKOFF_CAP_S)
+        self.assertEqual(self.llm._sleep_for(0, "2"), 2.0)
+        self.assertLessEqual(self.llm._sleep_for(0, "9999"), self.llm.BACKOFF_CAP_S)
+        # A malformed Retry-After must not crash the backoff path.
+        self.assertGreater(self.llm._sleep_for(0, "soon"), 0)
+
+
 class TestPromptHygiene(unittest.TestCase):
     def test_untrusted_data_is_delimited_and_flagged(self):
         r = make_result()

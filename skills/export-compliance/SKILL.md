@@ -29,8 +29,11 @@ cleared by a model alone.**
 
 The matcher is tuned for **recall, not precision**. The two errors are not
 symmetric: an extra row for an analyst to read costs ten minutes, a missed hit
-costs an unlicensed export under a strict-liability penalty regime. Never tune
-the floor upward to reduce review volume without evidence.
+costs an unlicensed export. OFAC civil penalties under IEEPA attach without
+regard to knowledge, so the downside is capped only by the transaction — the
+Part 744 end-use and end-user controls turn on knowledge or reason to know
+instead, which is why documenting a resolved red flag matters. Never tune the
+floor upward to reduce review volume without evidence.
 
 ## Guardrails (do these before anything else)
 
@@ -62,6 +65,8 @@ python3 -m xscreen.cli --home ~/Dev/export-compliance refresh
 python3 -m xscreen.cli --home ~/Dev/export-compliance status
 python3 -m xscreen.cli --home ~/Dev/export-compliance screen parties.csv
 python3 -m xscreen.cli --home ~/Dev/export-compliance explain "Acme Trading Ltd"
+python3 -m xscreen.cli --home ~/Dev/export-compliance diff old.csv new.csv
+python3 -m xscreen.cli --home ~/Dev/export-compliance cases
 python3 -m xscreen.cli --home ~/Dev/export-compliance audit verify
 python3 -m xscreen.cli --home ~/Dev/export-compliance selftest
 ```
@@ -239,8 +244,11 @@ boilerplate — each item is a real gap that name screening cannot close:
   ownership is a separate diligence step.
 - **Classification.** Whether a licence is required depends on the item's
   ECCN, which screening does not determine.
-- **End-use and end-user controls on unlisted parties.** 15 CFR 744.21 applies
-  to military end users whether or not they are on the MEU List.
+- **End-use and end-user controls on unlisted parties.** 15 CFR 744.21 reaches
+  military end users in the destinations it names whether or not they appear on
+  the MEU List. Note also that the MEU licence scope is destination-dependent:
+  all items subject to the EAR for Russia and Belarus, Supplement No. 2 items
+  elsewhere.
 - **Entity List scope.** The licence requirement is scoped to the items named
   in the entry, and footnote designations can trigger a Foreign Direct Product
   Rule. Read the entry.

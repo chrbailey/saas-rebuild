@@ -127,6 +127,15 @@ fixture pair with and without the exit and asserts the bands agree. Keep it.
 Measured effect: ~21 ms per subject against a 25,000-name index, so a
 10,000-party book screens in roughly 3.5 minutes on one core.
 
+**That figure covers the deterministic layer only** — blocking, scoring,
+banding and the rules engine. It says nothing about wall-clock for a run with
+adjudication enabled, which is dominated by model latency: cases are processed
+sequentially, and each case with a candidate costs one adjudication plus one
+critic call, up to three retries each. On a book where most parties are clear
+this barely matters, because a party with no candidate never reaches a model.
+On a book with hundreds of hits it dominates completely. Size the run by the
+number of *candidates*, not the number of parties.
+
 ## Deliberate non-behaviours
 
 **Geography never demotes a band.** A German-addressed subject can absolutely

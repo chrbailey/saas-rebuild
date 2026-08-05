@@ -19,19 +19,102 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+try:
+    import fcntl
+except ImportError:  # Windows
+    fcntl = None  # type: ignore[assignment]
+
+try:
+    import msvcrt
+except ImportError:  # POSIX
+    msvcrt = None  # type: ignore[assignment]
+
 GENESIS = "0" * 64
 RETENTION_YEARS = 5
+
+# Seconds to wait for the append lock before giving up.
+LOCK_TIMEOUT_S = 30
+
+
+class AuditLockError(RuntimeError):
+    """Could not acquire the append lock. Never write without it."""
 
 
 def _hash_entry(entry: dict[str, Any]) -> str:
     body = {k: v for k, v in entry.items() if k != "hash"}
     blob = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+@contextmanager
+def _exclusive(lock_path: Path) -> Iterator[None]:
+    """Cross-process exclusive lock around the read-head/append sequence.
+
+    Appending is read-then-write: read the previous entry's hash, compute this
+    entry's hash from it, append. Two processes interleaving there both read
+    the same predecessor and both claim it, which forks the chain -- and a
+    forked chain is indistinguishable from a tampered one on `verify()`. That
+    matters more here than the usual lost-update concern, because the whole
+    evidentiary value of this file is that a broken chain means somebody
+    edited history.
+
+    The deployment model makes this a live risk, not a theoretical one: three
+    named operator roles plus scheduled runs that can overlap a manual one.
+
+    A separate `.lock` file is used rather than locking the log itself so the
+    lock survives the log being rotated or replaced, and so readers never
+    contend with writers.
+    """
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fh = open(lock_path, "a+b")
+    try:
+        if fcntl is not None:
+            import time
+            deadline = time.monotonic() + LOCK_TIMEOUT_S
+            while True:
+                try:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise AuditLockError(
+                            f"Could not acquire the audit lock at {lock_path} within "
+                            f"{LOCK_TIMEOUT_S}s. Another screening run is writing. "
+                            "Nothing was recorded; re-run rather than proceeding."
+                        ) from None
+                    time.sleep(0.05)
+        elif msvcrt is not None:
+            import time
+            deadline = time.monotonic() + LOCK_TIMEOUT_S
+            while True:
+                try:
+                    fh.seek(0)
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise AuditLockError(
+                            f"Could not acquire the audit lock at {lock_path} within "
+                            f"{LOCK_TIMEOUT_S}s. Another screening run is writing."
+                        ) from None
+                    time.sleep(0.05)
+        yield
+    finally:
+        try:
+            if fcntl is not None:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+            elif msvcrt is not None:
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+        fh.close()
 
 
 @dataclass
@@ -64,21 +147,33 @@ class AuditLog:
 
     # -- writing ---------------------------------------------------------
 
+    @property
+    def lock_path(self) -> Path:
+        return self.path.with_suffix(self.path.suffix + ".lock")
+
     def append(self, event: str, payload: dict[str, Any], actor: str | None = None) -> dict[str, Any]:
-        seq, prev = self.head()
-        entry: dict[str, Any] = {
-            "seq": seq + 1,
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "actor": actor or os.environ.get("XSCREEN_ACTOR") or os.environ.get("USER") or "unknown",
-            "event": event,
-            "payload": payload,
-            "prev_hash": prev,
-        }
-        entry["hash"] = _hash_entry(entry)
-        with self.path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
-            fh.flush()
-            os.fsync(fh.fileno())
+        """Append one entry. Serialized across processes and threads.
+
+        The read-head/hash/write sequence happens entirely inside the lock;
+        see `_exclusive` for why an interleaved append is worse than a lost
+        update here.
+        """
+        with _exclusive(self.lock_path):
+            seq, prev = self.head()
+            entry: dict[str, Any] = {
+                "seq": seq + 1,
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "actor": actor or os.environ.get("XSCREEN_ACTOR")
+                or os.environ.get("USER") or "unknown",
+                "event": event,
+                "payload": payload,
+                "prev_hash": prev,
+            }
+            entry["hash"] = _hash_entry(entry)
+            with self.path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+                fh.flush()
+                os.fsync(fh.fileno())
         return entry
 
     # -- verification ----------------------------------------------------

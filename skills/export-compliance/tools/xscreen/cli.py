@@ -2,6 +2,8 @@
 
     xscreen refresh                 download and parse the official lists
     xscreen screen parties.csv      screen a party file end to end
+    xscreen diff old.csv new.csv    what changed between two runs (new hits)
+    xscreen cases                   every still-open case across all runs
     xscreen explain "Acme Ltd"      show why a single name does or does not match
     xscreen audit verify|head       check or publish the audit chain
     xscreen policy show|verify      inspect or attest the country policy file
@@ -108,14 +110,59 @@ def cmd_status(args) -> int:
     return 0 if (ok and intact) else 1
 
 
+def read_party_file(path: Path) -> tuple[str, list[str]]:
+    """Read a party CSV, tolerating the encodings ERP exports actually use.
+
+    Excel and most ERP "export to CSV" buttons produce CP-1252 or Latin-1 on a
+    Windows desktop, and those are exactly the files carrying the accented
+    names this tool exists to normalize. A UnicodeDecodeError traceback is the
+    wrong answer for the most common real-world input.
+    """
+    raw = path.read_bytes()
+    notes: list[str] = []
+    for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            text = raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+        if enc not in ("utf-8-sig", "utf-8"):
+            notes.append(
+                f"{path.name} is not UTF-8; decoded as {enc}. Check that accented "
+                "names came through correctly, and prefer exporting as UTF-8."
+            )
+        return text, notes
+    text = raw.decode("utf-8", errors="replace")
+    notes.append(
+        f"{path.name} could not be decoded cleanly in any known encoding. "
+        "Undecodable bytes were replaced, which CAN CORRUPT NAMES AND COST YOU "
+        "A MATCH. Re-export the file as UTF-8 before relying on this run."
+    )
+    return text, notes
+
+
 def cmd_screen(args) -> int:
     home, data_dir, audit_path = _paths(args)
-    text = Path(args.party_file).read_text(encoding="utf-8-sig")
+    party_path = Path(args.party_file).expanduser()
+    if not party_path.exists():
+        print(f"No party file at {party_path}", file=sys.stderr)
+        print("Pass the path to a CSV of the counterparties to screen. See "
+              "templates/party-file.schema.json for the columns.", file=sys.stderr)
+        return 1
+    if party_path.is_dir():
+        print(f"{party_path} is a directory; pass a CSV file.", file=sys.stderr)
+        return 1
+    try:
+        text, encoding_notes = read_party_file(party_path)
+    except OSError as e:
+        print(f"Could not read {party_path}: {e}", file=sys.stderr)
+        return 1
+    for n in encoding_notes:
+        print(f"! {n}", file=sys.stderr)
     subjects, warnings = parse_party_file(text)
     for w in warnings:
         print(f"! {w}", file=sys.stderr)
     if not subjects:
-        print("No screenable rows found.", file=sys.stderr)
+        print(f"No screenable rows found in {party_path}.", file=sys.stderr)
         return 1
 
     backend = critic_backend = None
@@ -196,6 +243,59 @@ def cmd_explain(args) -> int:
         for f in result.rule_flags:
             print(f"  [{f['severity']}] {f['rule_id']}: {f['title']}")
     print(f"\nProvisional disposition: {result.disposition} — {result.disposition_reason}")
+    return 0
+
+
+def cmd_diff(args) -> int:
+    from .report import NEW_HIT, CHANGED, diff_dispositions, diff_report, load_dispositions
+
+    paths = [Path(args.before).expanduser(), Path(args.after).expanduser()]
+    for p in paths:
+        if not p.exists():
+            print(f"No such file: {p}", file=sys.stderr)
+            return 1
+    before = load_dispositions(paths[0].read_text(encoding="utf-8-sig"))
+    after = load_dispositions(paths[1].read_text(encoding="utf-8-sig"))
+    groups = diff_dispositions(before, after)
+    md = diff_report(groups, str(paths[0]), str(paths[1]))
+
+    if args.out:
+        Path(args.out).expanduser().write_text(md, encoding="utf-8")
+        print(f"Wrote {args.out}", file=sys.stderr)
+    else:
+        print(md)
+
+    _, _, audit_path = _paths(args)
+    AuditLog(audit_path).append("run.diff", {
+        "before": str(paths[0]), "after": str(paths[1]),
+        "counts": {k: len(v) for k, v in groups.items()},
+    })
+
+    if groups[NEW_HIT]:
+        print(f"\n{len(groups[NEW_HIT])} new hit(s) — investigate every one.", file=sys.stderr)
+        return 3
+    if groups[CHANGED]:
+        return 2
+    return 0
+
+
+def cmd_cases(args) -> int:
+    from .report import load_dispositions, open_cases_report
+
+    home, _, _ = _paths(args)
+    runs_dir = Path(args.runs) if args.runs else home / "runs"
+    files = sorted(runs_dir.glob("*/dispositions.csv"))
+    if not files:
+        print(f"No screening runs found under {runs_dir}", file=sys.stderr)
+        return 1
+    runs = [(f.parent.name, load_dispositions(f.read_text(encoding="utf-8-sig")))
+            for f in files]
+    md = open_cases_report(runs)
+    if args.out:
+        Path(args.out).expanduser().write_text(md, encoding="utf-8")
+        print(f"Wrote {args.out}", file=sys.stderr)
+    else:
+        print(md)
     return 0
 
 
@@ -293,6 +393,19 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--limit", type=int, default=10)
     e.set_defaults(func=cmd_explain)
 
+    d = sub.add_parser(
+        "diff", help="compare two screening runs; surfaces parties newly hitting")
+    d.add_argument("before", help="earlier dispositions.csv")
+    d.add_argument("after", help="later dispositions.csv")
+    d.add_argument("--out", help="write the comparison to a file instead of stdout")
+    d.set_defaults(func=cmd_diff)
+
+    c = sub.add_parser(
+        "cases", help="roll every still-open case across all runs into one worklist")
+    c.add_argument("--runs", help="runs directory (default <home>/runs)")
+    c.add_argument("--out", help="write the worklist to a file instead of stdout")
+    c.set_defaults(func=cmd_cases)
+
     a = sub.add_parser("audit", help="verify or publish the audit chain")
     a.add_argument("action", choices=["verify", "head"])
     a.set_defaults(func=cmd_audit)
@@ -317,7 +430,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "policy" and args.action == "verify" and not args.by:
         print("policy verify requires --by \"<name of person attesting>\"", file=sys.stderr)
         return 1
-    return args.func(args)
+    try:
+        return args.func(args)
+    except BrokenPipeError:
+        # `xscreen diff ... | head` is a normal thing to do. Exit quietly with
+        # the command's own semantics rather than a traceback, and close
+        # stdout so the interpreter does not complain again at shutdown.
+        try:
+            sys.stdout.close()
+        except Exception:  # noqa: BLE001
+            pass
+        return 0
+    except KeyboardInterrupt:
+        print("\nInterrupted. Nothing further was written.", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

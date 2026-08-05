@@ -27,7 +27,7 @@ from .fetch import Manifest, load_manifest, load_parties, staleness_check
 from .llm import Backend
 from .match import ListIndex, screen_name
 from .models import ScreeningResult, SubjectParty
-from .rules import Policy, evaluate, load_policy
+from .rules import Policy, RuleFlag, evaluate, load_policy
 
 SUBJECT_FIELDS: dict[str, tuple[str, ...]] = {
     "ref": ("ref", "id", "row_id", "account", "account_number", "customer_id", "reference"),
@@ -118,14 +118,40 @@ def screen_subject(
     as_of: date,
 ) -> ScreeningResult:
     """Deterministic half only. No model involved."""
-    candidates = screen_name(subject, index)
+    diagnostics: dict = {}
+    candidates = screen_name(subject, index, diagnostics=diagnostics)
     result = ScreeningResult(
         subject=subject.to_dict(),
         candidates=[c.to_dict() for c in candidates],
         list_manifest_digest=manifest.digest,
         screened_at=datetime.now(timezone.utc).isoformat(),
     )
-    result.rule_flags = [f.to_dict() for f in evaluate(subject, candidates, policy, as_of)]
+    flags = evaluate(subject, candidates, policy, as_of)
+    truncated = diagnostics.get("blocking_truncated_tokens")
+    if truncated:
+        # Surfaced at case level, not only per candidate: when truncation drops
+        # the only match there is no candidate left to carry the disclosure,
+        # and a silently bounded search is exactly the thing this system is
+        # not allowed to do.
+        flags.append(RuleFlag(
+            rule_id="MATCH.SEARCH_BOUNDED",
+            severity="diligence",
+            title="Name search was bounded before every token was expanded",
+            basis="internal: matcher blocking cap",
+            detail=(
+                "The counterparty's name contains tokens common enough that "
+                f"expanding all of them exceeded the search budget: {truncated}. "
+                "Rarer tokens were searched first, so an exact match cannot have "
+                "been missed, but a partial match through one of these tokens "
+                "could have been."
+            ),
+            action_required=(
+                "If this party matters, re-screen it against a narrowed list "
+                "(or search the specific token manually) before treating the "
+                "result as exhaustive."
+            ),
+        ))
+    result.rule_flags = [f.to_dict() for f in flags]
     from .rules import provisional_disposition
     result.disposition, result.disposition_reason = provisional_disposition(result)  # type: ignore[assignment]
     result.requires_human = result.disposition != "CLEAR"

@@ -22,58 +22,584 @@
     "itar_proscribed": "United States policy of denial for defense articles and defense services. Applies to ITAR-controlled items regardless of the EAR analysis.",
     "targeted": "Restrictions aimed at named persons, sectors or a government rather than the destination as a whole. List screening carries most of the weight here."
   },
+  "known_iso2": [
+    "AD",
+    "AE",
+    "AF",
+    "AG",
+    "AI",
+    "AL",
+    "AM",
+    "AO",
+    "AQ",
+    "AR",
+    "AS",
+    "AT",
+    "AU",
+    "AW",
+    "AX",
+    "AZ",
+    "BA",
+    "BB",
+    "BD",
+    "BE",
+    "BF",
+    "BG",
+    "BH",
+    "BI",
+    "BJ",
+    "BL",
+    "BM",
+    "BN",
+    "BO",
+    "BQ",
+    "BR",
+    "BS",
+    "BT",
+    "BV",
+    "BW",
+    "BY",
+    "BZ",
+    "CA",
+    "CC",
+    "CD",
+    "CF",
+    "CG",
+    "CH",
+    "CI",
+    "CK",
+    "CL",
+    "CM",
+    "CN",
+    "CO",
+    "CR",
+    "CU",
+    "CV",
+    "CW",
+    "CX",
+    "CY",
+    "CZ",
+    "DE",
+    "DJ",
+    "DK",
+    "DM",
+    "DO",
+    "DZ",
+    "EC",
+    "EE",
+    "EG",
+    "EH",
+    "ER",
+    "ES",
+    "ET",
+    "FI",
+    "FJ",
+    "FK",
+    "FM",
+    "FO",
+    "FR",
+    "GA",
+    "GB",
+    "GD",
+    "GE",
+    "GF",
+    "GG",
+    "GH",
+    "GI",
+    "GL",
+    "GM",
+    "GN",
+    "GP",
+    "GQ",
+    "GR",
+    "GS",
+    "GT",
+    "GU",
+    "GW",
+    "GY",
+    "HK",
+    "HM",
+    "HN",
+    "HR",
+    "HT",
+    "HU",
+    "ID",
+    "IE",
+    "IL",
+    "IM",
+    "IN",
+    "IO",
+    "IQ",
+    "IR",
+    "IS",
+    "IT",
+    "JE",
+    "JM",
+    "JO",
+    "JP",
+    "KE",
+    "KG",
+    "KH",
+    "KI",
+    "KM",
+    "KN",
+    "KP",
+    "KR",
+    "KW",
+    "KY",
+    "KZ",
+    "LA",
+    "LB",
+    "LC",
+    "LI",
+    "LK",
+    "LR",
+    "LS",
+    "LT",
+    "LU",
+    "LV",
+    "LY",
+    "MA",
+    "MC",
+    "MD",
+    "ME",
+    "MF",
+    "MG",
+    "MH",
+    "MK",
+    "ML",
+    "MM",
+    "MN",
+    "MO",
+    "MP",
+    "MQ",
+    "MR",
+    "MS",
+    "MT",
+    "MU",
+    "MV",
+    "MW",
+    "MX",
+    "MY",
+    "MZ",
+    "NA",
+    "NC",
+    "NE",
+    "NF",
+    "NG",
+    "NI",
+    "NL",
+    "NO",
+    "NP",
+    "NR",
+    "NU",
+    "NZ",
+    "OM",
+    "PA",
+    "PE",
+    "PF",
+    "PG",
+    "PH",
+    "PK",
+    "PL",
+    "PM",
+    "PN",
+    "PR",
+    "PS",
+    "PT",
+    "PW",
+    "PY",
+    "QA",
+    "RE",
+    "RO",
+    "RS",
+    "RU",
+    "RW",
+    "SA",
+    "SB",
+    "SC",
+    "SD",
+    "SE",
+    "SG",
+    "SH",
+    "SI",
+    "SJ",
+    "SK",
+    "SL",
+    "SM",
+    "SN",
+    "SO",
+    "SR",
+    "SS",
+    "ST",
+    "SV",
+    "SX",
+    "SY",
+    "SZ",
+    "TC",
+    "TD",
+    "TF",
+    "TG",
+    "TH",
+    "TJ",
+    "TK",
+    "TL",
+    "TM",
+    "TN",
+    "TO",
+    "TR",
+    "TT",
+    "TV",
+    "TW",
+    "TZ",
+    "UA",
+    "UG",
+    "UM",
+    "US",
+    "UY",
+    "UZ",
+    "VA",
+    "VC",
+    "VE",
+    "VG",
+    "VI",
+    "VN",
+    "VU",
+    "WF",
+    "WS",
+    "YE",
+    "YT",
+    "ZA",
+    "ZM",
+    "ZW"
+  ],
+  "$known_iso2_comment": "ISO 3166-1 alpha-2 whitelist. A two-letter destination outside this set raises DEST.UNRESOLVED rather than resolving to a country with no recorded restrictions. Absence from `countries` means no restriction is RECORDED, which is only trustworthy once an operator attests this file.",
   "countries": [
-    { "iso2": "CU", "name": "Cuba", "tiers": ["comprehensive", "itar_proscribed"], "basis": "15 CFR 746.2; 31 CFR Part 515; 22 CFR 126.1" },
-    { "iso2": "IR", "name": "Iran", "tiers": ["comprehensive", "itar_proscribed"], "basis": "15 CFR 746.7; 31 CFR Part 560; 22 CFR 126.1" },
-    { "iso2": "KP", "name": "North Korea", "tiers": ["comprehensive", "itar_proscribed"], "basis": "15 CFR 746.4; 31 CFR Part 510; 22 CFR 126.1" },
-    { "iso2": "SY", "name": "Syria", "tiers": ["comprehensive", "itar_proscribed"], "basis": "15 CFR 746.9; 31 CFR Part 542; 22 CFR 126.1" },
-    { "iso2": "RU", "name": "Russia", "tiers": ["extensive"], "basis": "15 CFR 746.5, 746.8; multiple OFAC programs" },
-    { "iso2": "BY", "name": "Belarus", "tiers": ["extensive"], "basis": "15 CFR 746.8; 31 CFR Part 548" },
-    { "iso2": "VE", "name": "Venezuela", "tiers": ["targeted", "itar_proscribed"], "basis": "31 CFR Part 591; 22 CFR 126.1" },
-    { "iso2": "AF", "name": "Afghanistan", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "MM", "name": "Burma (Myanmar)", "tiers": ["targeted", "itar_proscribed"], "basis": "31 CFR Part 525; 22 CFR 126.1" },
-    { "iso2": "CN", "name": "China", "tiers": ["extensive", "itar_proscribed"], "basis": "15 CFR 744.21, 742.4, 742.6; 22 CFR 126.1" },
-    { "iso2": "CF", "name": "Central African Republic", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "CD", "name": "Democratic Republic of the Congo", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "ER", "name": "Eritrea", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "ET", "name": "Ethiopia", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "HT", "name": "Haiti", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "IQ", "name": "Iraq", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "LB", "name": "Lebanon", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "LY", "name": "Libya", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1; 31 CFR Part 570" },
-    { "iso2": "NI", "name": "Nicaragua", "tiers": ["targeted", "itar_proscribed"], "basis": "22 CFR 126.1; 31 CFR Part 582" },
-    { "iso2": "SO", "name": "Somalia", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "SS", "name": "South Sudan", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "SD", "name": "Sudan", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" },
-    { "iso2": "ZW", "name": "Zimbabwe", "tiers": ["itar_proscribed"], "basis": "22 CFR 126.1" }
+    {
+      "iso2": "CU",
+      "name": "Cuba",
+      "tiers": [
+        "comprehensive",
+        "itar_proscribed"
+      ],
+      "basis": "15 CFR 746.2; 31 CFR Part 515; 22 CFR 126.1"
+    },
+    {
+      "iso2": "IR",
+      "name": "Iran",
+      "tiers": [
+        "comprehensive",
+        "itar_proscribed"
+      ],
+      "basis": "15 CFR 746.7; 31 CFR Part 560; 22 CFR 126.1"
+    },
+    {
+      "iso2": "KP",
+      "name": "North Korea",
+      "tiers": [
+        "comprehensive",
+        "itar_proscribed"
+      ],
+      "basis": "15 CFR 746.4; 31 CFR Part 510; 22 CFR 126.1"
+    },
+    {
+      "iso2": "SY",
+      "name": "Syria",
+      "tiers": [
+        "comprehensive",
+        "itar_proscribed"
+      ],
+      "basis": "15 CFR 746.9; 22 CFR 126.1. (31 CFR Part 542 was removed from the CFR in 2025; the EAR embargo is the operative control.)"
+    },
+    {
+      "iso2": "RU",
+      "name": "Russia",
+      "tiers": [
+        "extensive",
+        "itar_proscribed"
+      ],
+      "basis": "15 CFR 746.5, 746.8; 22 CFR 126.1; multiple OFAC programs"
+    },
+    {
+      "iso2": "BY",
+      "name": "Belarus",
+      "tiers": [
+        "extensive",
+        "itar_proscribed"
+      ],
+      "basis": "15 CFR 746.8; 22 CFR 126.1; 31 CFR Part 548"
+    },
+    {
+      "iso2": "KH",
+      "name": "Cambodia",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1; 15 CFR 744.21"
+    },
+    {
+      "iso2": "HK",
+      "name": "Hong Kong",
+      "tiers": [
+        "extensive"
+      ],
+      "basis": "BIS treats Hong Kong as China for EAR licensing purposes; State suspended ITAR exemptions for Hong Kong. VERIFY current codification.",
+      "verify": true
+    },
+    {
+      "iso2": "CY",
+      "name": "Cyprus",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1. NOTE: the policy of denial has been subject to annual waivers; confirm whether a waiver is in effect for the transaction date.",
+      "verify": true
+    },
+    {
+      "iso2": "VE",
+      "name": "Venezuela",
+      "tiers": [
+        "targeted",
+        "itar_proscribed"
+      ],
+      "basis": "31 CFR Part 591; 22 CFR 126.1"
+    },
+    {
+      "iso2": "AF",
+      "name": "Afghanistan",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1"
+    },
+    {
+      "iso2": "MM",
+      "name": "Burma (Myanmar)",
+      "tiers": [
+        "targeted",
+        "itar_proscribed"
+      ],
+      "basis": "31 CFR Part 525; 22 CFR 126.1"
+    },
+    {
+      "iso2": "CN",
+      "name": "China",
+      "tiers": [
+        "extensive",
+        "itar_proscribed"
+      ],
+      "basis": "15 CFR 744.21, 742.4, 742.6; 22 CFR 126.1"
+    },
+    {
+      "iso2": "CF",
+      "name": "Central African Republic",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1"
+    },
+    {
+      "iso2": "CD",
+      "name": "Democratic Republic of the Congo",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1"
+    },
+    {
+      "iso2": "ER",
+      "name": "Eritrea",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1"
+    },
+    {
+      "iso2": "ET",
+      "name": "Ethiopia",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1. VERIFY: DDTC action in 2026 may have ended the policy of denial for Ethiopia; this entry may now over-restrict.",
+      "verify": true
+    },
+    {
+      "iso2": "HT",
+      "name": "Haiti",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1"
+    },
+    {
+      "iso2": "IQ",
+      "name": "Iraq",
+      "tiers": [
+        "extensive",
+        "itar_proscribed"
+      ],
+      "basis": "15 CFR 746.3; 22 CFR 126.1"
+    },
+    {
+      "iso2": "LB",
+      "name": "Lebanon",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1"
+    },
+    {
+      "iso2": "LY",
+      "name": "Libya",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1; 31 CFR Part 570"
+    },
+    {
+      "iso2": "NI",
+      "name": "Nicaragua",
+      "tiers": [
+        "targeted",
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1; 31 CFR Part 582"
+    },
+    {
+      "iso2": "SO",
+      "name": "Somalia",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1"
+    },
+    {
+      "iso2": "SS",
+      "name": "South Sudan",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1"
+    },
+    {
+      "iso2": "SD",
+      "name": "Sudan",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1"
+    },
+    {
+      "iso2": "ZW",
+      "name": "Zimbabwe",
+      "tiers": [
+        "itar_proscribed"
+      ],
+      "basis": "22 CFR 126.1"
+    }
   ],
   "regions": [
-    { "name": "Crimea region of Ukraine", "tiers": ["comprehensive"], "basis": "31 CFR Part 589; Executive Order 13685", "match_terms": ["crimea", "sevastopol", "simferopol"] },
-    { "name": "Donetsk People's Republic region of Ukraine", "tiers": ["comprehensive"], "basis": "Executive Order 14065", "match_terms": ["donetsk", "dnr"] },
-    { "name": "Luhansk People's Republic region of Ukraine", "tiers": ["comprehensive"], "basis": "Executive Order 14065", "match_terms": ["luhansk", "lugansk", "lnr"] }
+    {
+      "name": "Crimea region of Ukraine",
+      "tiers": [
+        "comprehensive"
+      ],
+      "basis": "31 CFR Part 589; Executive Order 13685; 15 CFR 746.6",
+      "match_terms": [
+        "crimea",
+        "sevastopol",
+        "simferopol"
+      ]
+    },
+    {
+      "name": "Donetsk People's Republic region of Ukraine",
+      "tiers": [
+        "comprehensive"
+      ],
+      "basis": "Executive Order 14065; 15 CFR 746.6",
+      "match_terms": [
+        "donetsk",
+        "dnr"
+      ]
+    },
+    {
+      "name": "Luhansk People's Republic region of Ukraine",
+      "tiers": [
+        "comprehensive"
+      ],
+      "basis": "Executive Order 14065; 15 CFR 746.6",
+      "match_terms": [
+        "luhansk",
+        "lugansk",
+        "lnr"
+      ]
+    }
   ],
   "transshipment_watch": {
     "$comment": "Jurisdictions repeatedly identified in BIS/OFAC/FinCEN advisories as diversion routes. Presence here is a diligence trigger, never a prohibition.",
     "basis": "BIS/OFAC/FinCEN joint alerts on export control evasion",
-    "countries": ["AE", "TR", "KZ", "AM", "GE", "KG", "UZ", "HK", "SG", "MY", "TH", "RS", "CY"]
+    "countries": [
+      "AE",
+      "TR",
+      "KZ",
+      "AM",
+      "GE",
+      "KG",
+      "UZ",
+      "HK",
+      "SG",
+      "MY",
+      "TH",
+      "RS",
+      "CY"
+    ]
   },
   "aliases": {
     "$comment": "Free-text country strings seen in ERP exports, mapped to ISO2.",
-    "united arab emirates": "AE", "uae": "AE", "u.a.e.": "AE",
-    "russia": "RU", "russian federation": "RU", "rf": "RU",
-    "iran": "IR", "islamic republic of iran": "IR",
-    "north korea": "KP", "dprk": "KP", "korea, north": "KP",
-    "south korea": "KR", "korea, south": "KR", "republic of korea": "KR",
-    "china": "CN", "prc": "CN", "people's republic of china": "CN",
-    "hong kong": "HK", "taiwan": "TW",
-    "syria": "SY", "syrian arab republic": "SY",
-    "cuba": "CU", "belarus": "BY", "byelorussia": "BY",
-    "burma": "MM", "myanmar": "MM",
-    "venezuela": "VE", "turkey": "TR", "turkiye": "TR", "türkiye": "TR",
-    "kazakhstan": "KZ", "armenia": "AM", "georgia": "GE",
-    "kyrgyzstan": "KG", "uzbekistan": "UZ",
-    "singapore": "SG", "malaysia": "MY", "thailand": "TH",
-    "serbia": "RS", "cyprus": "CY", "ukraine": "UA",
-    "united states": "US", "usa": "US", "u.s.a.": "US", "united states of america": "US"
+    "united arab emirates": "AE",
+    "uae": "AE",
+    "u.a.e.": "AE",
+    "russia": "RU",
+    "russian federation": "RU",
+    "rf": "RU",
+    "iran": "IR",
+    "islamic republic of iran": "IR",
+    "north korea": "KP",
+    "dprk": "KP",
+    "korea, north": "KP",
+    "south korea": "KR",
+    "korea, south": "KR",
+    "republic of korea": "KR",
+    "china": "CN",
+    "prc": "CN",
+    "people's republic of china": "CN",
+    "hong kong": "HK",
+    "taiwan": "TW",
+    "syria": "SY",
+    "syrian arab republic": "SY",
+    "cuba": "CU",
+    "belarus": "BY",
+    "byelorussia": "BY",
+    "burma": "MM",
+    "myanmar": "MM",
+    "venezuela": "VE",
+    "turkey": "TR",
+    "turkiye": "TR",
+    "türkiye": "TR",
+    "kazakhstan": "KZ",
+    "armenia": "AM",
+    "georgia": "GE",
+    "kyrgyzstan": "KG",
+    "uzbekistan": "UZ",
+    "singapore": "SG",
+    "malaysia": "MY",
+    "thailand": "TH",
+    "serbia": "RS",
+    "cyprus": "CY",
+    "ukraine": "UA",
+    "united states": "US",
+    "usa": "US",
+    "u.s.a.": "US",
+    "united states of america": "US"
   }
 }

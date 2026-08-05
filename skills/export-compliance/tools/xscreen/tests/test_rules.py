@@ -53,6 +53,35 @@ class TestDestination(unittest.TestCase):
         flag = [x for x in f if x.rule_id == "DEST.TRANSSHIP"][0]
         self.assertEqual(flag.severity, "diligence")
 
+    def test_unknown_two_letter_code_does_not_pass_through_silently(self):
+        """Regression, false-clear direction.
+
+        `resolve_country` used to return any two-character string as a valid
+        ISO2 code. It then matched no policy entry, produced no destination
+        flag at all, and the case reached CLEAR with exit code 0 -- while the
+        party-file schema promised an unresolvable value would raise
+        DEST.UNRESOLVED. A shipping gate keyed on exit 0 would have released
+        it.
+        """
+        for bogus in ("XX", "ZZ", "QQ", "J1"):
+            f = destination_rules(
+                SubjectParty(ref="t", name="X", destination_country=bogus), self.p)
+            self.assertIn("DEST.UNRESOLVED", ids(f), f"{bogus} resolved silently")
+
+    def test_a_real_but_unlisted_code_is_not_silently_clear(self):
+        # KH is a genuine ISO code with no entry in the shipped policy file.
+        # It must produce *something* while the file is unattested.
+        f = destination_rules(
+            SubjectParty(ref="t", name="X", destination_country="KH"), self.p)
+        self.assertTrue(f, "a resolvable but unlisted destination produced no flag at all")
+
+    def test_no_policy_entry_flag_disappears_once_attested(self):
+        from dataclasses import replace
+        attested = replace(self.p, verified_by="someone", verified_on="2026-01-15")
+        f = destination_rules(
+            SubjectParty(ref="t", name="X", destination_country="CA"), attested)
+        self.assertNotIn("DEST.NO_POLICY_ENTRY", ids(f))
+
     def test_missing_destination_is_flagged(self):
         self.assertIn("DEST.MISSING", ids(destination_rules(SubjectParty(ref="t", name="X"), self.p)))
 
@@ -168,6 +197,16 @@ class TestClassification(unittest.TestCase):
         for eccn in ["3X001", "ABC", "30001"]:
             self.assertIn("CLASS.MALFORMED",
                           ids(classification_rules(SubjectParty(ref="t", name="X", eccn=eccn))), eccn)
+
+    def test_valid_prefix_with_garbage_suffix_is_flagged(self):
+        # Regression: the suffix separator used to be optional while trailing
+        # alphanumerics were still allowed, so a mistyped ECCN that happened
+        # to start with a valid pattern passed as well-formed and the operator
+        # never got the prompt to correct it.
+        for eccn in ["3A0011", "3A001XYZ", "3A001abcdef", "5A002a1"]:
+            self.assertIn("CLASS.MALFORMED",
+                          ids(classification_rules(SubjectParty(ref="t", name="X", eccn=eccn))),
+                          eccn)
 
 
 class TestProvisionalDisposition(unittest.TestCase):

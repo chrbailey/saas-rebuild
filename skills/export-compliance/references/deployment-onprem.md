@@ -27,6 +27,15 @@ Run `selftest` on every install and after every upgrade. It is the evidence
 that the engine on *this* machine matches the documented behaviour, and it
 takes two seconds.
 
+Prose in these documents writes commands as `xscreen refresh` for readability.
+The actual invocation is `python3 -m xscreen.cli --home <dir> refresh`. If you
+want the short form, drop a two-line wrapper on the path:
+
+```bash
+printf '#!/usr/bin/env bash\nexec python3 -m xscreen.cli --home "${XSCREEN_HOME:-/var/lib/xscreen}" "$@"\n' \
+  > /usr/local/bin/xscreen && chmod +x /usr/local/bin/xscreen
+```
+
 ### Restricted egress
 
 Many corporate networks and CI sandboxes block `.gov` hosts. That is a policy
@@ -77,6 +86,70 @@ human. Slower, not wrong.
 Screening at onboarding only is the most common design mistake. Destination and
 end use change per shipment even when the customer does not, and a party you
 cleared in March can be designated in April.
+
+### Wiring the cadence
+
+Linux/macOS, refresh and re-screen every weekday morning, keeping the previous
+run for comparison:
+
+```cron
+# m  h  dom mon dow  command
+  15 6  *   *   1-5  /usr/bin/python3 -m xscreen.cli --home /var/lib/xscreen refresh >> /var/log/xscreen.log 2>&1
+  30 6  *   *   1-5  /opt/xscreen/rescreen.sh >> /var/log/xscreen.log 2>&1
+```
+
+```bash
+#!/usr/bin/env bash
+# /opt/xscreen/rescreen.sh -- re-screen the book and report what changed.
+set -uo pipefail
+HOME_DIR=/var/lib/xscreen
+BOOK=/var/lib/xscreen/book-of-business.csv
+export XSCREEN_ACTOR="scheduled"
+
+PREV=$(ls -1d "$HOME_DIR"/runs/*/ 2>/dev/null | tail -1)
+python3 -m xscreen.cli --home "$HOME_DIR" screen "$BOOK"
+code=$?
+[ "$code" -eq 1 ] && { echo "screening failed to run"; exit 1; }
+
+NEW=$(ls -1d "$HOME_DIR"/runs/*/ | tail -1)
+if [ -n "$PREV" ] && [ "$PREV" != "$NEW" ]; then
+  python3 -m xscreen.cli --home "$HOME_DIR" diff \
+    "$PREV/dispositions.csv" "$NEW/dispositions.csv" --out "$NEW/CHANGES.md"
+  # Exit 3 from diff means a party that was clear is not any more.
+  [ $? -eq 3 ] && echo "NEW HITS -- see $NEW/CHANGES.md"
+fi
+python3 -m xscreen.cli --home "$HOME_DIR" cases --out "$HOME_DIR/OPEN_CASES.md"
+python3 -m xscreen.cli --home "$HOME_DIR" audit head >> "$HOME_DIR/audit/head-log.jsonl"
+```
+
+Windows, the same shape via Task Scheduler:
+
+```powershell
+$py = "C:\Program Files\Python312\python.exe"
+$home = "C:\ProgramData\xscreen"
+schtasks /Create /TN "xscreen refresh" /SC WEEKLY /D MON,TUE,WED,THU,FRI /ST 06:15 `
+  /TR "`"$py`" -m xscreen.cli --home `"$home`" refresh"
+schtasks /Create /TN "xscreen rescreen" /SC WEEKLY /D MON,TUE,WED,THU,FRI /ST 06:30 `
+  /TR "`"$py`" -m xscreen.cli --home `"$home`" screen `"$home\book-of-business.csv`""
+```
+
+Nothing in the package is POSIX-specific; the audit lock uses `msvcrt` on
+Windows and `fcntl` elsewhere. Substitute Windows paths for the `/opt` and
+`/var/lib` conventions used above.
+
+### Reading the diff
+
+`xscreen diff before/dispositions.csv after/dispositions.csv` categorizes every
+reference and exits `3` when anything moved from clear to not-clear. The
+category that matters is **New hits** — but a new hit is not necessarily a new
+designation. It can equally mean the party's name or address changed in your
+system, that the alternate-names file loaded this time and not last time, or
+that a threshold moved. Compare the two runs' list manifest digests before
+concluding which.
+
+`xscreen cases` rolls every still-open case across all runs into one worklist,
+newest screening per reference. It answers "what is still outstanding", which
+no single run report can.
 
 ## The country policy file
 

@@ -102,10 +102,84 @@ class TestCSL(unittest.TestCase):
         out = parse_csl(text)
         self.assertIn("brand_new_column", out.unmapped_columns)
 
+    def test_non_sdn_labels_never_resolve_to_sdn(self):
+        """Regression, and the dangerous direction.
+
+        A substring fallback used to map any label containing "sdn" to SDN --
+        which includes every "Non-SDN ..." label. A Non-SDN party would then
+        inherit full blocking legal effect, telling a compliance officer to
+        freeze property and file an OFAC report over what is actually a
+        securities-investment restriction. UNKNOWN escalates; a wrong answer
+        does not.
+        """
+        from xscreen.sources import resolve_csl_source
+
+        for label in [
+            "Non-SDN Menu-Based Sanctions List (NS-MBS)",
+            "Non-SDN Palestinian Legislative Council (NS-PLC)",
+            "Non-SDN Chinese Military-Industrial Complex Companies (NS-CMIC)",
+            "Sectoral Sanctions Identifications (SSI)",
+            "Some Future Non-SDN List Nobody Has Seen",
+        ]:
+            self.assertNotEqual(resolve_csl_source(label), "SDN", label)
+
+    def test_unrecognized_labels_return_unknown_not_a_guess(self):
+        from xscreen.sources import resolve_csl_source
+
+        for label in ["Ministry of Widgets Watchlist", "Entity Listing v2", "", "sdn-ish"]:
+            self.assertEqual(resolve_csl_source(label), "UNKNOWN", label)
+
+    def test_exact_labels_still_resolve(self):
+        from xscreen.sources import resolve_csl_source
+
+        self.assertEqual(resolve_csl_source("SDN"), "SDN")
+        self.assertEqual(
+            resolve_csl_source("Entity List (EL) - Bureau of Industry and Security"), "EL")
+        self.assertEqual(
+            resolve_csl_source("  Unverified List (UVL) - Bureau of Industry and Security  "),
+            "UVL", "whitespace normalization regressed")
+
     def test_missing_name_column_refuses_rather_than_guesses(self):
         out = parse_csl("foo,bar\n1,2\n")
         self.assertEqual(out.parties, [])
         self.assertTrue(any("no recognizable name column" in w for w in out.warnings))
+
+
+class TestRaggedRows(unittest.TestCase):
+    """Regression: one stray delimiter in a government file crashed the whole
+    refresh with AttributeError, instead of producing a warning."""
+
+    def test_extra_field_does_not_crash_the_parse(self):
+        text = read("CSL.raw").replace(
+            'https://example.invalid/el,', 'https://example.invalid/el,STRAY,EXTRA,')
+        out = parse_csl(text)   # must not raise
+        self.assertTrue(out.parties, "a ragged row wiped out the whole parse")
+
+    def test_extra_field_is_reported_not_silently_absorbed(self):
+        text = read("CSL.raw").replace(
+            'https://example.invalid/el,', 'https://example.invalid/el,STRAY,EXTRA,')
+        out = parse_csl(text)
+        self.assertTrue(any("ragged" in w for w in out.warnings),
+                        f"no ragged-row warning: {out.warnings}")
+
+    def test_short_row_does_not_crash(self):
+        lines = read("CSL.raw").splitlines()
+        lines.append("d7,Some List")   # far fewer fields than the header
+        out = parse_csl("\n".join(lines))
+        self.assertTrue(any("ragged" in w for w in out.warnings))
+
+    def test_raw_snapshot_excludes_the_restkey(self):
+        from xscreen.normalize import _safe_raw
+        row = {"a": "1", None: ["x", "y"], "b": None, "c": "  "}
+        self.assertEqual(_safe_raw(row), {"a": "1"})
+
+    def test_many_ragged_rows_do_not_produce_one_warning_each(self):
+        header = read("CSL.raw").splitlines()[0]
+        rows = [header] + [f"d{i},Entity List,EL-{i},Entity,,Name{i},,,,,,,,,,,,STRAY"
+                           for i in range(50)]
+        out = parse_csl("\n".join(rows))
+        self.assertLessEqual(len([w for w in out.warnings if "ragged" in w]), 5)
+        self.assertTrue(any("in total" in w for w in out.warnings))
 
 
 class TestDPL(unittest.TestCase):

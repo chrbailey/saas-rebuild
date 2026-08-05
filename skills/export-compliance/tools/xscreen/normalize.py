@@ -36,6 +36,31 @@ class ParseOutcome:
     warnings: list[str] = field(default_factory=list)
 
 
+def _safe_raw(row: dict) -> dict[str, str]:
+    """Snapshot a DictReader row without trusting its shape.
+
+    A row with MORE fields than the header lands its extras under the key
+    `None` as a list (csv.DictReader's documented restkey default). Calling
+    .strip() on that list raised AttributeError and aborted the whole refresh
+    on a single stray delimiter in a government file -- the opposite of this
+    module's rule that a shape change surfaces as a warning rather than
+    vanishing. Government CSV exports do get an unescaped delimiter sometimes.
+    """
+    return {k: v for k, v in row.items()
+            if k is not None and isinstance(v, str) and v.strip()}
+
+
+def _ragged(row: dict) -> str:
+    """Describe a row whose field count disagrees with the header."""
+    extra = row.get(None)
+    if isinstance(extra, list) and extra:
+        return f"{len(extra)} field(s) beyond the header: {extra[:3]}"
+    missing = [k for k, v in row.items() if v is None]
+    if missing:
+        return f"{len(missing)} field(s) short of the header: {missing[:3]}"
+    return ""
+
+
 def _clean(v: str | None) -> str:
     if v is None:
         return ""
@@ -163,8 +188,13 @@ def parse_csl(text: str, source_filter: str | None = None) -> ParseOutcome:
         return out
 
     unknown_sources: set[str] = set()
+    ragged = 0
     for i, row in enumerate(reader):
         out.row_count += 1
+        if (desc := _ragged(row)):
+            ragged += 1
+            if ragged <= 3:
+                out.warnings.append(f"CSL row {i + 2} is ragged -- {desc}")
         name = _get(row, mapping, "name")
         if not name:
             out.skipped_rows += 1
@@ -198,8 +228,14 @@ def parse_csl(text: str, source_filter: str | None = None) -> ParseOutcome:
                 effective_date=_get(row, mapping, "effective_date"),
                 expiration_date=_get(row, mapping, "expiration_date"),
                 source_url=_get(row, mapping, "source_url"),
-                raw={k: v for k, v in row.items() if v and v.strip()},
+                raw=_safe_raw(row),
             )
+        )
+    if ragged > 3:
+        out.warnings.append(
+            f"{ragged} CSL rows in total had a field count disagreeing with the "
+            "header. The file layout may have changed; verify the parser against "
+            "the current publication before trusting this snapshot."
         )
     if unknown_sources:
         out.warnings.append(
@@ -365,7 +401,7 @@ def parse_bis_dpl(text: str) -> ParseOutcome:
                 federal_register=_get(row, mapping, "federal_register"),
                 effective_date=_get(row, mapping, "effective_date"),
                 expiration_date=_get(row, mapping, "expiration_date"),
-                raw={k: v for k, v in row.items() if v and v.strip()},
+                raw=_safe_raw(row),
             )
         )
     return out
@@ -410,7 +446,7 @@ def parse_bis_entity(text: str, source_code: str = "EL") -> ParseOutcome:
                 remarks=" | ".join(remarks),
                 federal_register=_get(row, mapping, "federal_register"),
                 effective_date=_get(row, mapping, "effective_date"),
-                raw={k: v for k, v in row.items() if v and v.strip()},
+                raw=_safe_raw(row),
             )
         )
     return out

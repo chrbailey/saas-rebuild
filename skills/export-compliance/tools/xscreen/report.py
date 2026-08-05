@@ -198,12 +198,32 @@ def markdown_report(results: Sequence[ScreeningResult], summary: dict) -> str:
     a(f"- **Audit log entries:** {summary.get('audit_start_seq','?')}–{summary.get('audit_end_seq','?')}, "
       f"head hash `{summary.get('audit_head_hash','')}`")
     a("")
-    a("**What this run does not establish.** Name screening does not detect "
-      "entities blocked by the OFAC 50 Percent Rule, does not classify the "
-      "item, does not resolve end-use or end-user controls that apply to "
-      "unlisted parties, and does not substitute for reading the primary "
-      "publication behind any hit. Machine adjudication is advisory; no case "
-      "here has been cleared on model judgement alone.")
+    a("**What this run does not establish.**")
+    a("")
+    a("- **Ownership.** Entities owned 50 percent or more, directly or "
+      "indirectly, in the aggregate, by blocked persons are themselves blocked "
+      "under OFAC's 50 Percent Rule and appear on no list. There is no name to "
+      "match. A parallel BIS Affiliates Rule covers Entity List, MEU and "
+      "denial-order parties; confirm its current status.")
+    a("- **Classification.** Whether a licence is required depends on the "
+      "item's ECCN, which this run does not determine.")
+    a("- **Entity List scope.** A licence requirement is scoped to the items "
+      "named in that entry, and footnote designations can trigger a Foreign "
+      "Direct Product Rule. Read the entry.")
+    a("- **End-use and end-user controls on unlisted parties.** 15 CFR 744.21 "
+      "reaches military end users in the destinations it names whether or not "
+      "they appear on the MEU List.")
+    a("- **Deemed exports.** Releasing controlled technology to a foreign "
+      "national inside the United States is an export to their home country. "
+      "No shipment occurs and no counterparty is screened, so nothing in this "
+      "pipeline can see it.")
+    a("- **Non-U.S. regimes.** Only U.S. government lists are screened. EU, "
+      "UK, UN and other national lists are not covered.")
+    a("- **Primary publications.** No hit here substitutes for reading the "
+      "list entry and the Federal Register notice behind it.")
+    a("")
+    a("Machine adjudication is advisory; no case here has been cleared on "
+      "model judgement alone.")
     a("")
     a("*Not legal advice. Produced by an automated screening tool for the use "
       "of the operator's compliance function.*")
@@ -213,3 +233,162 @@ def markdown_report(results: Sequence[ScreeningResult], summary: dict) -> str:
 def _top_score(r: ScreeningResult) -> float:
     live = [c for c in r.candidates if c.get("band") != "NONE"]
     return float(live[0].get("score", 0)) if live else 0.0
+
+
+# --------------------------------------------------------------------------
+# Cross-run comparison
+# --------------------------------------------------------------------------
+# Two workflows the skill treats as central and which need a tool, not a
+# suggestion: re-screening the book after a list change (what became a hit
+# that was clear last week?) and the parallel run against an incumbent
+# system during a migration (where do the two disagree, and which is right?).
+
+NEW_HIT = "NEW_HIT"
+RESOLVED = "RESOLVED"
+CHANGED = "CHANGED"
+ADDED = "ADDED"
+REMOVED = "REMOVED"
+UNCHANGED = "UNCHANGED"
+
+
+def load_dispositions(text: str) -> dict[str, dict[str, str]]:
+    """Parse a dispositions.csv into {ref: row}."""
+    out: dict[str, dict[str, str]] = {}
+    for row in csv.DictReader(io.StringIO(text)):
+        ref = (row.get("ref") or "").strip()
+        if ref:
+            out[ref] = row
+    return out
+
+
+def diff_dispositions(before: dict[str, dict[str, str]],
+                      after: dict[str, dict[str, str]]) -> dict[str, list[dict[str, str]]]:
+    """Categorize what changed between two screening runs.
+
+    NEW_HIT is the category that matters: a party that was clear and is not
+    any more. That is the entire reason to re-screen a book of business after
+    a list update, and the reason a party cleared in March must be screened
+    again in April.
+    """
+    groups: dict[str, list[dict[str, str]]] = {
+        NEW_HIT: [], RESOLVED: [], CHANGED: [], ADDED: [], REMOVED: [], UNCHANGED: [],
+    }
+    for ref, new in after.items():
+        old = before.get(ref)
+        nd = new.get("disposition", "")
+        if old is None:
+            groups[ADDED if nd == "CLEAR" else NEW_HIT].append(
+                {"ref": ref, "name": new.get("name", ""), "before": "(not screened)",
+                 "after": nd, "top_list": new.get("top_list", ""),
+                 "top_matched_name": new.get("top_matched_name", "")})
+            continue
+        od = old.get("disposition", "")
+        if od == nd:
+            groups[UNCHANGED].append({"ref": ref, "name": new.get("name", ""),
+                                      "before": od, "after": nd})
+            continue
+        row = {"ref": ref, "name": new.get("name", ""), "before": od, "after": nd,
+               "top_list": new.get("top_list", ""),
+               "top_matched_name": new.get("top_matched_name", "")}
+        if od == "CLEAR" and nd != "CLEAR":
+            groups[NEW_HIT].append(row)
+        elif od != "CLEAR" and nd == "CLEAR":
+            groups[RESOLVED].append(row)
+        else:
+            groups[CHANGED].append(row)
+    for ref, old in before.items():
+        if ref not in after:
+            groups[REMOVED].append({"ref": ref, "name": old.get("name", ""),
+                                    "before": old.get("disposition", ""),
+                                    "after": "(not screened)"})
+    return groups
+
+
+def diff_report(groups: dict[str, list[dict[str, str]]],
+                before_label: str, after_label: str) -> str:
+    lines: list[str] = []
+    a = lines.append
+    a("# Screening comparison")
+    a("")
+    a(f"**Before:** {before_label}  ")
+    a(f"**After:** {after_label}")
+    a("")
+
+    order = [
+        (NEW_HIT, "New hits", "Clear before, not clear now. Investigate every one."),
+        (CHANGED, "Changed disposition", "Non-clear before and after, but different."),
+        (RESOLVED, "No longer hitting", "Confirm why before accepting a clear."),
+        (ADDED, "Newly screened, clear", ""),
+        (REMOVED, "No longer in the party file", "Confirm the party is genuinely gone."),
+    ]
+    a("| Category | Count | Meaning |")
+    a("|---|---|---|")
+    for key, title, meaning in order:
+        a(f"| {title} | {len(groups[key])} | {meaning} |")
+    a(f"| Unchanged | {len(groups[UNCHANGED])} | |")
+    a("")
+
+    for key, title, meaning in order:
+        rows = groups[key]
+        if not rows:
+            continue
+        a(f"## {title}")
+        if meaning:
+            a("")
+            a(meaning)
+        a("")
+        a("| Ref | Party | Before | After | List | Matched name |")
+        a("|---|---|---|---|---|---|")
+        for r in sorted(rows, key=lambda x: x["ref"]):
+            a("| {} | {} | {} | {} | {} | {} |".format(
+                _esc(r["ref"]), _esc(r["name"]), r["before"], r["after"],
+                r.get("top_list", ""), _esc(r.get("top_matched_name", ""))))
+        a("")
+
+    if groups[NEW_HIT]:
+        a("---")
+        a("")
+        a("**A new hit is not necessarily a new designation.** It can also mean "
+          "the party's name or address changed in your system, the alternate-names "
+          "file loaded this time and not last time, or a threshold moved. Check "
+          "the list manifest digests of both runs before concluding which.")
+    return "\n".join(lines)
+
+
+def open_cases_report(runs: list[tuple[str, dict[str, dict[str, str]]]]) -> str:
+    """Roll every non-CLEAR case across runs into one worklist.
+
+    A per-run report answers "what happened in this run". A compliance officer
+    also needs "what is still open", which no single run can answer. Latest
+    run wins per reference.
+    """
+    latest: dict[str, tuple[str, dict[str, str]]] = {}
+    for label, rows in sorted(runs, key=lambda x: x[0]):
+        for ref, row in rows.items():
+            latest[ref] = (label, row)
+
+    open_rows = [(label, r) for label, r in latest.values()
+                 if r.get("disposition") != "CLEAR"]
+    lines: list[str] = []
+    a = lines.append
+    a("# Open screening cases")
+    a("")
+    a(f"Every counterparty whose most recent screening was not CLEAR, across "
+      f"{len(runs)} run(s). {len(open_rows)} open of {len(latest)} parties.")
+    a("")
+    if not open_rows:
+        a("Nothing open.")
+        return "\n".join(lines)
+    a("| Ref | Party | Disposition | List | Matched name | Last screened in |")
+    a("|---|---|---|---|---|---|")
+    for label, r in sorted(open_rows,
+                           key=lambda x: (DISPOSITION_ORDER.get(x[1].get("disposition", ""), 9),
+                                          x[1].get("ref", ""))):
+        a("| {} | {} | {} | {} | {} | {} |".format(
+            _esc(r.get("ref", "")), _esc(r.get("name", "")), r.get("disposition", ""),
+            r.get("top_list", ""), _esc(r.get("top_matched_name", "")), label))
+    a("")
+    a("Each row needs a documented human decision. Use "
+      "`templates/license-determination-worksheet.md`; this table does not "
+      "track whether that worksheet exists.")
+    return "\n".join(lines)

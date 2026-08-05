@@ -74,6 +74,80 @@ class TestRecall(unittest.TestCase):
         self.assertIn(got.get("SDN:1004"), ("EXACT", "STRONG"))
 
 
+class TestSingleTokenContainment(unittest.TestCase):
+    """Regression: a shortened single-token trade name was a COMPLETE miss.
+
+    `Gazprom` against `Gazprom Neft` had containment 1.0 and skeleton
+    containment 1.0, but the two-token floor blocked both bypass rules and the
+    residual score sat below the WEAK floor -- so nothing was reported at all,
+    on exactly the case the containment metric exists to catch.
+    """
+
+    def _index(self, *names: str) -> ListIndex:
+        idx = ListIndex()
+        for i, n in enumerate(names):
+            idx.add(ListedParty(uid=f"SDN:{i}", source="SDN", native_id=str(i), name=n))
+        return idx.build()
+
+    def test_shortened_trade_name_is_found(self):
+        for short, full in [
+            ("Gazprom", "Gazprom Neft"),
+            ("Rosneft", "Rosneft Trading SA"),
+            ("Acme", "Acme Precision Machining Corp"),
+            ("Wagner", "Wagner Group PMC"),
+        ]:
+            idx = self._index(full)
+            got = bands(idx, short)
+            self.assertIn(got.get("SDN:0"), ("EXACT", "STRONG"),
+                          f"{short!r} did not find {full!r}: {got}")
+
+    def test_generic_word_does_not_fire_the_same_rule(self):
+        # "Trading" is contained in every one of these, but it discriminates
+        # nothing, so containment alone must not band it.
+        idx = self._index(*[f"Company{i} Trading Corp" for i in range(60)])
+        got = bands(idx, "Trading")
+        self.assertEqual(got, {}, f"a generic single word matched: {got}")
+
+    def test_discriminating_flag_reflects_token_rarity(self):
+        from xscreen.match import discriminating
+        from xscreen.names import core_tokens
+        idx = self._index(*[f"Company{i} Trading Corp" for i in range(60)],
+                          "Gazprom Neft")
+        self.assertTrue(discriminating(idx, core_tokens("Gazprom"), core_tokens("Gazprom Neft")))
+        self.assertFalse(discriminating(idx, core_tokens("Trading"),
+                                        core_tokens("Company1 Trading Corp")))
+
+
+class TestBlockingDisclosure(unittest.TestCase):
+    """Regression: when truncation dropped the ONLY candidate, the per-candidate
+    disclosure had nothing to attach to and the caller saw a clean empty result."""
+
+    def test_truncation_is_reported_even_with_no_surviving_candidates(self):
+        from xscreen import match as m
+        idx = ListIndex()
+        for i in range(60):
+            idx.add(ListedParty(uid=f"SDN:{i}", source="SDN", native_id=str(i),
+                                name=f"Quarrying Zeppelin Number{i}"))
+        idx.build()
+        original = m.MAX_BLOCK_ENTRIES
+        m.MAX_BLOCK_ENTRIES = 1
+        try:
+            diags: dict = {}
+            screen_name(SubjectParty(ref="t", name="Quarrying Zeppelin Widgetry"),
+                        idx, diagnostics=diags)
+            self.assertIn("blocking_truncated_tokens", diags,
+                          "a bounded search was not disclosed to the caller")
+        finally:
+            m.MAX_BLOCK_ENTRIES = original
+
+    def test_no_truncation_means_no_diagnostic_noise(self):
+        idx = build_index()
+        diags: dict = {}
+        screen_name(SubjectParty(ref="t", name="Northwind Heavy Machinery OAO"),
+                    idx, diagnostics=diags)
+        self.assertEqual(diags, {})
+
+
 class TestPrecisionGuards(unittest.TestCase):
     def setUp(self):
         self.idx = build_index()

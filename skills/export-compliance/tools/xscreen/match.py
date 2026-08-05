@@ -355,6 +355,18 @@ def assign_band(score: float, signals: dict[str, float | bool], subject_name: st
     if signals.get("skeleton_containment") == 1.0 and signals.get("skeleton_multi_token"):
         return "STRONG"
 
+    # Single-token containment, but only when the shared token is rare enough
+    # in the list to discriminate. "Gazprom" against "Gazprom Neft" is a hit;
+    # "Trading" against "Acme Trading Corp" is not, and the two are
+    # distinguishable only by how common the token is across the whole list.
+    #
+    # Without this rule those single-token cases were a *complete miss*, not a
+    # demoted one: containment was 1.0 and skeleton containment was 1.0, but
+    # the two-token floor blocked both bypass rules and the residual score
+    # (~0.58-0.71) sat below the WEAK floor, so nothing was ever reported.
+    if signals.get("containment") == 1.0 and signals.get("discriminating_containment"):
+        return "STRONG"
+
     if score >= STRONG_FLOOR:
         return "STRONG"
     if score >= WEAK_FLOOR:
@@ -373,10 +385,27 @@ def geo_signals(subject: SubjectParty, party: ListedParty) -> dict[str, object]:
     return {"country_evidence": "differs", "listed_countries": party.countries}
 
 
+def discriminating(index: ListIndex, q_toks: tuple[str, ...],
+                   e_toks: tuple[str, ...]) -> bool:
+    """Do the shared tokens carry enough identity to stand alone?
+
+    This is what `_common_tokens` was built for. A token appearing across a
+    large fraction of the list ("trading", "company", "group") tells you
+    nothing about identity; a token appearing once or twice is close to a
+    name. Only the latter justifies banding on containment alone.
+    """
+    shared = set(q_toks) & set(e_toks)
+    if not shared:
+        return False
+    common = index._common_tokens()
+    return any(t not in common for t in shared)
+
+
 def screen_name(
     subject: SubjectParty,
     index: ListIndex,
     min_band: MatchBand = "WEAK",
+    diagnostics: dict | None = None,
 ) -> list[Candidate]:
     """All candidates for one subject, best first.
 
@@ -397,6 +426,9 @@ def screen_name(
         for idx in blocked.entries:
             entry = index.entries[idx]
             score, signals = score_pair(qname, entry)
+            if signals.get("containment") == 1.0:
+                signals["discriminating_containment"] = discriminating(
+                    index, core_tokens(qname), entry.toks)
             band = assign_band(score, signals, qname, entry)
             if order[band] < floor:
                 continue
@@ -422,9 +454,18 @@ def screen_name(
     # Blocking truncation is disclosed on every candidate rather than logged
     # somewhere a reader will not look. An analyst reading a near-miss needs
     # to know the search was bounded.
+    #
+    # Per-candidate disclosure alone fails in exactly the case that matters
+    # most: if truncation dropped the ONLY match, there are no candidates left
+    # to carry the warning and the caller sees a clean empty result. So it is
+    # also reported through `diagnostics`, which the pipeline turns into a
+    # rule flag on the case whether or not anything survived.
     if truncated:
+        marks = sorted(set(truncated))
         for c in out:
-            c.signals["blocking_truncated_tokens"] = sorted(set(truncated))
+            c.signals["blocking_truncated_tokens"] = marks
+        if diagnostics is not None:
+            diagnostics["blocking_truncated_tokens"] = marks
     # Deterministic ordering: band, then score, then uid as the tie-break so
     # two runs never disagree about row order in the report.
     out.sort(key=lambda c: (-order[c.band], -c.score, c.listed_uid))
