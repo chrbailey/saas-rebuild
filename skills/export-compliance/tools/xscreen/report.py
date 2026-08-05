@@ -23,7 +23,18 @@ SEVERITY_ORDER = {"prohibitive": 0, "license": 1, "diligence": 2, "informational
 
 
 def _esc(s: str) -> str:
-    return (s or "").replace("|", "\\|").replace("\n", " ").strip()
+    """Escape a value for a Markdown table cell.
+
+    Escapes more than the table delimiter because these reports are routinely
+    rendered to HTML, Confluence or PDF, and a counterparty name is
+    attacker-chosen text. An `<img onerror=...>` in a customer master should
+    not become live markup in a compliance report.
+    """
+    out = (s or "").replace("\n", " ").replace("\r", " ")
+    for ch, rep in (("\\", "\\\\"), ("|", "\\|"), ("<", "&lt;"), (">", "&gt;"),
+                    ("`", "\\`"), ("[", "\\["), ("]", "\\]")):
+        out = out.replace(ch, rep)
+    return out.strip()
 
 
 def summary_csv(results: Sequence[ScreeningResult]) -> str:
@@ -117,11 +128,11 @@ def markdown_report(results: Sequence[ScreeningResult], summary: dict) -> str:
         a("")
     for r in sorted(actionable, key=lambda x: DISPOSITION_ORDER.get(x.disposition, 9)):
         subj = r.subject
-        a(f"### {subj.get('ref', '')} — {subj.get('name', '')}")
+        a(f"### {_esc(subj.get('ref', ''))} — {_esc(subj.get('name', ''))}")
         a("")
         a(f"**Disposition:** {r.disposition} — {r.disposition_reason}")
         a("")
-        ctx = [f"{k}: {subj.get(k)}" for k in
+        ctx = [f"{k}: {_esc(str(subj.get(k)))}" for k in
                ("country", "destination_country", "role", "eccn", "item_description", "end_use")
                if subj.get(k)]
         if ctx:
@@ -176,7 +187,7 @@ def markdown_report(results: Sequence[ScreeningResult], summary: dict) -> str:
             a("**Independent review findings**")
             a("")
             for f in r.critic_findings:
-                a(f"- [{f.get('severity')}] {_esc(f.get('finding',''))} "
+                a(f"- [{_esc(str(f.get('severity')))}] {_esc(f.get('finding',''))} "
                   f"→ {_esc(f.get('suggested_action',''))}")
             a("")
 
@@ -243,6 +254,9 @@ def _top_score(r: ScreeningResult) -> float:
 # that was clear last week?) and the parallel run against an incumbent
 # system during a migration (where do the two disagree, and which is right?).
 
+# Severity ordering used to tell an escalation from a de-escalation.
+SEVERITY_RANK = {"CLEAR": 0, "REVIEW": 1, "CONFIRMED_HIT": 2, "BLOCKED": 3, "ESCALATE": 4}
+
 NEW_HIT = "NEW_HIT"
 RESOLVED = "RESOLVED"
 CHANGED = "CHANGED"
@@ -252,12 +266,20 @@ UNCHANGED = "UNCHANGED"
 
 
 def load_dispositions(text: str) -> dict[str, dict[str, str]]:
-    """Parse a dispositions.csv into {ref: row}."""
+    """Parse a dispositions.csv into {key: row}.
+
+    Keyed on (ref, name) rather than ref alone. ERP exports duplicate account
+    numbers constantly, and keying on ref meant a later CLEAR row silently
+    overwrote an earlier BLOCKED one -- the blocked party then vanished from
+    every diff and from the open-case rollup.
+    """
     out: dict[str, dict[str, str]] = {}
     for row in csv.DictReader(io.StringIO(text)):
         ref = (row.get("ref") or "").strip()
-        if ref:
-            out[ref] = row
+        if not ref:
+            continue
+        key = f"{ref}\u0000{(row.get('name') or '').strip()}"
+        out[key] = row
     return out
 
 
@@ -273,9 +295,10 @@ def diff_dispositions(before: dict[str, dict[str, str]],
     groups: dict[str, list[dict[str, str]]] = {
         NEW_HIT: [], RESOLVED: [], CHANGED: [], ADDED: [], REMOVED: [], UNCHANGED: [],
     }
-    for ref, new in after.items():
-        old = before.get(ref)
+    for key, new in after.items():
+        old = before.get(key)
         nd = new.get("disposition", "")
+        ref = new.get("ref", key)
         if old is None:
             groups[ADDED if nd == "CLEAR" else NEW_HIT].append(
                 {"ref": ref, "name": new.get("name", ""), "before": "(not screened)",
@@ -294,6 +317,10 @@ def diff_dispositions(before: dict[str, dict[str, str]],
             groups[NEW_HIT].append(row)
         elif od != "CLEAR" and nd == "CLEAR":
             groups[RESOLVED].append(row)
+        elif SEVERITY_RANK.get(nd, 0) > SEVERITY_RANK.get(od, 0):
+            # REVIEW -> BLOCKED is an escalation and belongs with the new
+            # hits, not lumped in with BLOCKED -> REVIEW under one exit code.
+            groups[NEW_HIT].append(row)
         else:
             groups[CHANGED].append(row)
     for ref, old in before.items():

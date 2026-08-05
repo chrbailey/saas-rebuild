@@ -25,7 +25,7 @@ from .audit import AuditLog
 from .critic import CriticReview, Route, run_loop
 from .fetch import Manifest, load_manifest, load_parties, staleness_check
 from .llm import Backend
-from .match import ListIndex, screen_name
+from .match import ListIndex, screen_name, tuning_digest
 from .models import ScreeningResult, SubjectParty
 from .rules import Policy, RuleFlag, evaluate, load_policy
 
@@ -76,7 +76,9 @@ def parse_party_file(text: str) -> tuple[list[SubjectParty], list[str]]:
         )
 
     subjects: list[SubjectParty] = []
+    input_rows = 0
     for i, row in enumerate(reader, start=2):  # row 1 is the header
+        input_rows += 1
         def g(k: str) -> str:
             h = mapping.get(k)
             return (row.get(h) or "").strip() if h else ""
@@ -100,6 +102,14 @@ def parse_party_file(text: str) -> tuple[list[SubjectParty], list[str]]:
             end_use=g("end_use"),
             raw={k: v for k, v in row.items() if v and v.strip()},
         ))
+    dropped = input_rows - len(subjects)
+    if dropped:
+        # The run summary reported the count that SURVIVED, so 198 unscreened
+        # counterparties out of 199 looked like a clean 1-row run at exit 0.
+        warnings.append(
+            f"{dropped} of {input_rows} rows were not screened. Those "
+            "counterparties have NO screening record."
+        )
     return subjects, warnings
 
 
@@ -124,6 +134,8 @@ def screen_subject(
         subject=subject.to_dict(),
         candidates=[c.to_dict() for c in candidates],
         list_manifest_digest=manifest.digest,
+        policy_digest=policy.digest,
+        tuning_digest=tuning_digest(),
         screened_at=datetime.now(timezone.utc).isoformat(),
     )
     flags = evaluate(subject, candidates, policy, as_of)
@@ -200,6 +212,9 @@ def run(
         "stale_override": (not fresh) and allow_stale,
         "policy_as_of": policy.as_of,
         "policy_verified": policy.verified,
+        "policy_digest": policy.digest,
+        "tuning_digest": tuning_digest(),
+        "covered_sources": manifest.covered_sources,
         "llm_enabled": use_llm,
         "critic_enabled": use_critic,
         "as_of_date": as_of.isoformat(),
@@ -260,6 +275,9 @@ def run(
         "list_staleness": staleness_msg,
         "policy_as_of": policy.as_of,
         "policy_verified": policy.verified,
+        "policy_digest": policy.digest,
+        "tuning_digest": tuning_digest(),
+        "covered_sources": manifest.covered_sources,
         "llm_enabled": use_llm,
         "critic_enabled": use_critic,
         "critic_routes": {a: sum(1 for r in routes if r.action == a)

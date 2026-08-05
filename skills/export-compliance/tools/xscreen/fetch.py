@@ -60,6 +60,7 @@ class FileRecord:
     unmapped_columns: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     error: str = ""
+    from_cache: bool = False
 
     @property
     def ok(self) -> bool:
@@ -75,6 +76,7 @@ class Manifest:
     degraded: bool = False
     degraded_reason: str = ""
     digest: str = ""
+    covered_sources: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -192,6 +194,16 @@ def refresh(
     records: list[FileRecord] = []
     all_parties: list[ListedParty] = []
 
+    # (code, sha256) -> the fetch time already on record for that exact
+    # content, so an offline re-parse cannot present old data as new.
+    prior_fetched: dict[tuple[str, str], str] = {}
+    try:
+        for f in load_manifest(data_dir).files:
+            if f.get("sha256") and f.get("fetched_at") and not f.get("error"):
+                prior_fetched[(f.get("code", ""), f["sha256"])] = f["fetched_at"]
+    except (FileNotFoundError, ValueError):
+        pass
+
     # Side files must be present before SDN is parsed.
     ordered = sorted(codes, key=lambda c: 0 if c in ("SDN_ALT", "SDN_ADD") else 1)
 
@@ -210,9 +222,27 @@ def refresh(
                 rec.http_status = 0
                 rec.bytes = len(body)
                 rec.sha256 = hashlib.sha256(body).hexdigest()
-                rec.fetched_at = datetime.fromtimestamp(
-                    path.stat().st_mtime, tz=timezone.utc
-                ).isoformat()
+                rec.from_cache = True
+                # Freshness must describe when this CONTENT was obtained, not
+                # when the file was last touched. Deriving it from st_mtime
+                # made the staleness refusal a one-line shell bypass:
+                # `touch lists/*.raw` turned three-year-old sanctions data into
+                # a "0.0 days old" snapshot, with stale_override false in the
+                # audit log. Carry forward the recorded fetch time for this
+                # exact sha256 instead, and only fall back to mtime when there
+                # is no prior record to carry.
+                prior = prior_fetched.get((code, rec.sha256))
+                if prior:
+                    rec.fetched_at = prior
+                else:
+                    rec.fetched_at = datetime.fromtimestamp(
+                        path.stat().st_mtime, tz=timezone.utc
+                    ).isoformat()
+                    rec.warnings.append(
+                        f"No prior manifest entry for this {code} content; fetch "
+                        "time was inferred from the file timestamp and may be "
+                        "later than when the data was actually published."
+                    )
             else:
                 rec.error = f"offline and no cached file at {path}"
         else:
@@ -235,14 +265,30 @@ def refresh(
     failed = [r.code for r in records if r.error]
     empty = [r.code for r in records if not r.error and r.parties == 0
              and r.code not in ("SDN_ALT", "SDN_ADD")]
-    if failed or empty:
+    # A refresh narrower than the default set rewrites parties.jsonl from only
+    # the codes it was given. `xscreen refresh --sources DPL` is a reasonable
+    # thing to type and it silently dropped the SDN list, after which a
+    # blocked party screened CLEAR and the CLI exited 0 -- with the manifest
+    # reporting fresh and not degraded. Coverage is now part of the manifest,
+    # and pipeline.run() refuses to screen without it.
+    missing_default = [c for c in DEFAULT_REFRESH if c not in set(codes)]
+    if failed or empty or missing_default:
         manifest.degraded = True
         bits = []
         if failed:
             bits.append(f"sources failed to download: {failed}")
         if empty:
             bits.append(f"sources downloaded but yielded no parties: {empty}")
+        if missing_default:
+            bits.append(
+                f"refresh covered {sorted(set(codes))}, which omits {missing_default} "
+                "from the default set -- the party corpus was rebuilt from the "
+                "narrower set and is NOT a complete screening corpus"
+            )
         manifest.degraded_reason = "; ".join(bits)
+    manifest.covered_sources = sorted(
+        {r.code for r in records if not r.error and r.code not in ("SDN_ALT", "SDN_ADD")}
+    )
 
     manifest.digest = stable_digest(
         {"files": [{"code": r.code, "sha256": r.sha256} for r in records],
@@ -287,6 +333,7 @@ def load_manifest(data_dir: Path) -> Manifest:
         degraded=d.get("degraded", False),
         degraded_reason=d.get("degraded_reason", ""),
         digest=d.get("digest", ""),
+        covered_sources=d.get("covered_sources", []),
     )
     return m
 
@@ -323,6 +370,22 @@ def staleness_check(manifest: Manifest, max_age_days: int = MAX_LIST_AGE_DAYS,
     a = age_days(manifest, now)
     if a == float("inf"):
         return False, "No successfully fetched source files in the manifest."
+    if a < 0:
+        # A future timestamp made `a > max_age_days` permanently false, so a
+        # hand-edited manifest or a skewed clock read as eternally fresh.
+        return False, (
+            f"Manifest timestamps are {abs(a):.1f} days in the future. Either the "
+            "system clock is wrong or the manifest was edited; neither is a "
+            "basis for screening."
+        )
+    missing = [c for c in DEFAULT_REFRESH
+               if c not in set(manifest.covered_sources or []) and c not in ("SDN_ALT", "SDN_ADD")]
+    if manifest.covered_sources and missing:
+        return False, (
+            f"The loaded corpus does not cover {missing}. It was built by a "
+            "narrower refresh and is not a complete screening corpus. Run "
+            "`xscreen refresh` with the default source set."
+        )
     if a > max_age_days:
         return False, (
             f"List data is {a:.1f} days old (limit {max_age_days}). Government "

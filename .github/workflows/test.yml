@@ -47,8 +47,10 @@ jobs:
           mkdir -p "$HOME_DIR/lists"
           cp xscreen/tests/fixtures/*.raw "$HOME_DIR/lists/"
           export XSCREEN_ACTOR="ci"
+          # The full default source set: a narrower refresh now correctly
+          # marks the corpus incomplete and screening refuses to run.
           python -m xscreen.cli --home "$HOME_DIR" refresh --offline \
-            --sources CSL SDN SDN_ALT SDN_ADD DPL
+            --sources CSL SDN SDN_ALT SDN_ADD NONSDN DPL
           python -m xscreen.cli --home "$HOME_DIR" status
           # Exit 2 is the expected, correct outcome: the fixture party file
           # contains real hits that require human review. Exit 0 here would

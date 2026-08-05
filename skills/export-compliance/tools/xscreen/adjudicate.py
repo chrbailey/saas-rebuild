@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 from typing import Any, Sequence
 
-from .llm import Backend, BackendError, get_backend
+from .llm import Backend, BackendError, data_fence, get_backend, scrub_untrusted
 from .models import Adjudication, Candidate, ScreeningResult, SubjectParty
 from .rules import SEVERITY_RANK, provisional_disposition
 
@@ -112,13 +112,15 @@ def _render_case(subject: SubjectParty, candidates: Sequence[Candidate]) -> str:
             "matcher_band": c.band,
             "matcher_signals": c.signals,
         })
+    s_open, s_close = data_fence("counterparty_untrusted_data")
+    c_open, c_close = data_fence("candidates_untrusted_data")
     return (
-        "<counterparty_untrusted_data>\n"
-        + json.dumps(subj, indent=2, ensure_ascii=False)
-        + "\n</counterparty_untrusted_data>\n\n"
-        "<candidates_untrusted_data>\n"
-        + json.dumps(cands, indent=2, ensure_ascii=False)
-        + "\n</candidates_untrusted_data>\n\n"
+        f"{s_open}\n"
+        + json.dumps(scrub_untrusted(subj), indent=2, ensure_ascii=False)
+        + f"\n{s_close}\n\n"
+        f"{c_open}\n"
+        + json.dumps(scrub_untrusted(cands), indent=2, ensure_ascii=False)
+        + f"\n{c_close}\n\n"
         "Adjudicate every candidate id above. Return the JSON object only."
     )
 
@@ -210,8 +212,14 @@ def adjudicate_result(
         raw = be.complete_json(SYSTEM_PROMPT, _render_case(subject, live))
         got = _coerce(raw, getattr(be, "name", "unknown"))
         error = ""
-    except BackendError as e:
-        got, error = {}, str(e)
+    except Exception as e:  # noqa: BLE001
+        # Deliberately broad. `Backend` is a Protocol, so a third-party or
+        # local implementation can raise anything; a TimeoutError from a
+        # custom transport used to abort the whole run mid-file, leaving
+        # results unwritten and the audit log holding a run.start with no
+        # run.end. Every failure mode has to land in the same place: no
+        # adjudication, escalate, continue the run.
+        got, error = {}, f"{type(e).__name__}: {e}"
 
     adjudications: list[Adjudication] = []
     for c in live:
@@ -264,6 +272,16 @@ def resolve_disposition(result: ScreeningResult) -> ScreeningResult:
 
     disposition, reason = floor, floor_reason
     needs_human = floor in ("CONFIRMED_HIT", "BLOCKED", "ESCALATE")
+
+    # A model that invented candidate ids violated the closed-set contract.
+    # The violation was recorded but never read, so the disposition was
+    # untouched -- a schema violation that did not escalate.
+    if any(a.listed_uid == "__discarded__" for a in adjs):
+        needs_human = True
+        disposition, reason = "ESCALATE", (
+            "The adjudicator returned verdicts for candidates that were not in "
+            "the candidate set. Its output cannot be trusted for this case."
+        )
 
     confirmed: list[Candidate] = []
     for c in cands:

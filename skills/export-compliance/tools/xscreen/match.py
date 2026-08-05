@@ -477,3 +477,23 @@ def idf(index: ListIndex, token: str) -> float:
     n = max(1, index.size)
     df = index._df.get(token, 0)
     return round(math.log((n + 1) / (df + 1)) + 1.0, 4)
+
+
+def tuning_digest() -> str:
+    """Digest of every constant that changes a score or a band.
+
+    `engine_version` is a hand-maintained string, so it cannot be trusted to
+    move when someone edits a weight. This can, and it goes on every result:
+    a 2031 auditor comparing two runs needs to see that the thresholds moved,
+    not infer it.
+    """
+    from .models import stable_digest
+
+    return stable_digest({
+        "weights": WEIGHTS,
+        "strong_floor": STRONG_FLOOR,
+        "weak_floor": WEAK_FLOOR,
+        "block_df_ceiling": BLOCK_DF_CEILING,
+        "max_block_entries": MAX_BLOCK_ENTRIES,
+        "short_name_chars": SHORT_NAME_CHARS,
+    })

@@ -30,7 +30,7 @@ class TestCriticIndependence(unittest.TestCase):
         review(make_case(), be)
         _, user = be.calls[0]
         self.assertNotIn(WORKER_PROMPT[:200], user)
-        self.assertIn("<case_under_review>", user)
+        self.assertIn("<case_under_review id=", user)
 
     def test_critic_receives_evidence_and_conclusions(self):
         be = FakeBackend(critic_payload())
@@ -39,6 +39,24 @@ class TestCriticIndependence(unittest.TestCase):
         for key in ("deterministic_candidates", "adjudications_under_review",
                     "rule_flags", "proposed_disposition"):
             self.assertIn(key, user)
+
+    def test_critic_never_receives_unscreened_columns(self):
+        """Regression, and a data-protection one: the critic used to receive
+        `subject["raw"]` -- every column of the operator's CSV, including bank
+        details and passport numbers the adjudicator never sees. The docs tell
+        operators to point the critic at a DIFFERENT, often third-party model."""
+        r = make_case()
+        r.subject["raw"] = {
+            "bank_iban": "AE070331234567890123456",
+            "passport_no": "P4429117",
+            "internal_margin_pct": "38.5",
+            "notes": "CFO wants it booked this quarter",
+        }
+        be = FakeBackend(critic_payload())
+        review(r, be)
+        _, user = be.calls[0]
+        for secret in ("AE070331234567890123456", "P4429117", "38.5", "CFO wants"):
+            self.assertNotIn(secret, user, f"{secret!r} reached the critic backend")
 
     def test_critic_prompt_is_biased_toward_false_negatives(self):
         from xscreen.critic import CRITIC_SYSTEM

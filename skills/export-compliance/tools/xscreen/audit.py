@@ -128,22 +128,72 @@ class AuditLog:
     # -- reading ---------------------------------------------------------
 
     def entries(self) -> Iterator[dict[str, Any]]:
+        """Yield entries, marking unparseable lines rather than raising.
+
+        A partial write -- disk full, SIGKILL mid-fsync, a stray line from
+        some other tool -- used to make the log permanently unreadable AND
+        unwritable, because `append` reads the head first. One truncated line
+        could therefore block every future screening run, with no recovery
+        short of hand-editing the evidence file.
+        """
         if not self.path.exists():
             return iter(())
+
         def _gen() -> Iterator[dict[str, Any]]:
             with self.path.open(encoding="utf-8") as fh:
-                for line in fh:
+                for lineno, line in enumerate(fh, 1):
                     line = line.strip()
-                    if line:
-                        yield json.loads(line)
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError as e:
+                        yield {"__corrupt__": True, "lineno": lineno, "error": str(e),
+                               "raw": line[:200]}
+                        continue
+                    if isinstance(obj, dict):
+                        yield obj
+                    else:
+                        yield {"__corrupt__": True, "lineno": lineno,
+                               "error": f"line is a {type(obj).__name__}, not an object",
+                               "raw": line[:200]}
         return _gen()
 
     def head(self) -> tuple[int, str]:
-        """(sequence, hash) of the last entry, or (0, GENESIS) when empty."""
+        """(sequence, hash) of the last well-formed entry, or (0, GENESIS)."""
         seq, h = 0, GENESIS
         for e in self.entries():
+            if e.get("__corrupt__"):
+                continue
             seq, h = e.get("seq", seq), e.get("hash", h)
         return seq, h
+
+    # -- tamper marker ---------------------------------------------------
+
+    @property
+    def head_marker_path(self) -> Path:
+        return self.path.parent / "HEAD"
+
+    def _write_head_marker(self, seq: int, digest: str) -> None:
+        """Persist the expected chain length beside the log.
+
+        `verify()` walks forward from GENESIS, so a valid *prefix* verifies
+        clean -- an operator who dislikes today's hits could delete the
+        trailing lines and the chain would still report INTACT. Recording the
+        expected head gives truncation something to contradict. Make this file
+        root-owned in a real deployment: an attacker who has to edit two files
+        in agreement is doing something much more deliberate than `truncate`.
+        """
+        self.head_marker_path.write_text(
+            json.dumps({"seq": seq, "hash": digest}, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    def _read_head_marker(self) -> dict[str, Any] | None:
+        try:
+            return json.loads(self.head_marker_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
 
     # -- writing ---------------------------------------------------------
 
@@ -174,6 +224,7 @@ class AuditLog:
                 fh.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
                 fh.flush()
                 os.fsync(fh.fileno())
+            self._write_head_marker(entry["seq"], entry["hash"])
         return entry
 
     # -- verification ----------------------------------------------------
@@ -186,6 +237,13 @@ class AuditLog:
         count = 0
         for e in self.entries():
             count += 1
+            if e.get("__corrupt__"):
+                problems.append(
+                    f"line {e.get('lineno')}: unreadable entry ({e.get('error')}). "
+                    "A partial write or foreign line is present; the chain cannot "
+                    "be verified across it."
+                )
+                continue
             if e.get("seq") != expected_seq:
                 problems.append(
                     f"entry {count}: sequence is {e.get('seq')}, expected "
@@ -206,6 +264,30 @@ class AuditLog:
             expected_seq = (e.get("seq") or expected_seq) + 1
         if count == 0:
             problems.append("audit log is empty")
+
+        # Compare against the recorded head. Forward verification alone cannot
+        # see a truncated tail, because a valid prefix is still a valid chain.
+        marker = self._read_head_marker()
+        seq, digest = self.head()
+        if marker is None:
+            if count:
+                problems.append(
+                    "no HEAD marker beside the log, so truncation of the most "
+                    "recent entries cannot be ruled out. Entries written by this "
+                    "version maintain one."
+                )
+        else:
+            if marker.get("seq", 0) > seq:
+                problems.append(
+                    f"the log ends at entry {seq} but the HEAD marker records "
+                    f"{marker.get('seq')} -- {marker.get('seq', 0) - seq} entry(ies) "
+                    "have been removed from the end"
+                )
+            elif marker.get("seq") == seq and marker.get("hash") != digest:
+                problems.append(
+                    "the final entry's hash does not match the HEAD marker -- the "
+                    "last entry was replaced"
+                )
         return (not problems), problems
 
     def retention_floor(self, now: datetime | None = None) -> str:

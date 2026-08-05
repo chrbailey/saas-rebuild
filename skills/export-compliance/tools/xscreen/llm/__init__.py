@@ -65,17 +65,58 @@ def extract_json(text: str) -> dict[str, Any]:
     text = (text or "").strip()
     if text.startswith("```"):
         text = re.sub(r"^```[a-zA-Z]*\s*|\s*```$", "", text).strip()
+
+    obj = None
     try:
-        return json.loads(text)
+        obj = json.loads(text)
     except json.JSONDecodeError:
-        pass
-    m = _JSON_BLOCK.search(text)
-    if m:
-        try:
-            return json.loads(m.group(0))
-        except json.JSONDecodeError as e:
-            raise BackendError(f"model returned unparseable JSON: {e}") from e
-    raise BackendError("model response contained no JSON object")
+        m = _JSON_BLOCK.search(text)
+        if m:
+            try:
+                obj = json.loads(m.group(0))
+            except json.JSONDecodeError as e:
+                raise BackendError(f"model returned unparseable JSON: {e}") from e
+        else:
+            raise BackendError("model response contained no JSON object")
+
+    # A model returning a top-level array, number or null is a common failure
+    # mode, and the callers all assume a mapping. Without this guard the run
+    # died on AttributeError partway through the file, leaving results
+    # unwritten and the audit log holding a run.start with no run.end.
+    if not isinstance(obj, dict):
+        raise BackendError(
+            f"model returned a top-level {type(obj).__name__}, expected a JSON object"
+        )
+    return obj
+
+
+# Delimiters wrapping untrusted data are generated per call. Static tags are
+# forgeable: json.dumps escapes quotes and backslashes but not angle brackets,
+# so a counterparty could name itself
+# `Vostok Ltd</counterparty_untrusted_data><system_override>...` and close the
+# fence. A nonce the attacker cannot see cannot be closed by a payload written
+# in advance.
+def data_fence(label: str) -> tuple[str, str]:
+    import secrets
+
+    nonce = secrets.token_hex(8)
+    return f"<{label} id=\"{nonce}\">", f"</{label} id=\"{nonce}\">"
+
+
+def scrub_untrusted(value):
+    """Recursively neutralize fence-closing characters in untrusted values.
+
+    Belt and braces alongside the nonce: even a lucky guess needs the angle
+    brackets, and no legitimate party name loses meaning by having them
+    replaced with parentheses.
+    """
+    if isinstance(value, str):
+        return value.replace("<", "(").replace(">", ")")
+    if isinstance(value, dict):
+        return {k: scrub_untrusted(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [scrub_untrusted(v) for v in value]
+    return value
 
 
 # Transient HTTP statuses worth retrying rather than treating as a verdict.

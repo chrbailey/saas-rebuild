@@ -24,7 +24,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from .models import Candidate, ScreeningResult, SubjectParty
+from .models import Candidate, ScreeningResult, SubjectParty, stable_digest
 from .names import fold
 
 POLICY_PATH = Path(__file__).parent / "policy" / "destinations.json"
@@ -58,6 +58,7 @@ class Policy:
     aliases: dict[str, str]
     known_iso2: set[str] = field(default_factory=set)
     tiers: dict[str, str] = field(default_factory=dict)
+    digest: str = ""
 
     @property
     def verified(self) -> bool:
@@ -88,7 +89,8 @@ class Policy:
 
 
 def load_policy(path: Path | None = None) -> Policy:
-    raw = json.loads(Path(path or POLICY_PATH).read_text(encoding="utf-8"))
+    text = Path(path or POLICY_PATH).read_text(encoding="utf-8")
+    raw = json.loads(text)
     countries = {c["iso2"]: c for c in raw.get("countries", [])}
     transshipment = set(raw.get("transshipment_watch", {}).get("countries", []))
     aliases = {fold(k): v for k, v in raw.get("aliases", {}).items() if not k.startswith("$")}
@@ -106,6 +108,9 @@ def load_policy(path: Path | None = None) -> Policy:
         aliases=aliases,
         known_iso2=known,
         tiers=raw.get("tiers", {}),
+        # Hash the parsed content, not the file bytes, so reformatting is
+        # not mistaken for a policy change while a value edit always is.
+        digest=stable_digest({k: v for k, v in raw.items() if not k.startswith("$")}),
     )
 
 

@@ -46,8 +46,9 @@ def row(ref: str, disposition: str, name: str = "", **kw) -> dict[str, str]:
 
 class TestDiff(unittest.TestCase):
     def test_newly_designated_party_is_a_new_hit(self):
-        before = load_dispositions(make_csv([row("C-1", "CLEAR")]))
-        after = load_dispositions(make_csv([row("C-1", "CONFIRMED_HIT", top_list="SDN")]))
+        before = load_dispositions(make_csv([row("C-1", "CLEAR", name="Acme Ltd")]))
+        after = load_dispositions(make_csv([row("C-1", "CONFIRMED_HIT", name="Acme Ltd",
+                                                top_list="SDN")]))
         g = diff_dispositions(before, after)
         self.assertEqual(len(g[NEW_HIT]), 1)
         self.assertEqual(g[NEW_HIT][0]["ref"], "C-1")
@@ -60,10 +61,17 @@ class TestDiff(unittest.TestCase):
         self.assertEqual(len(g[RESOLVED]), 1)
         self.assertEqual(len(g[NEW_HIT]), 0)
 
-    def test_escalation_between_non_clear_states_is_changed(self):
-        before = load_dispositions(make_csv([row("C-1", "REVIEW")]))
-        after = load_dispositions(make_csv([row("C-1", "BLOCKED")]))
-        g = diff_dispositions(before, after)
+    def test_severity_escalation_is_a_new_hit_not_merely_changed(self):
+        # REVIEW -> BLOCKED and BLOCKED -> REVIEW used to be indistinguishable
+        # at the exit code. An escalation belongs with the new hits.
+        g = diff_dispositions(load_dispositions(make_csv([row("C-1", "REVIEW")])),
+                              load_dispositions(make_csv([row("C-1", "BLOCKED")])))
+        self.assertEqual(len(g[NEW_HIT]), 1)
+        self.assertEqual(len(g[CHANGED]), 0)
+
+    def test_severity_de_escalation_is_merely_changed(self):
+        g = diff_dispositions(load_dispositions(make_csv([row("C-1", "BLOCKED")])),
+                              load_dispositions(make_csv([row("C-1", "REVIEW")])))
         self.assertEqual(len(g[CHANGED]), 1)
         self.assertEqual(len(g[NEW_HIT]), 0)
 
@@ -199,3 +207,25 @@ class TestPartyFileEncoding(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDuplicateRefs(unittest.TestCase):
+    """Regression: keying on ref alone let a later CLEAR row overwrite an
+    earlier BLOCKED one, and the blocked party vanished from every diff and
+    from the open-case rollup. ERP exports duplicate account numbers."""
+
+    def test_two_parties_sharing_a_ref_both_survive(self):
+        loaded = load_dispositions(make_csv([
+            row("ACCT-9", "BLOCKED", name="Northwind Heavy Machinery"),
+            row("ACCT-9", "CLEAR", name="Sunny Day Bakery"),
+        ]))
+        self.assertEqual(len(loaded), 2)
+        self.assertIn("BLOCKED", [r["disposition"] for r in loaded.values()])
+
+    def test_the_blocked_row_still_reaches_the_open_case_rollup(self):
+        runs = [("r1", load_dispositions(make_csv([
+            row("ACCT-9", "BLOCKED", name="Northwind Heavy Machinery"),
+            row("ACCT-9", "CLEAR", name="Sunny Day Bakery"),
+        ])))]
+        md = open_cases_report(runs)
+        self.assertIn("Northwind Heavy Machinery", md)

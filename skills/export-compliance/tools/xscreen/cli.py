@@ -259,20 +259,23 @@ def cmd_diff(args) -> int:
     groups = diff_dispositions(before, after)
     md = diff_report(groups, str(paths[0]), str(paths[1]))
 
+    # Record the comparison BEFORE writing output. A reader closing the pipe
+    # must not be able to prevent the diff from reaching the audit log.
+    _, _, audit_path = _paths(args)
+    AuditLog(audit_path).append("run.diff", {
+        "before": str(paths[0]), "after": str(paths[1]),
+        "counts": {k: len(v) for k, v in groups.items()},
+    })
+    if groups[NEW_HIT]:
+        print(f"{len(groups[NEW_HIT])} new hit(s) — investigate every one.", file=sys.stderr)
+
     if args.out:
         Path(args.out).expanduser().write_text(md, encoding="utf-8")
         print(f"Wrote {args.out}", file=sys.stderr)
     else:
         print(md)
 
-    _, _, audit_path = _paths(args)
-    AuditLog(audit_path).append("run.diff", {
-        "before": str(paths[0]), "after": str(paths[1]),
-        "counts": {k: len(v) for k, v in groups.items()},
-    })
-
     if groups[NEW_HIT]:
-        print(f"\n{len(groups[NEW_HIT])} new hit(s) — investigate every one.", file=sys.stderr)
         return 3
     if groups[CHANGED]:
         return 2
@@ -433,14 +436,20 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return args.func(args)
     except BrokenPipeError:
-        # `xscreen diff ... | head` is a normal thing to do. Exit quietly with
-        # the command's own semantics rather than a traceback, and close
-        # stdout so the interpreter does not complain again at shutdown.
+        # `xscreen diff ... | head` is a normal thing to do, and it must not
+        # change the answer. Returning 0 here turned "4000 new hits" (exit 3)
+        # into a clean exit purely because the reader closed the pipe -- a
+        # gating CLI must never fail open through an exception handler.
+        # Exit 1 says "this run did not complete", which is true and is not
+        # mistakable for a pass.
         try:
             sys.stdout.close()
         except Exception:  # noqa: BLE001
             pass
-        return 0
+        print("Output pipe closed before the command finished; the exit code "
+              "does not reflect the screening result. Re-run with --out to a "
+              "file if you need the code.", file=sys.stderr)
+        return 1
     except KeyboardInterrupt:
         print("\nInterrupted. Nothing further was written.", file=sys.stderr)
         return 1

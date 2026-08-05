@@ -53,9 +53,10 @@ class PipelineCase(unittest.TestCase):
         self.dir = Path(tempfile.mkdtemp())
         self.data = self.dir / "lists"
         self.data.mkdir(parents=True)
-        for f in ("SDN.raw", "SDN_ALT.raw", "SDN_ADD.raw", "DPL.raw", "CSL.raw"):
+        for f in ("SDN.raw", "SDN_ALT.raw", "SDN_ADD.raw", "DPL.raw", "CSL.raw",
+                  "NONSDN.raw"):
             shutil.copy(FIX / f, self.data / f)
-        self.manifest = refresh(self.data, ("CSL", "SDN", "SDN_ALT", "SDN_ADD", "DPL"), offline=True)
+        self.manifest = refresh(self.data, ("CSL", "SDN", "SDN_ALT", "SDN_ADD", "DPL", "NONSDN"), offline=True)
         self.audit = self.dir / "audit.jsonl"
 
     def tearDown(self):
@@ -77,11 +78,11 @@ class TestRefresh(PipelineCase):
             self.assertEqual(len(f["sha256"]), 64, f["code"])
 
     def test_digest_is_reproducible(self):
-        again = refresh(self.data, ("CSL", "SDN", "SDN_ALT", "SDN_ADD", "DPL"), offline=True)
+        again = refresh(self.data, ("CSL", "SDN", "SDN_ALT", "SDN_ADD", "DPL", "NONSDN"), offline=True)
         self.assertEqual(again.digest, self.manifest.digest)
 
     def test_missing_source_marks_the_run_degraded(self):
-        m = refresh(self.data, ("CSL", "SDN", "MEU"), offline=True)
+        m = refresh(self.data, ("CSL", "SDN", "SDN_ALT", "NONSDN", "DPL", "MEU"), offline=True)
         self.assertTrue(m.degraded)
         self.assertIn("MEU", m.degraded_reason)
 

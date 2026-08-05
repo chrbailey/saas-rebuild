@@ -176,6 +176,12 @@ class ScreeningResult:
     requires_human: bool = False
     # Provenance of the list data this result was computed against.
     list_manifest_digest: str = ""
+    # Digest of the country policy file and the matcher tuning constants.
+    # Without it the rule half of a result is not reproducible: one edited
+    # line in destinations.json flips REVIEW to CLEAR with nothing on the
+    # record to distinguish the two runs.
+    policy_digest: str = ""
+    tuning_digest: str = ""
     engine_version: str = SCHEMA_VERSION
     screened_at: str = ""
 
