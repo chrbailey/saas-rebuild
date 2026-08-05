@@ -260,9 +260,20 @@ ALT_COLS = 5    # ent_num, alt_num, alt_type, alt_name, alt_remarks
 ADD_COLS = 6    # ent_num, add_num, address, city_state_zip, country, remarks
 
 
+# Values OFAC uses in the SDN type column. Used as a content sanity check:
+# the flat files are positionally defined, so a column *count* check cannot
+# detect a same-width reorder. If the field that should hold the party type
+# stops looking like a party type, the layout has moved under us.
+SDN_TYPE_VOCAB = frozenset({
+    "individual", "entity", "vessel", "aircraft", "-0-", "",
+})
+
+
 def parse_ofac_sdn(text: str, source_code: str = "SDN") -> ParseOutcome:
     """Parse SDN.CSV or CONS_PRIM.CSV (identical layout, different list)."""
     out = ParseOutcome()
+    type_seen = 0
+    type_recognized = 0
     for row in csv.reader(io.StringIO(text)):
         if not row or not any(c.strip() for c in row):
             continue
@@ -278,6 +289,9 @@ def parse_ofac_sdn(text: str, source_code: str = "SDN") -> ParseOutcome:
                 "current file specification."
             )
         ent, name, typ, program = (_clean(row[0]), _clean(row[1]), _clean(row[2]), _clean(row[3]))
+        type_seen += 1
+        if (row[2] or "").strip().lower() in SDN_TYPE_VOCAB:
+            type_recognized += 1
         if not name:
             out.skipped_rows += 1
             continue
@@ -293,6 +307,19 @@ def parse_ofac_sdn(text: str, source_code: str = "SDN") -> ParseOutcome:
                 remarks=remarks,
                 raw={"row": " | ".join(row)},
             )
+        )
+    # A column-count check cannot catch a same-width reorder, which is a real
+    # historical failure mode for headerless government files. If the party-type
+    # column stops looking like party types, say so loudly -- a silently
+    # misaligned parse produces names built from the wrong field, and every
+    # subsequent screen against that snapshot is worthless.
+    if type_seen >= 5 and type_recognized / type_seen < 0.6:
+        out.warnings.append(
+            f"Only {type_recognized}/{type_seen} rows had a recognizable value in "
+            f"the {source_code} party-type column. This file is positionally "
+            "defined, so that is a symptom of a COLUMN REORDER, not of unusual "
+            "data. Verify the parser against the current file specification "
+            "before screening against this snapshot."
         )
     return out
 

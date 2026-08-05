@@ -1,3 +1,4 @@
+import csv
 import unittest
 from pathlib import Path
 
@@ -143,6 +144,32 @@ class TestCSL(unittest.TestCase):
         out = parse_csl("foo,bar\n1,2\n")
         self.assertEqual(out.parties, [])
         self.assertTrue(any("no recognizable name column" in w for w in out.warnings))
+
+
+class TestPositionalDrift(unittest.TestCase):
+    """The OFAC flat files are positionally defined, so a column-count check
+    cannot detect a same-width reorder. A misaligned parse builds names out of
+    the wrong field and every screen against that snapshot is worthless."""
+
+    def test_clean_file_produces_no_drift_warning(self):
+        out = parse_ofac_sdn(read("SDN.raw"))
+        self.assertFalse([w for w in out.warnings if "COLUMN REORDER" in w])
+
+    def test_reordered_columns_are_detected(self):
+        rows = []
+        for line in read("SDN.raw").splitlines():
+            parts = next(csv.reader([line]))
+            if len(parts) >= 4:
+                # Swap the type and program columns: same width, wrong meaning.
+                parts[2], parts[3] = parts[3], parts[2]
+            rows.append(",".join(f'"{p}"' for p in parts))
+        out = parse_ofac_sdn("\n".join(rows))
+        self.assertTrue([w for w in out.warnings if "COLUMN REORDER" in w],
+                        f"a column swap went undetected: {out.warnings}")
+
+    def test_small_files_do_not_trigger_a_false_alarm(self):
+        out = parse_ofac_sdn('1,"ACME","weird","PROG",,,,,,,,\n')
+        self.assertFalse([w for w in out.warnings if "COLUMN REORDER" in w])
 
 
 class TestRaggedRows(unittest.TestCase):
