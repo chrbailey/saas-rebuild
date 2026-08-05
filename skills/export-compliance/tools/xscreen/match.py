@@ -281,8 +281,17 @@ def score_pair(subject_name: str, entry: IndexedName,
     jw_ordered = jaro_winkler(s_norm, entry.norm)
     jw_sorted = jaro_winkler(s_sorted, entry.sorted_norm)
     jw = max(jw_ordered, jw_sorted)
-    lev = max(levenshtein_ratio(s_norm, entry.norm),
-              levenshtein_ratio(s_sorted, entry.sorted_norm))
+    # Cap the edit-distance search at the point below which it cannot lift
+    # the score over the WEAK floor. With jaro and skeleton already at their
+    # best possible values (that is what `ceiling` assumes),
+    #     score_max(lev) = ceiling - w_lev * (1 - lev)
+    # so the smallest lev that could still band is
+    #     (WEAK_FLOOR - ceiling) / w_lev + 1.
+    # Below that the pair is NONE either way, and a NONE pair's score is never
+    # reported, so capping changes no recorded value.
+    lev_floor = min(0.99, max(0.0, (WEAK_FLOOR - ceiling) / WEIGHTS["levenshtein"] + 1.0))
+    lev = max(levenshtein_ratio(s_norm, entry.norm, lev_floor),
+              levenshtein_ratio(s_sorted, entry.sorted_norm, lev_floor))
     ts, cont = ts_early, cont_early
     skel_eq = 1.0 if (s_skel and (s_skel == entry.skel
                                   or s_sorted_skel == entry.sorted_skel)) else 0.0

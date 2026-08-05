@@ -15,7 +15,7 @@ from pathlib import Path
 
 from xscreen.audit import AuditLog
 from xscreen.fetch import load_manifest, refresh, staleness_check
-from xscreen.models import Candidate, ScreeningResult, SubjectParty
+from xscreen.models import Candidate, ListedParty, ScreeningResult, SubjectParty
 
 FIX = Path(__file__).parent / "fixtures"
 FULL = ("CSL", "SDN", "SDN_ALT", "SDN_ADD", "NONSDN", "DPL")
@@ -279,6 +279,80 @@ class TestClosedSetViolationEscalates(unittest.TestCase):
         r = resolve_disposition(adjudicate_result(make_result(), FakeBackend(payload)))
         self.assertEqual(r.disposition, "ESCALATE")
         self.assertTrue(r.requires_human)
+
+
+class TestHostileInputIsBounded(unittest.TestCase):
+    """A 13 KB counterparty name -- comfortably inside the csv field limit --
+    cost minutes per row, so a hostile or corrupt name field could wedge the
+    nightly screening job indefinitely. Given the gate semantics, an unbounded
+    run is functionally a bypass."""
+
+    def test_over_long_names_are_truncated_and_disclosed(self):
+        import csv
+        import io
+
+        from xscreen.pipeline import MAX_NAME_CHARS, parse_party_file
+
+        buf = io.StringIO()
+        w = csv.writer(buf, lineterminator="\n")
+        w.writerow(["ref", "name"])
+        w.writerow(["bad", "Northwind " + ("Padding " * 2000)])
+        subjects, warnings = parse_party_file(buf.getvalue())
+        self.assertEqual(len(subjects[0].name), MAX_NAME_CHARS)
+        self.assertTrue(any("truncated" in x for x in warnings),
+                        "truncation was silent")
+
+    def test_alias_count_is_bounded_and_disclosed(self):
+        import csv
+        import io
+
+        from xscreen.pipeline import MAX_ALIASES, parse_party_file
+
+        buf = io.StringIO()
+        w = csv.writer(buf, lineterminator="\n")
+        w.writerow(["ref", "name", "aka"])
+        w.writerow(["bad", "Acme", ";".join(f"Alias{i}" for i in range(500))])
+        subjects, warnings = parse_party_file(buf.getvalue())
+        self.assertEqual(len(subjects[0].aliases), MAX_ALIASES)
+        self.assertTrue(any("only the first" in x for x in warnings))
+
+    def test_capping_the_edit_distance_never_changes_a_band(self):
+        """The cap is only sound if a capped distance cannot alter a verdict."""
+        from xscreen import match as m
+        from xscreen.match import ListIndex, assign_band, score_pair
+
+        idx = ListIndex()
+        for name in ["Northwind Heavy Machinery OAO", "Gazprom Neft",
+                     "Acme Precision Machining Corp", "Sunny Day Bakery LLC",
+                     "PETROV, Vasiliy Ivanovich", "Zenith Precision Instruments"]:
+            idx.add(ListedParty(uid=f"SDN:{name[:4]}", source="SDN",
+                                native_id=name[:4], name=name))
+        idx.build()
+
+        probes = [e.listed_name for e in idx.entries] + [
+            "Northwind Heavy Machinry", "Gazprom", "Acme", "Vasiliy Petroff",
+            "Zenith Precision", "Completely Unrelated Holdings AG",
+        ]
+        def bands() -> dict:
+            out = {}
+            for e in idx.entries:
+                for n in probes:
+                    score, signals = score_pair(n, e, early_exit=False)
+                    out[(n, e.listed_name)] = assign_band(score, signals, n, e)
+            return out
+
+        capped = bands()
+        real = m.levenshtein_ratio
+        try:
+            # Force the uncapped path and recompute every band.
+            m.levenshtein_ratio = lambda a, b, floor=0.0: real(a, b, 0.0)
+            uncapped = bands()
+        finally:
+            m.levenshtein_ratio = real
+
+        self.assertEqual(capped, uncapped,
+                         "the edit-distance cap changed a band assignment")
+        self.assertGreater(len(capped), 40)
 
 
 class TestReportEscaping(unittest.TestCase):

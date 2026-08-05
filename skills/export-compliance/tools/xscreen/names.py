@@ -257,11 +257,22 @@ def levenshtein(a: str, b: str, cap: int | None = None) -> int:
     return prev[-1]
 
 
-def levenshtein_ratio(a: str, b: str) -> float:
+def levenshtein_ratio(a: str, b: str, floor: float = 0.0) -> float:
+    """Similarity in [0, 1].
+
+    `floor` lets the caller say "I only care whether this beats X", which caps
+    the edit-distance search instead of filling the whole O(n*m) matrix. On a
+    pathological name -- a 13 KB field, which fits comfortably inside the csv
+    limit -- the uncapped version cost minutes per comparison.
+    """
     if not a and not b:
         return 1.0
     m = max(len(a), len(b))
-    return 1.0 - (levenshtein(a, b) / m) if m else 0.0
+    if not m:
+        return 0.0
+    cap = int(m * (1.0 - floor)) if floor > 0.0 else None
+    d = levenshtein(a, b, cap=cap)
+    return max(0.0, 1.0 - (d / m))
 
 
 def token_set_ratio(a: tuple[str, ...], b: tuple[str, ...]) -> float:

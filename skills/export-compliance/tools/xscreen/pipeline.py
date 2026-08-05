@@ -46,6 +46,13 @@ SUBJECT_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Bounds on what one party file may demand of the matcher. Real counterparty
+# names are far below these; the limits exist so a hostile or corrupt field
+# cannot turn a screening run into an unbounded one.
+MAX_NAME_CHARS = 256
+MAX_ALIASES = 50
+
+
 def _norm(h: str) -> str:
     import re
     return re.sub(r"[^a-z0-9]+", "_", (h or "").strip().lower()).strip("_")
@@ -86,7 +93,22 @@ def parse_party_file(text: str) -> tuple[list[SubjectParty], list[str]]:
         if not name:
             warnings.append(f"Row {i}: blank name, skipped.")
             continue
-        aliases = [a.strip() for a in g("aliases").replace("|", ";").split(";") if a.strip()]
+        if len(name) > MAX_NAME_CHARS:
+            warnings.append(
+                f"Row {i}: name is {len(name)} characters and was truncated to "
+                f"{MAX_NAME_CHARS} for matching. Check the source column -- this "
+                "is usually a merged field or a corrupt export, and the "
+                "truncated form may not match what it should."
+            )
+            name = name[:MAX_NAME_CHARS]
+        aliases = [a.strip()[:MAX_NAME_CHARS]
+                   for a in g("aliases").replace("|", ";").split(";") if a.strip()]
+        if len(aliases) > MAX_ALIASES:
+            warnings.append(
+                f"Row {i}: {len(aliases)} aliases supplied; only the first "
+                f"{MAX_ALIASES} were screened."
+            )
+            aliases = aliases[:MAX_ALIASES]
         subjects.append(SubjectParty(
             ref=g("ref") or f"row{i}",
             name=name,
