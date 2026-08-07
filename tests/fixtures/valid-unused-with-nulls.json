@@ -1,0 +1,20 @@
+{
+  "id": "commission-plans",
+  "nav_path": "Settings > Sales > Commission plans",
+  "name": "Commission plans",
+  "kind": "setting",
+  "observed_signals": {
+    "record_count": null,
+    "newest_record": null,
+    "oldest_record": null,
+    "empty_state": true,
+    "notes": "empty-state screen with setup wizard"
+  },
+  "usage": "never",
+  "usage_evidence": "empty state; no commission plan records exist",
+  "criticality": "none",
+  "replaceability": "trivial",
+  "verdict": "DROP",
+  "why": "Configured module with zero records since tenant creation.",
+  "unused_reason": "configured-never-enabled"
+}

@@ -2,3 +2,4 @@
 *.log
 exports/
 teardowns/
+__pycache__/

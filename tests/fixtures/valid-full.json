@@ -1,0 +1,22 @@
+{
+  "id": "invoices-aging-report",
+  "nav_path": "Reports > Billing > Aging",
+  "name": "Invoice aging report",
+  "kind": "report",
+  "data_entities": ["invoice", "customer"],
+  "actions": ["export-csv", "schedule-email"],
+  "observed_signals": {
+    "record_count": 312,
+    "newest_record": "2026-07-28",
+    "oldest_record": "2019-03-02",
+    "empty_state": false,
+    "notes": "last-modified column visible; export button present"
+  },
+  "usage": "weekly",
+  "usage_evidence": "AR clerk interview: pulled every Monday for the collections call",
+  "criticality": "critical",
+  "replaceability": "moderate",
+  "verdict": "KEEP",
+  "why": "Drives the weekly collections process; no substitute exists.",
+  "unused_reason": null
+}
