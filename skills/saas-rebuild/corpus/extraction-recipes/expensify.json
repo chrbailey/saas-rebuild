@@ -1,0 +1,158 @@
+{
+  "app": "expensify",
+  "app_name": "Expensify",
+  "vendor": "Expensify",
+  "category": "ap-ar-spend",
+  "export_rights": {
+    "summary": "Expensify's GDPR commitment states that 'our product tools allow users to export data, manage preferences, and close accounts anytime.' Closing an account permanently deletes unsubmitted expenses and personal data; expenses submitted on a workspace may be retained for regulatory compliance and remain visible to workspace approvers and admins.",
+    "tos_url": "https://help.expensify.com/articles/new-expensify/settings/Encryption-and-Data-Security",
+    "post_termination_window": null
+  },
+  "routes": [
+    {
+      "route_type": "entity-export",
+      "covers": ["expenses", "reports"],
+      "how": "Classic web app: Expenses or Reports tab, select rows (filter by date range, workspace, category, tag, submitter, status first), click 'Export to' top-right and pick a template. New Expensify: Spend > Expenses (or Reports), check rows or select all, Selected > Export, pick a template ('Export current view' matches on-screen columns). Built-in templates include All Data - Expense Level, All Data - Report Level, Basic Export, Canadian Multiple Tax, Category, Per Diem, Tag.",
+      "formats": ["csv", "xls", "csv-without-bom"],
+      "requires": [
+        "web app (Classic mobile app has no export)",
+        "Workspace Admin role to see other members' submitted expenses (Outstanding/Approved/Paid only; members' unreported expenses are not visible)"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "In New Expensify, only Basic Export downloads directly; other templates are delivered via Concierge in the Inbox",
+        "Export templates are unavailable while 'Group by' filters are active (Basic Export still works and preserves groups)",
+        "Custom templates export one line per expense; only 'All Data - Report Level' gives one row per report",
+        "Long IDs open in Excel as scientific notation; import CSV with ID columns formatted as Text",
+        "Receipt URL columns 404 unless the clicker is logged into an Expensify account in the same browser"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["expenses", "reports", "policy-configuration", "employees"],
+      "how": "Integration Server: POST https://integrations.expensify.com/Integration-Server/ExpensifyIntegrations with form-encoded 'requestJobDescription' JSON (credentials = partnerUserID/partnerUserSecret generated at expensify.com/tools/integrations/) plus a 'template' field. Two-step export: job type 'file' with inputSettings.type 'combinedReportData' (filters.reportIDList accepts comma-separated report IDs) and a FreeMarker template returns a random file name; then job type 'download' with that fileName and fileSystem 'integrationServer' returns the file. Job type 'get' with inputSettings.type 'policy' exports policy (workspace) data such as categories and tags; job type 'update' drives the Advanced Employee Updater.",
+      "formats": ["csv (FreeMarker-templated)"],
+      "requires": [
+        "partnerUserID/partnerUserSecret API credentials (self-serve)",
+        "Domain Control + Domain Admin + Policy Admin, verified via concierge@expensify.com, for the Expense Creator API on behalf of other users"
+      ],
+      "rate_limits": "Max 5 requests per 10 seconds and 20 requests per 60 seconds; exceeding returns HTTP 429",
+      "gotchas": [
+        "The 'file' job exports expense/report data only, not policy data - use 'get' with inputSettings.type 'policy' for categories/tags",
+        "Only onReceive immediateResponse 'returnRandomFileName' is supported; you must capture the random file name to run the download job",
+        "Boolean template fields output nothing without a string cast, e.g. ${expense.billable?string(\"Yes\", \"No\")}",
+        "No documented per-user export filter; export all users and filter downstream",
+        "Vendor's own Integrations sample repo (creds template, expensify_export.sh, everything_csv.fm) was archived in 2022"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["expenses", "reports", "insights-datasets"],
+      "how": "Custom CSV export formats built from report- and expense-level formulas: personal templates at Settings > Account > Preferences > CSV Export Formats > New Export Format; workspace-wide templates at Settings > Workspaces > [workspace] > Export Formats tab > New Export Format (shareable with other workspace admins). Insights raw data: Settings-side Insights page, click 'View Raw Data' next to a dataset, then 'Export To' > CSV.",
+      "formats": ["csv", "xls", "csv-without-bom"],
+      "requires": ["Workspace Admin for workspace-level export formats"],
+      "rate_limits": null,
+      "gotchas": [
+        "Custom templates export one line per expense, not per report",
+        "Workspace export formats are limited to that workspace"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["receipts", "report-pdfs"],
+      "how": "Per-report PDF includes all expenses, attached receipts, and report notes. Classic: Reports tab > open report > Details (top-right) > download icon. New Expensify: open report > three dots > 'Download as PDF', or Spend > Reports > select multiple/all > Selected > 'Download as PDF' (each report becomes its own PDF; Concierge can deliver the files in chat). CSV exports carry receipt URLs (Basic Export includes a receipt URL column) rather than embedded images.",
+      "formats": ["pdf", "receipt URLs in csv"],
+      "requires": ["web app"],
+      "rate_limits": null,
+      "gotchas": [
+        "Only the primary receipt image per expense is included in exports and downloadable reports; additional receipt images are visible only inside Expensify",
+        "Classic allows only one report PDF download at a time",
+        "Large reports with high-resolution receipt images may fail to generate; vendor suggests splitting the report",
+        "No per-expense PDF export - PDF is report-level only",
+        "Receipt URLs require an authenticated Expensify browser session or they return 404"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["workspace-policy-configuration", "categories", "tags"],
+      "how": "API job type 'get' with inputSettings.type 'policy' exports policy/workspace data such as categories and tags (Policy ID = Workspace ID, visible in the workspace settings URL). Inside the product, 'Duplicate workspace' (Workspaces > three dots > Duplicate workspace) copies Overview, Members, Reports, Accounting Connection, Categories, Tags, Taxes, Workflows, Rules, Merchant rules, Distance Rates, Per Diem, Invoices, and Travel into a new workspace - a restore path within Expensify, not a downloadable artifact.",
+      "formats": ["json/templated API response"],
+      "requires": ["partnerUserID/partnerUserSecret API credentials", "Workspace Admin to duplicate a workspace"],
+      "rate_limits": "Same Integration Server limits: 5 requests/10s, 20 requests/60s",
+      "gotchas": [
+        "No documented file export of approval workflows or rules; category/tag CSV files are documented for import, with 'Download CSV' offered only for the import template",
+        "Duplicate Workspace keeps configuration inside Expensify only - it is not an off-platform backup"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Report-level PDF export is the documented bulk route for receipt images ('all expenses, attached receipts, and report notes'); New Expensify supports multi-report PDF download. Only the primary receipt image per expense is included; extra receipt images exist only in-app. CSV exports include receipt URLs that require a logged-in session to open.",
+    "audit_log": "No account- or workspace-level audit-log export is documented. Per-report changes (including admin and delegate actions) are tracked in the 'Report History and Comments' section at the bottom of each report, viewable in-app; no bulk export or retention period for this history is documented - verify in-tenant whether it appears in the report PDF.",
+    "config_artifacts": "Partially covered: the API 'get' job with inputSettings.type 'policy' returns workspace configuration (categories, tags, etc.), and 'Duplicate workspace' clones settings including workflows and rules inside Expensify. No documented export of workflows/rules/custom export formats as standalone restorable files."
+  },
+  "sources": [
+    {
+      "url": "https://help.expensify.com/articles/expensify-classic/spending-insights/Export-Expenses-And-Reports",
+      "title": "Export Expenses and Reports (Expensify Classic)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.expensify.com/articles/expensify-classic/connections/Expensify-API",
+      "title": "Expensify API (Integration Server tips, rate limits, Postman export walkthrough)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.expensify.com/articles/new-expensify/reports-and-expenses/How-to-Export-Expenses",
+      "title": "How to Export Expenses (New Expensify)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.expensify.com/articles/new-expensify/reports-and-expenses/How-to-Export-Reports",
+      "title": "How to Export Reports (New Expensify)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.expensify.com/articles/new-expensify/reports-and-expenses/Search-and-Download-Expenses",
+      "title": "Search and Download Expenses (New Expensify)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.expensify.com/articles/expensify-classic/expenses/Export-Expenses-from-the-Expenses-Page",
+      "title": "Export Expenses from the Expenses Page (Expensify Classic)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.expensify.com/articles/expensify-classic/spending-insights/Insights",
+      "title": "Custom Reporting and Insights (Expensify Classic)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.expensify.com/articles/new-expensify/reports-and-expenses/Attach-and-edit-receipts-on-expenses",
+      "title": "Attach and edit receipts on expenses (New Expensify)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.expensify.com/articles/new-expensify/settings/Encryption-and-Data-Security",
+      "title": "Encryption and Data Security (GDPR commitment incl. export statement)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.expensify.com/articles/expensify-classic/settings/Close-Your-Expensify-Account",
+      "title": "Close Your Expensify Account (Expensify Classic)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.expensify.com/articles/new-expensify/workspaces/Duplicate-Workspace",
+      "title": "Duplicate Workspace (New Expensify)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/Expensify/Integrations",
+      "title": "Expensify/Integrations - sample export scripts and FreeMarker templates (archived 2022)",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "help.expensify.com, docs.expensify.com, integrations.expensify.com, and expensify.com were unreachable through this session's egress proxy, so the help articles above were read from their canonical open source in the vendor's Expensify/App GitHub repository (docs/articles/, main branch, retrieved 2026-08-08) - same content, vendor-authored. The full Integration Server manual (integrations.expensify.com/Integration-Server/doc/) could not be fetched, so export-job filters beyond filters.reportIDList (e.g. date-range filters) and any receipt-download API are not documented here. Honest unknowns: no whole-account/tenant backup export is documented; no account-level audit-log export or audit retention period is documented; the Terms of Service and Privacy Policy pages were unreachable, so the export-rights summary rests on the GDPR help article and close-account article, and no post-termination retrieval window is documented anywhere consulted. 'Default Export Templates' article referenced by the Insights doc was not found in the current docs tree (likely renamed); the seven default templates are cited from the Insights article instead."
+}
