@@ -2,6 +2,7 @@ name: release
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -16,6 +17,8 @@ on:
 permissions:
   contents: write
 
+concurrency: release
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -26,29 +29,55 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Resolve the tag to release
+        # Release-on-version-bump: a push to main releases v{plugin.json
+        # version} unless that release already exists, so bumping the
+        # version in a merged PR is the whole release procedure. Tag
+        # pushes and manual dispatch release the named tag directly.
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v$(python3 -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Gate on the test suite
-        # A tag that doesn't pass the suite doesn't become a release.
+        # A version that doesn't pass the suite doesn't become a release.
+        if: steps.tag.outputs.exists == 'false'
         run: |
           pip install pytest jsonschema pyyaml
           pytest tests/ -q
 
       - name: Create the GitHub release
-        # On a tag push, release the pushed tag. On manual dispatch,
-        # gh creates the tag server-side at the requested target first.
+        # gh creates the tag server-side when it doesn't exist yet
+        # (branch-scoped clones can't push tags themselves).
+        if: steps.tag.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
-          INPUT_TAG: ${{ inputs.tag }}
+          TAG: ${{ steps.tag.outputs.tag }}
           INPUT_TARGET: ${{ inputs.target }}
         run: |
-          if [ -n "$INPUT_TAG" ]; then
-            gh release create "$INPUT_TAG" dist/*.zip \
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            gh release create "$TAG" dist/*.zip \
               --repo "${GITHUB_REPOSITORY}" \
-              --target "$INPUT_TARGET" \
-              --title "$INPUT_TAG" \
+              --title "$TAG" \
               --generate-notes
           else
-            gh release create "${GITHUB_REF_NAME}" dist/*.zip \
+            gh release create "$TAG" dist/*.zip \
               --repo "${GITHUB_REPOSITORY}" \
-              --title "${GITHUB_REF_NAME}" \
+              --target "${INPUT_TARGET:-$GITHUB_SHA}" \
+              --title "$TAG" \
               --generate-notes
           fi
