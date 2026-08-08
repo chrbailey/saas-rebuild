@@ -1,7 +1,7 @@
 {
   "name": "saas-rebuild",
   "displayName": "SaaS Rebuild",
-  "description": "Replace SaaS you don't control. Tear down an app you administer - five-plane data extraction, audit-log process mining, evidence-cited verdicts, a full-tenant preservation export, and a dependency-graph-derived rebuild plan validated by transaction replay, emitting a supervised training-pair corpus - and run U.S. restricted-party screening on premise: deterministic matching, hash-chained audit trail, zero dependencies.",
+  "description": "Replace SaaS you don't control. Tear down an app you administer - extraction recipes for the 100 most-adopted SaaS apps built in, five-plane data extraction, audit-log process mining, evidence-cited verdicts, a full-tenant preservation export, and a dependency-graph-derived rebuild plan validated by transaction replay, emitting a supervised training-pair corpus - and run U.S. restricted-party screening on premise: deterministic matching, hash-chained audit trail, zero dependencies.",
   "version": "0.6.0",
   "skills": "./skills/",
   "author": {
@@ -15,6 +15,7 @@
     "migration",
     "usage-analysis",
     "skill-authoring",
+    "extraction-recipes",
     "process-mining",
     "training-data",
     "dependency-graph",

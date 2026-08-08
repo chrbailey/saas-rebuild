@@ -8,6 +8,17 @@ Two Claude Code skills for teams pulling software back in-house.
   on premise against the official government lists, replacing a screening SaaS
   outright. See [below](#export-compliance--restricted-party-screening).
 
+Both are built to the same standard: every rule the prose states is enforced
+by a schema, a test, or code — never by trust. Verdicts require typed,
+cited evidence or they revert; the packaged zips must be byte-identical to
+source or CI fails; the CI suite parses the docs and set-compares their
+enumerations against the schemas so prose and contract cannot drift; a
+version bump that passes the suite releases itself; screening decisions
+carry a hash-chained audit trail and rerun deterministically under changed
+hash seeds. The methodology states its own failure modes — replay
+preconditions, evidence-window limits, articulation-point blind spots —
+because an analysis that hides its limits isn't evidence.
+
 ---
 
 ## saas-rebuild — teardown and rebuild planning
@@ -50,6 +61,18 @@ looks like:
    (strangler-fig, never big-bang), validated by replaying real historical
    transactions against the system of record, with the replay preconditions
    stated and an expected-divergence register for intended improvements.
+
+**Day-one extraction knowledge.** Nearly every SaaS contract lets the
+customer export their own data; almost nobody has ever tried. The skill
+ships an extraction-recipe corpus for the 100 most widely-adopted B2B SaaS
+apps (`skills/saas-rebuild/corpus/`): per app, the documented export
+rights and post-termination retrieval window, the extraction routes in
+preference order with role/SKU gates and gotchas, and the preservation
+answers (attachments, audit log, configuration artifacts) — every claim
+cited to vendor documentation with retrieval dates. Name your app at
+login and Phase 0 loads its recipe. Recipes start `doc-derived-unverified`
+and are promoted to `tenant-verified` only when a real teardown confirms
+them — corrections flow back as PRs.
 
 The teardown is also a labeling process, and the skill harvests the labels:
 every phase appends supervised (input, output) pairs to `pairs.jsonl` —

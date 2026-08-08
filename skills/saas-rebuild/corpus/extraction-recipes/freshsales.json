@@ -1,0 +1,138 @@
+{
+  "app": "freshsales",
+  "app_name": "Freshsales",
+  "vendor": "Freshworks",
+  "category": "crm",
+  "export_rights": {
+    "summary": "Per the Freshworks Terms of Service, the customer may download or delete its Customer Data at any time during the subscription term; Freshworks strongly recommends exporting all Customer Data before closing the account. After account closure, Freshworks makes Customer Data available for export for 14 days (customer must contact support@freshworks.com within that window and be current on payment obligations).",
+    "tos_url": "https://www.freshworks.com/terms/",
+    "post_termination_window": "14 days from the effective date of account closure"
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": [
+        "leads",
+        "contacts",
+        "deals",
+        "sales-activities",
+        "users",
+        "email-logs",
+        "email-conversations"
+      ],
+      "how": "Admin Settings > Account Settings > Account > 'Export Data' button. In the dialog, select the time period and the record types to export, then click Export. A ZIP file is sent to the initiating admin's email. An Export History view shows record types, period, status, and initiating admin.",
+      "formats": ["CSV (zipped)", "ZIP"],
+      "requires": ["Admin / Account Admin role"],
+      "rate_limits": "Vendor article: data can be exported up to five times daily, but a full-time-range export only once; a community answer describes the bulk export as available only once in 24 hours",
+      "gotchas": [
+        "Attachments/files are not listed among the exportable record types; whether the ZIP includes uploaded files is undocumented — verify in-tenant",
+        "Export is delivered asynchronously by email; time depends on data volume",
+        "Docs do not state whether every module (e.g. custom modules, notes, tasks) is covered — the dialog's record-type list is authoritative, verify in-tenant"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["contacts", "accounts", "deals", "other CRM records"],
+      "how": "REST API at https://{your_domain}.myfreshworks.com/crm/sales/api (Freshsales Suite). Auth: HTTP header 'Authorization: Token token=API_KEY' using a per-user API key. GET list endpoints (e.g. /api/contacts) plus filtered search (e.g. /crm/sales/api/filtered_search/contact) for server-side filtering; paginate with page/per_page (default 25, max 100 per page).",
+      "formats": ["JSON"],
+      "requires": ["User API key (found in user profile settings)"],
+      "rate_limits": "Plan-dependent per-hour and per-minute caps under a fair-usage policy (commonly cited baseline ~1,000 calls/hour; one vendor-adjacent source cites 200 calls/minute on Growth); HTTP 429 on breach with X-RateLimit-Limit/Remaining/Reset headers; a paid add-on can raise the hourly limit",
+      "gotchas": [
+        "Freshsales Classic tenants use {domain}.freshsales.io base URLs while Freshsales Suite uses {domain}.myfreshworks.com/crm/sales — confirm which product generation the tenant is on",
+        "Exact per-plan limit tables live in vendor articles that could not be fetched directly; treat cited numbers as unverified",
+        "No documented dedicated bulk-export API endpoint; extraction is page-by-page over list/filtered_search endpoints"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["contacts", "accounts", "deals", "leads", "filtered record lists with chosen columns"],
+      "how": "Reports/Analytics: open or create a report for the desired module (e.g. Analytics > Create report, add a widget with the metric such as 'Contacts' plus filters), then click 'Export as CSV' (report level) or widget menu (three dots) > 'Export CSV of tabular data'. The CSV download link arrives by email or via an in-app notification. Filter criteria and exported columns are customizable.",
+      "formats": ["CSV"],
+      "requires": ["Access to Reports/Analytics; export-report permission (some roles/plans lack the Export report option per vendor community)"],
+      "rate_limits": null,
+      "gotchas": [
+        "Community threads indicate there is no bulk export directly from module list views, making report export the practical field-selectable per-entity route",
+        "Export is asynchronous (emailed link)"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["individual contact or lead records"],
+      "how": "Open the record (e.g. Contacts > select contact) > three-dots menu > Export. Exports that single record.",
+      "formats": ["CSV"],
+      "requires": [],
+      "rate_limits": null,
+      "gotchas": ["Per-record only — not a bulk route; use account export or report export for bulk"]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": null,
+    "audit_log": "Audit Logs live at Admin Settings > Account Settings > Audit Log (Account Admins/Admins only) and track configuration changes (workflows, sales sequences, territories, account/CRM settings) with user, timestamp, and IP, filterable by period/user/module. Documented retention is 90 days. No export function for audit logs is documented — capture in-tenant (e.g. screenshots/scrape) before teardown.",
+    "config_artifacts": "No documented export of configuration as restorable artifacts: vendor community threads confirm there is no backup/export for workflows or field configuration (noted as roadmap). Custom-object export covers record data, not configuration. Document fields, workflows, sequences, and reports manually in-tenant."
+  },
+  "sources": [
+    {
+      "url": "https://support.freshsales.io/support/solutions/articles/50000001894-how-do-i-export-all-required-data-from-the-crm-",
+      "title": "How do I export all required data from the CRM? : Freshsales Suite Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://crmsupport.freshworks.com/support/solutions/articles/50000004927-how-do-i-export-all-required-data-from-the-crm-",
+      "title": "How do I export all required data from the CRM? : Freshsales",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://crmsupport.freshworks.com/support/solutions/articles/50000003040-how-to-export-reports-",
+      "title": "How to export reports? : Freshsales",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.freshsales.io/support/solutions/articles/221712-how-to-export-reports",
+      "title": "How to export reports : Freshsales Suite Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.freshsales.io/support/solutions/articles/233665-how-to-export-a-contact-from-freshsales-",
+      "title": "How to export a contact from Freshsales? : Freshsales Suite Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.freshsales.io/support/solutions/articles/237519-how-to-track-changes-in-freshsales-using-audit-logs-",
+      "title": "How to track changes in Freshsales using Audit logs? : Freshsales Suite Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://crmsupport.freshworks.com/support/solutions/articles/50000010517-api-limits-for-sales-and-support-products-in-freshworks",
+      "title": "API Limits for Sales and Support Products in Freshworks : Freshsales",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.freshsales.io/support/solutions/articles/50000010026-does-freshsales-have-api-request-limits-for-an-account-",
+      "title": "Does Freshsales have API request limits for an account? : Freshsales Suite Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.freshworks.com/terms/",
+      "title": "Freshworks Terms of Service",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://community.freshworks.com/freshsales-11250/export-contacts-accounts-or-deals-to-csv-in-freshcrm-20619",
+      "title": "Export contacts, accounts or deals to csv in FreshCRM | Freshworks Community",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://community.freshworks.com/workflows-and-automations-11389/fresh-service-backups-workflow-custom-object-service-catalog-items-33383",
+      "title": "Fresh Service Backups (Workflow, Custom Object, Service Catalog Items) | Freshworks Community",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.freshsales.io/support/solutions/articles/223560-how-to-use-freshsales-files-",
+      "title": "How to use Freshsales files? : Freshsales Suite Support",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: direct fetches of freshworks.com/crmsupport.freshworks.com/support.freshsales.io were blocked by the network egress proxy, so all vendor-doc claims above were gathered from search-engine renderings of those vendor pages (URLs cited) rather than the fetched pages themselves — treat nav paths and limits as slightly lower confidence than usual doc-derived recipes and re-verify in-tenant. Honest unknowns: (1) attachments/files — no documented bulk-download route, and the account export's documented record-type list does not mention files (individual attachments are capped at 20 MB per file on upload); (2) audit-log export — viewing/filtering is documented (90-day retention) but no export mechanism; (3) exact per-plan API rate-limit tables exist in vendor articles but numbers could not be read directly; (4) Freshsales exists in two generations (Classic on freshsales.io, Suite on myfreshworks.com) with differing base URLs and module names (leads exist only in Classic) — confirm which one the tenant runs. The 'export all data' whole-account route plus the emailed-CSV report exports are the primary UI extraction surface; email conversations and logs are explicitly included in the account export, which is unusual and valuable for CRM teardowns."
+}

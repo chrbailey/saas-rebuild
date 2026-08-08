@@ -1,0 +1,209 @@
+{
+  "app": "salesforce",
+  "app_name": "Salesforce Sales Cloud",
+  "vendor": "Salesforce",
+  "category": "crm",
+  "export_rights": {
+    "summary": "Salesforce's Main Services Agreement provides that, upon request made within 30 days after termination or expiration, Salesforce will make Your Data available for export or download; after that 30-day period Salesforce has no obligation to retain it and will delete or destroy copies unless legally prohibited.",
+    "tos_url": "https://www.salesforce.com/en-us/wp-content/uploads/sites/4/documents/legal/salesforce_Developer_MSA.pdf",
+    "post_termination_window": "30 days"
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": [
+        "all standard and custom object records",
+        "attachments",
+        "images",
+        "documents",
+        "salesforce-files-and-crm-content-versions"
+      ],
+      "how": "Setup -> Data Export (Data Export Service): Export Now or Schedule Export; org data is written to CSV files packaged into ZIP archives (~512 MB each) and a download link is emailed to the admin",
+      "formats": ["csv", "zip"],
+      "requires": [
+        "System Administrator or equivalent Setup access with data-export permission",
+        "Weekly exports: Enterprise/Performance/Unlimited Edition; monthly cadence on Professional Edition"
+      ],
+      "rate_limits": "Weekly export available every 7 days on Enterprise/Performance/Unlimited; roughly every 29 days on Professional",
+      "gotchas": [
+        "Export files are only available for download for 48 hours, and are deleted when a new export is generated",
+        "Attachments/documents/files are only included if the 'Include images, documents, and attachments' and 'Include Salesforce Files and Salesforce CRM Content document versions' checkboxes are selected",
+        "Including binary content substantially increases export size and processing time",
+        "Large exports are split across multiple ZIP files that must each be downloaded within the window"
+      ]
+    },
+    {
+      "route_type": "bulk-api",
+      "covers": [
+        "any queryable standard or custom object (accounts, contacts, leads, opportunities, cases, activities, custom objects)"
+      ],
+      "how": "Bulk API 2.0 query jobs: POST a SOQL query to /services/data/vXX.X/jobs/query with an OAuth 2.0 bearer token, poll job status, then download result sets; designed for result sets of 2,000+ records",
+      "formats": ["csv"],
+      "requires": [
+        "API Enabled permission",
+        "OAuth 2.0 access token (connected app) or session ID",
+        "Edition with API access (e.g. Enterprise/Performance/Unlimited/Developer)"
+      ],
+      "rate_limits": "Bulk queries are documented as retrieving up to 15 GB of data per query, split into 1-GB result files; Bulk API jobs also draw on org-wide daily allocations documented in the Salesforce limits quick reference",
+      "gotchas": [
+        "Binary fields (e.g. file bodies) are not returned in bulk query results; files require separate download (see file-storage route)",
+        "SOQL per-object queries mean you must enumerate objects yourself to get a whole-org copy"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": [
+        "individual object records via SOQL/REST",
+        "object describe metadata"
+      ],
+      "how": "REST API (/services/data/vXX.X/query?q=SOQL) and SOAP API with OAuth 2.0; Data Loader (Salesforce's free client) wraps these APIs to export any object to CSV via its Export wizard",
+      "formats": ["json", "xml", "csv"],
+      "requires": [
+        "API Enabled permission",
+        "OAuth 2.0 connected app or Data Loader login"
+      ],
+      "rate_limits": "Org-wide daily API request allocation applies to SOAP and REST calls; the allocation varies by edition and license count per Salesforce's 'API Request Limits and Allocations' quick reference (specific numbers not captured from the consulted excerpt)",
+      "gotchas": [
+        "Daily API request allocation is shared org-wide with integrations; large extractions should prefer Bulk API 2.0"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": [
+        "any report over standard/custom objects (report-shaped record extracts)"
+      ],
+      "how": "Reports tab -> open report -> Export; choose Formatted Report (xlsx) or Details Only (xlsx, xls, csv)",
+      "formats": ["xlsx", "xls", "csv"],
+      "requires": [
+        "Export Reports permission"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "XLSX exports (formatted or details-only) are capped at 100,000 rows and 100 columns",
+        "Details Only export to CSV/XLS bypasses the 2,000-row on-screen display limit"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": [
+        "attachments",
+        "salesforce-files (ContentDocument/ContentVersion)",
+        "documents"
+      ],
+      "how": "Two documented paths: (1) include files in the Data Export Service via its attachment/Files checkboxes; (2) query ContentVersion (Id, ContentDocumentId, Title, VersionData) with Data Loader/SOQL, then download each binary via the REST API VersionData endpoint per Salesforce KB 000381137",
+      "formats": ["original file formats", "csv (metadata manifest)"],
+      "requires": [
+        "Data Loader or API access with rights to ContentVersion/Attachment records"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Data Loader exports of ContentVersion return metadata rows, not usable binaries in one step; the VersionData binary must be fetched per record via the REST API",
+        "Per-record binary download makes very large file libraries slow to extract; scripting over ContentVersion IDs is the documented pattern"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": [
+        "setup-audit-trail (admin/config change history)",
+        "event-log-files (user activity: logins, API calls, report exports)"
+      ],
+      "how": "Setup -> Quick Find -> 'View Setup Audit Trail' -> Download for the past 180 days of setup changes (CSV); user-activity logs via Event Monitoring's EventLogFile object, queried and downloaded through the API",
+      "formats": ["csv"],
+      "requires": [
+        "View Setup and Configuration (Setup access) for Setup Audit Trail",
+        "Event Monitoring add-on for full EventLogFile access; free tier limited to certain log types with 1-day retention"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Setup Audit Trail download covers only the trailing 180 days",
+        "Event Monitoring retains 30 days of event log files (up to 1 year for some log types at extra cost); the free subset retains only 1 day",
+        "Setup Audit Trail UI shows only the 20 most recent changes; the CSV download is required for full history"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": [
+        "custom objects and fields",
+        "workflow-definitions",
+        "reports and dashboards (as metadata)",
+        "page layouts, profiles, permission sets, Apex, flows and other Metadata API component types"
+      ],
+      "how": "Metadata API retrieve() call (or 'sf project retrieve start' with a package.xml manifest) returns a ZIP of XML component files; the same ZIP is redeployable via deploy(), making it a restorable configuration artifact",
+      "formats": ["zip", "xml"],
+      "requires": [
+        "Modify Metadata / API access (typically System Administrator)",
+        "Salesforce CLI, Workbench, or another Metadata API client"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Not every configuration component type is supported by the Metadata API; check coverage for the org's customizations",
+        "A package.xml manifest must enumerate the component types to retrieve"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Bulk path exists: Data Export Service includes attachments/images/documents and Salesforce Files/CRM Content versions when the corresponding checkboxes are selected; outside that, Salesforce KB 000381137 documents querying ContentVersion and downloading each VersionData binary via the REST API (Data Loader alone yields metadata rows, not binaries).",
+    "audit_log": "Setup Audit Trail is downloadable as CSV from Setup covering the past 180 days. User-activity event log files (EventLogFile) require Event Monitoring; documented retention is 30 days (some log types up to 1 year at extra cost), and the free tier retains only 1 day. Field-history retention was not researched from the docs consulted.",
+    "config_artifacts": "Metadata API retrieve() returns a ZIP of XML component files driven by a package.xml manifest; the ZIP is a restorable artifact redeployable via deploy(). Report and dashboard definitions are among retrievable metadata types, subject to Metadata API coverage."
+  },
+  "sources": [
+    {
+      "url": "https://help.salesforce.com/s/articleView?id=xcloud.admin_exportdata.htm&language=en_US&type=5",
+      "title": "Export Backup Data from Salesforce (Salesforce Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://trailhead.salesforce.com/content/learn/modules/lex_implementation_data_management/lex_implementation_data_export",
+      "title": "Learn Data Export Methods and Steps for Salesforce (Trailhead)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.salesforce.com/s/articleView?language=en_US&id=reports_export.htm&type=0",
+      "title": "Export a Report (Salesforce Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.salesforce.com/s/articleView?id=sf.admin_monitorsetup.htm&language=en_US&type=5",
+      "title": "Monitor Setup Changes with Setup Audit Trail (Salesforce Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.salesforce.com/docs/atlas.en-us.api_asynch.meta/api_asynch/query_bulk_api_2_0.htm",
+      "title": "Bulk API 2.0 Query (Bulk API 2.0 and Bulk API Developer Guide)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_api.htm",
+      "title": "API Request Limits and Allocations (Salesforce Developer Limits Quick Reference)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/file_based_zip_file.htm",
+      "title": "Deploying and Retrieving Metadata with the Zip File (Metadata API Developer Guide)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_eventlogfile.htm",
+      "title": "EventLogFile (Object Reference for the Salesforce Platform)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://trailhead.salesforce.com/content/learn/modules/event_monitoring/event_monitoring_intro",
+      "title": "Understanding Event Monitoring for Enhanced Security (Trailhead)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.salesforce.com/s/articleView?id=000381137&language=en_US&type=1",
+      "title": "Understanding Export Content Documents or Files and Permissions Needed Using Salesforce Data Loader (Salesforce Help KB)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.salesforce.com/en-us/wp-content/uploads/sites/4/documents/legal/salesforce_Developer_MSA.pdf",
+      "title": "Salesforce Main Services Agreement (Developer Services) - return of Your Data clause",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveats: help.salesforce.com, developer.salesforce.com, and www.salesforce.com were blocked by this environment's egress proxy for direct page fetches, so all claims were derived from vendor-doc content surfaced through web-search excerpts of the cited pages rather than full page fetches; verify each route in-tenant before relying on it. Unknowns left out on purpose: concrete daily API request allocation numbers per edition were not captured; field-history/Field Audit Trail retention was not researched; the exact name of the profile permission gating Setup -> Data Export was not confirmed; Data Export FAQ (help article 000383962) exists but its full text did not load. The 30-day post-termination export window was quoted from the Developer Services MSA PDF; the mainline Sales Cloud MSA is expected to carry the same clause but was not directly retrieved."
+}

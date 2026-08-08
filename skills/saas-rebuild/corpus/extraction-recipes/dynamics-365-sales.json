@@ -1,0 +1,169 @@
+{
+  "app": "dynamics-365-sales",
+  "app_name": "Dynamics 365 Sales",
+  "vendor": "Microsoft",
+  "category": "crm",
+  "export_rights": {
+    "summary": "Microsoft states 'You own your data'; customers can access and extract customer data at any time. Per the Microsoft Products and Services DPA / Product Terms, after subscription expiration or termination customer data is retained in a limited-function account for 90 days so the customer may extract it, then deleted within a further 90 days.",
+    "tos_url": "https://www.microsoft.com/en-us/trust-center/privacy/data-management",
+    "post_termination_window": "90 days in a limited-function account for extraction; deletion completed within an additional 90 days (max ~180 days total)"
+  },
+  "routes": [
+    {
+      "route_type": "entity-export",
+      "covers": ["accounts", "contacts", "leads", "opportunities", "any-dataverse-table"],
+      "how": "Power Apps maker portal (make.powerapps.com) > Tables > select table(s) > Export > Export data on the command bar. Dataverse exports all columns and all rows of the selected table(s) into a downloadable zip containing .csv files.",
+      "formats": ["csv", "zip"],
+      "requires": ["access to the Power Apps maker portal for the environment"],
+      "rate_limits": null,
+      "gotchas": [
+        "Exports one or more whole tables; no filtering documented on this path",
+        "Attachment/file binary content is not stated to be included; extract annotation/attachment files separately via the Web API"
+      ]
+    },
+    {
+      "route_type": "bulk-api",
+      "covers": ["all-selected-dataverse-tables", "data-and-metadata", "create-update-delete-changes", "audit-log"],
+      "how": "Azure Synapse Link for Dataverse: link the Dataverse environment to an Azure Synapse Analytics workspace and/or Azure Data Lake Storage Gen2 account in your own Azure subscription, select tables, and the service continuously replicates data and metadata (push model, near real-time, no refresh schedule) in Common Data Model format. Also usable to land audit data for reporting.",
+      "formats": ["Common Data Model (CSV data files + metadata)"],
+      "requires": ["Azure subscription with Synapse Analytics and/or ADLS Gen2", "tables must have change tracking (used automatically)", "admin-level setup in the maker portal"],
+      "rate_limits": null,
+      "gotchas": [
+        "Destination must be in the customer's own Azure subscription (extra Azure cost)",
+        "Replicates table data, not attachment binaries"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["any-dataverse-table", "audit-log", "annotations", "attachments"],
+      "how": "Dataverse Web API: OData v4.0 REST endpoint at https://{org}.crm.dynamics.com/api/data/v9.2/{entityset} (base URL varies by datacenter). OAuth 2.0 with Microsoft Entra ID; app registration required; server-to-server auth supported via application user with client secret or X.509 certificate (MSAL recommended). Paginate with Prefer: odata.maxpagesize.",
+      "formats": ["json"],
+      "requires": ["Microsoft Entra ID app registration", "Dataverse security role / application user for service-principal access"],
+      "rate_limits": "Service protection limits per user per web server over a 300-second sliding window: 6,000 requests; 20 minutes (1,200,000 ms) combined execution time; ~52 concurrent requests. Exceeding returns HTTP 429 with a Retry-After header.",
+      "gotchas": [
+        "Max 5,000 records returned per page for standard tables (500 for elastic tables); follow @odata.nextLink for more",
+        "URL length capped at 32 KB (64 KB for $batch); individual OData segments max 260 characters"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["any-view-in-model-driven-app", "accounts", "contacts", "leads", "opportunities"],
+      "how": "In the Dynamics 365 Sales model-driven app: select a table/view from left navigation > command bar > Export to Excel > choose Static worksheet, Static worksheet (page only), Dynamic worksheet, Dynamic PivotTable, or Open in Excel Online.",
+      "formats": ["xlsx"],
+      "requires": ["app user with export privileges; System Administrator or System Customizer role needed to customize columns on system views"],
+      "rate_limits": null,
+      "gotchas": [
+        "Static worksheet export is capped at 100,000 rows at a time",
+        "Currency values export as plain numbers; calculated, roll-up, and secured columns become editable in Excel but cannot be re-imported",
+        "Virtual tables are not supported for export; complex queries may time out",
+        "Allowed export size also depends on number of columns, lookup fields, and lookup relationship types"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["note-attachments (annotation)", "email-attachments (activitymimeattachment)"],
+      "how": "Per record via Web API: GET https://{org}.crm.dynamics.com/api/data/v9.2/annotations({id})/documentbody/$value for notes, or activitymimeattachments({id})/body/$value for email attachments; content returns Base64-encoded, decode to binary. For large files use InitializeAnnotationBlocksDownload / InitializeAttachmentBlocksDownload + DownloadBlock (4 MB blocks).",
+      "formats": ["base64-encoded binary"],
+      "requires": ["same Web API auth as above"],
+      "rate_limits": "Subject to the same Dataverse service protection limits (6,000 requests / 300 s per user per web server)",
+      "gotchas": [
+        "No documented bulk/batch download of all attachments; enumerate annotation and activitymimeattachment records and fetch files one by one",
+        "Default max file size 5 MB (organization.maxuploadfilesize), configurable up to 128 MB; the limit applies to the Base64-encoded size"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log"],
+      "how": "Auditing is enabled per environment (Power Platform admin center > environment > Security/Compliance), per table, and per column. View via record Audit History or the environment-wide Audit Summary view; retrieve programmatically via the Web API or the .NET SDK, or land audit data in Azure Synapse Link for Dataverse for reporting.",
+      "formats": ["json (Web API)", "Common Data Model via Synapse Link"],
+      "requires": ["System Administrator or System Customizer to configure auditing"],
+      "rate_limits": "Web API retrieval subject to standard service protection limits",
+      "gotchas": [
+        "Auditing is off unless enabled; only changes made while enabled are captured",
+        "Retention is configurable: logs older than the set period are continuously deleted; 'Forever' keeps logs indefinitely; maximum custom retention is 24,855 days; changing the retention period only applies to new audit records"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["custom-tables-and-fields", "forms", "views", "workflows/processes", "app-customizations"],
+      "how": "Power Apps maker portal > Solutions > select an unmanaged solution > Export; publish all changes, choose managed or unmanaged package, download the resulting .zip. Add components to a custom unmanaged solution first, since the Default Solution and managed solutions cannot be exported.",
+      "formats": ["solution zip"],
+      "requires": ["maker-portal access with customization privileges (e.g. System Customizer/System Administrator)"],
+      "rate_limits": null,
+      "gotchas": [
+        "Only published components are exported from an unmanaged solution",
+        "Some org settings are only included when exporting via the classic experience (auto-numbering prefixes, calendar, email tracking, formatting settings)"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Stored as Base64 in annotation.documentbody and activitymimeattachment.body; download per record via the Web API .../documentbody/$value or .../body/$value (block-download actions for large files). No vendor-documented one-shot bulk attachment export — script the enumeration.",
+    "audit_log": "Retrievable via Web API/SDK or via Azure Synapse Link; retention is admin-configurable per environment (continuous deletion past the set period, 'Forever' option, max custom period 24,855 days). Export before reducing retention — changes apply only to new records.",
+    "config_artifacts": "Customizations (tables, columns, forms, views, processes) export as an unmanaged solution .zip from the maker portal; only published components are included, and the Default Solution itself cannot be exported."
+  },
+  "sources": [
+    {
+      "url": "https://learn.microsoft.com/en-us/power-apps/user/export-data-excel",
+      "title": "Export data to Excel (model-driven apps) - Power Apps",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/power-apps/user/export-excel-static-worksheet",
+      "title": "Export to an Excel static worksheet - Power Apps",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/training/modules/load-export-data-create-data-views/export-options",
+      "title": "Dataverse data export options - Microsoft Learn training",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/overview",
+      "title": "Use the Microsoft Dataverse Web API - Power Apps",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/compose-http-requests-handle-errors",
+      "title": "Compose HTTP requests and handle errors (Dataverse Web API)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/power-apps/developer/data-platform/authenticate-oauth",
+      "title": "Authentication with Microsoft Dataverse (OAuth) - Power Apps",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/power-apps/developer/data-platform/api-limits",
+      "title": "Service protection API limits (Microsoft Dataverse)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/power-apps/maker/data-platform/export-to-data-lake",
+      "title": "What is Azure Synapse Link for Dataverse? - Power Apps",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/power-apps/developer/data-platform/attachment-annotation-files",
+      "title": "Use file data with Attachment and Note records (Microsoft Dataverse)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/power-platform/admin/manage-dataverse-auditing",
+      "title": "Manage Dataverse auditing - Power Platform admin",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/power-apps/maker/data-platform/export-solutions",
+      "title": "Export solutions - Power Apps",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.microsoft.com/en-us/trust-center/privacy/data-management",
+      "title": "Microsoft Data Management - Microsoft Trust Center",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Dynamics 365 Sales data lives in Microsoft Dataverse, so all Dataverse export routes apply. learn.microsoft.com was unreachable through this session's egress proxy; most Learn pages were consulted via their public source files in the MicrosoftDocs GitHub repos (identical vendor content), and two (api-limits, export-options) via search-result excerpts of the Learn pages. Honest unknowns: no whole-tenant self-service export/download was found (Power Platform environment backups were not confirmed as customer-downloadable); no documented bulk attachment export; Word/Excel templates, Power Automate, and SSRS/Power BI reporting exist as additional export paths per the training module but their specifics were not researched, so no report-builder route is claimed. The 90-day post-termination window comes from the Microsoft DPA/Product Terms as summarized on the Trust Center data-management page; the DPA document itself was not fetched directly. The task template requested retrieved/last_reviewed = 'undefined', but the schema requires YYYY-MM-DD, so today's date is used."
+}
