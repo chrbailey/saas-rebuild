@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "app": "salesforce",
   "app_name": "Salesforce Sales Cloud",
   "vendor": "Salesforce",

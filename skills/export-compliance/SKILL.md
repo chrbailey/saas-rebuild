@@ -56,9 +56,12 @@ floor upward to reduce review volume without evidence.
 
 ## The tool
 
-`tools/xscreen/` is a zero-dependency Python 3.11+ package. Standard library
-only, no network calls outside `refresh`, so it installs and runs inside a
-closed network.
+`tools/xscreen/` is a zero-dependency Python 3.11+ package. The deterministic
+matcher and offline/no-backend path make no screening-time network calls;
+`refresh` fetches official sources. If an operator configures a hosted model
+backend, minimized candidate-case payloads are sent to that provider during
+adjudication or criticism. Record that boundary in the run summary. A local
+OpenAI-compatible backend keeps those calls inside the operator's network.
 
 ```
 python3 -m xscreen.cli --home ~/Dev/export-compliance refresh

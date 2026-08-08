@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "app": "freshsales",
   "app_name": "Freshsales",
   "vendor": "Freshworks",

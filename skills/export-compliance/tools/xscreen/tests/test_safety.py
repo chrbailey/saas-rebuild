@@ -494,7 +494,10 @@ class TestOfflineBackendIsRecognized(unittest.TestCase):
             self.assertEqual(code, 2, "expected human-review exit, not an escalation storm")
 
             import csv as _csv
-            rows = list(_csv.DictReader((tmp / "run" / "dispositions.csv").open()))
+            with (tmp / "run" / "dispositions.csv").open(
+                newline="", encoding="utf-8"
+            ) as handle:
+                rows = list(_csv.DictReader(handle))
             self.assertNotIn("ESCALATE", {r["disposition"] for r in rows},
                              "unconfigured install produced ESCALATE cases")
         finally:

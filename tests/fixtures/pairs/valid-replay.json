@@ -1,27 +1,25 @@
 {
+  "schema_version": "0.7.0",
+  "pair_id": "pair-invoice-replay",
   "pair_type": "replay",
-  "input": {
-    "transaction": "invoice-post",
-    "fields": {
-      "amount": 1200.5,
-      "currency": "USD",
-      "customer": "cust-0042"
-    }
-  },
-  "output": {
-    "gl_entries": [
-      {"account": "1200", "debit": 1200.5},
-      {"account": "4000", "credit": 1200.5}
-    ],
-    "document_total": 1200.5
-  },
-  "rationale": "Output taken verbatim from the system of record for the same historical transaction; the legacy system is the labeling function.",
+  "input": {"amount": 1200.5, "currency": "USD"},
+  "output": {"document_total": 1200.5},
   "label_authority": "system-of-record",
+  "dataset_role": "regression",
+  "split_group": "invoice-regression-0042",
   "provenance": {
-    "app": "erp-cat-01",
-    "teardown_id": "td-demo-001",
+    "app": "fixture-app",
+    "teardown_id": "fixture-teardown",
     "phase": 5,
-    "created": "2026-08-08"
+    "created_at": "2026-07-28T11:00:00Z",
+    "source_artifact_refs": ["synthetic-replay/invoice-0042.json"]
   },
-  "sanitization_tier": "raw-local-only"
+  "replay_context": {
+    "as_of": "2026-07-01T12:00:00Z",
+    "legacy_config_ref": "synthetic-config/version-3.json",
+    "state_capture": "self-contained",
+    "side_effect_free_verified": true,
+    "expected_divergence_ref": null
+  },
+  "sanitization_tier": "synthetic"
 }

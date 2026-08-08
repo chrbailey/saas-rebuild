@@ -1,0 +1,83 @@
+{
+  "schema_version": "0.7.0",
+  "teardown_id": "synthetic-crm-2026",
+  "generated_at": "2026-08-01T16:45:00Z",
+  "artifacts": [
+    {
+      "id": "customer-records",
+      "category": "entity-records",
+      "status": "exported",
+      "source": "SYNTHETIC CRM FIXTURE customer export",
+      "route": "built-in CSV export",
+      "sensitivity": "public",
+      "files": [
+        {"path": "exports/customers.csv", "sha256": "533f0b590d0978143d042d969a94fbbf87b34593aa957cb7584ccfc1617e611e", "bytes": 119}
+      ],
+      "record_count": 3,
+      "date_range": {"start": null, "end": "2026-07-30"},
+      "encrypted": false,
+      "backed_up": true,
+      "verified_at": "2026-08-01T16:40:00Z"
+    },
+    {
+      "id": "audit-events",
+      "category": "audit-log",
+      "status": "exported",
+      "source": "SYNTHETIC CRM FIXTURE audit endpoint",
+      "route": "API export",
+      "sensitivity": "public",
+      "files": [
+        {"path": "audit/events.csv", "sha256": "3e2b34227cb969c6a8e317ed37608663a06d212ab797c92b0861de2b18de7743", "bytes": 233}
+      ],
+      "record_count": 3,
+      "date_range": {"start": "2026-06-01", "end": "2026-07-30"},
+      "encrypted": false,
+      "backed_up": true,
+      "verified_at": "2026-08-01T16:41:00Z"
+    },
+    {
+      "id": "workflow-configuration",
+      "category": "configuration",
+      "status": "exported",
+      "source": "SYNTHETIC CRM FIXTURE configuration export",
+      "route": "metadata API",
+      "sensitivity": "public",
+      "files": [
+        {"path": "config/workflows.json", "sha256": "2bda19bf246c2e45816a22ff68778f0eca7cfaf91cb2a2f0ec74bbf8a65a7e8f", "bytes": 218}
+      ],
+      "record_count": null,
+      "encrypted": false,
+      "backed_up": true,
+      "verified_at": "2026-08-01T16:42:00Z"
+    },
+    {
+      "id": "behavioral-cases",
+      "category": "replay-corpus",
+      "status": "exported",
+      "source": "Synthetic teardown case construction",
+      "route": "local JSONL generation",
+      "sensitivity": "public",
+      "files": [
+        {"path": "pairs.jsonl", "sha256": "5606f21065216b760ac213f19375373c7a10bd810049e41a7fe32b442896ea13", "bytes": 3641}
+      ],
+      "record_count": 4,
+      "encrypted": false,
+      "backed_up": true,
+      "verified_at": "2026-08-01T16:43:00Z"
+    },
+    {
+      "id": "attachments",
+      "category": "attachments",
+      "status": "not-applicable",
+      "source": "Synthetic tenant declaration",
+      "route": "No attachment subsystem exists in this example",
+      "sensitivity": "public",
+      "gap": {
+        "reason": "The fictional source contains no attachment feature or records.",
+        "ticket": null,
+        "accepted_by": "synthetic-example-owner",
+        "accepted_at": "2026-08-01T16:44:00Z"
+      }
+    }
+  ]
+}

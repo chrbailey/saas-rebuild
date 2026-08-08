@@ -1,0 +1,7 @@
+# Security, distribution, and machine-contract changes require maintainer review.
+/.github/workflows/ @chrbailey
+/.claude-plugin/ @chrbailey
+/skills/saas-rebuild/templates/ @chrbailey
+/scripts/package_skills.py @chrbailey
+/skill-versions.json @chrbailey
+/SECURITY.md @chrbailey

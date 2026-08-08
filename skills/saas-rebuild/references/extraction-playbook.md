@@ -2,68 +2,76 @@
 
 The complete evidence taxonomy for reverse-engineering what an application does
 and which parts are used. Phase 1b of SKILL.md orders these; this file is the
-per-technique reference. Evidence classes: **A = runtime** (what happens),
-**B = structure** (what was built / what data exists), **C = human/framing**.
+per-technique reference. Evidence classes match the schema: **runtime** (what
+happened), **structure** (what exists or was declared), and **human-framing**
+(meaning, value, obligations, and reported practice).
 
 ## The five data planes (run all five when tenant access exists)
 
-### 1. Configuration & metadata (B — highest value per effort, run FIRST)
+### 1. Configuration & metadata (structure — run first by default)
 Census everything built on top of vanilla: custom objects, fields, forms,
 workflows, roles, saved searches, enabled features/modules.
 - NetSuite: SuiteQL against customization records; SuiteCloud SDF project export
 - Salesforce: Metadata API (or Elements.cloud / Field Trip for field usage)
 - SAP: config tables + IMG; generic SaaS: admin "customizations" screens + API schema/describe endpoints
-- **The delta from vanilla IS the requirements list the client paid for.**
+- A delta from a version- and edition-matched baseline is a candidate record of
+  prior requirements and customization, not proof of current need.
 - Gotcha: configured ≠ used — always join to planes 2/3 and telemetry.
 - Baseline diffing variant: spin up a clean trial tenant of the same
   version/edition and diff configs — catches sprawl metadata APIs miss.
   (Version mismatch = mountains of false diffs.)
 
-### 2. Transactional data (A) — archaeology, one day of queries
-- Transaction-type frequency distribution + volume time-series → alive vs dead
+### 2. Transactional data (runtime)
+- Transaction-type frequency distribution + volume time-series → observed vs
+  unobserved in a stated scope and horizon
 - `created_by` analysis: human vs integration user per transaction type — tells
   you which flows a human touches vs which are pure pipe
 - Record-age histograms; last-transaction date per type
-- Row-count archaeology: row counts + max(modified date) for EVERY table —
-  near-zero effort, instant module-level triage (empty table = unused module)
+- Row-count archaeology: row counts + max(modified date) for in-scope tables.
+  An empty table is an absence signal only after checking tenant partition,
+  archival/purge, retention, integration-only behavior, and expected cadence.
 - Gotcha: low volume ≠ low value — year-end close and tax filings are rare and
   critical. Score recency AND criticality separately.
 
-### 3. Master data (B) — profiling script over core entities
+### 3. Master data (structure with runtime population signals)
 - Field fill rates, distinct-value cardinality, custom-field population %
-- 0.3%-populated custom field = abandoned experiment; document it as such
+- Low fill rate is a triage flag. Compute the applicable denominator and segment
+  by type, age, role, lifecycle state, and configuration period before inferring
+  abandonment.
 - Referential density (how connected are entities in practice)
 - Gotcha: 100% populated by a default value is still meaningless — profile
   distinct values and variance, not just null rates.
 
-### 4. Setup data (B) — operating footprint census
+### 4. Setup data (structure) — operating footprint census
 Org structure/subsidiaries, accounting periods and close cadence, currencies,
 tax nexus, scheduled jobs, integration users/tokens, role→user assignments.
 - Permission mining: join role GRANTS against login telemetry — grants wildly
   overstate use; never copy a role model without usage evidence.
 
-### 5. Customization code (B) — static analysis, now LLM-cheap
+### 5. Customization code (structure) — static analysis
 Export all scripts/workflow definitions/formula+validation rules (SDF, Metadata
-API, SE80) and have an agent summarize EVERY script into: trigger, entities
-touched, business rule encoded, external calls. Each script encodes a
-requirement vanilla couldn't meet — this is the richest "why" source.
+API, SE80) and summarize each in-scope script into: trigger, entities touched,
+candidate business rule, and external calls. A script records implementation
+intent; it may represent an obsolete requirement, workaround, vendor gap, or
+experiment. Runtime logs establish liveness.
 - Pair with execution logs (script execution logs; SAP SCMON/UPL) to separate
   live code from dead — code shows intent, not liveness. Capture across a full
   business cycle where possible; a quarter misses annual jobs.
 
-## Runtime evidence beyond the planes (A)
+## Runtime evidence beyond the planes
 
 - **Usage telemetry** — login audit trails, page/report access, saved-search
-  last-run dates, seat utilization. START CAPTURE DAY 1: retention windows are
-  often 30–90 days. View ≠ use.
+  last-run dates, seat utilization. Start capture on day one and verify the
+  actual retention policy. View does not establish business use.
 - **Integration traffic** — API/SOAP logs + iPaaS flow inventories (Celigo,
   Boomi, Workato, Mulesoft). This is the system's real external contract; the
   classic rebuild failure is breaking an integration nobody knew existed.
   Gotcha: file-drop (SFTP/CSV) and scheduled-export integrations bypass API
   logs — inventory schedulers and shared drives too.
 - **Report/output inventory** — scheduled reports, generated documents,
-  distribution lists. A report nobody opens is a feature you don't rebuild;
-  interview the recipients of the top 20 to confirm consumption.
+  distribution lists. Lack of recorded opens is a DROP candidate only after
+  checking email delivery, API/script use, downstream files, retention, and
+  recipients.
 - **Notification/email log mining** — which alerts and approval emails actually
   fire → live workflow triggers. Dedupe by template first.
 - **Process mining** — treat audit trails/status-change logs as event logs
@@ -131,13 +139,14 @@ Expect the critics to find errors that flatter your own narrative — arithmetic
 that overstates how much is unused is the characteristic failure mode of this
 work. Retract in place, keep the retraction visible in the artifact.
 
-## Human evidence (C) — multipliers on everything above
+## Human/framing evidence — meaning and obligations
 
 Interviews/shadowing ("show me", not questionnaires), UI crawl (per-role — one
 admin crawl overstates the real UI), support-ticket/SOP/change-ticket mining
-(churn concentration maps to poor fit), contracts/renewals (purchased-vs-used).
+(churn concentration can indicate poor fit or simply business change), and
+contracts/renewals (purchased-vs-used).
 
-## Ranked default order (evidence value per effort, admin access assumed)
+## Ranked default order (operational heuristic, admin access assumed)
 
 1. Config/metadata census → 2. Transaction archaeology + row counts →
 3. Master-data profiling → 4. Telemetry capture (start day 1, harvest later) →
@@ -151,7 +160,7 @@ admin crawl overstates the real UI), support-ticket/SOP/change-ticket mining
   interview-only maps reproduce the org chart, not the system.
 - **Strangler-fig sequencing**: rebuild capability-by-capability behind stable
   interfaces (the CSV/API bridges), never big-bang.
-- **Parallel run + replay as the validator**: re-run a sample of REAL historical
-  transactions through the rebuilt skill and diff outputs against the system of
-  record (posting-level, document-level, total-level). Behavioral equivalence
-  on historical data is the only proof that survives a CFO.
+- **Parallel run + replay as bounded validation**: pre-split historical cases,
+  retain immutable holdout lineages, capture applicable configuration/state,
+  and diff the replacement against the system of record. Passing finite cases
+  supports the covered behaviors; it does not prove universal equivalence.

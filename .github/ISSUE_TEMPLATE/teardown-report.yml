@@ -22,6 +22,25 @@ body:
     attributes:
       label: Team size using the app (rough)
       placeholder: "e.g. 5-10 users"
+  - type: dropdown
+    id: methodology
+    attributes:
+      label: Evidence methodology
+      description: How was the tenant-specific model constructed?
+      options:
+        - Live tenant
+        - Documents only
+        - Hybrid
+    validations:
+      required: true
+  - type: textarea
+    id: coverage
+    attributes:
+      label: Evidence coverage and blind spots
+      description: Runtime window, roles/modules covered, retention limits, and material evidence that was unavailable
+      placeholder: "e.g. 90-day audit window; admin + service roles; year-end and SFTP logs not observed"
+    validations:
+      required: true
   - type: textarea
     id: verdicts
     attributes:
@@ -56,10 +75,31 @@ body:
       label: Workarounds discovered
       description: Things users did OUTSIDE the app that the replacement should make first-class
   - type: textarea
+    id: target-architecture
+    attributes:
+      label: Target architecture
+      description: Which capabilities belong in a skill, tested code/service, application/database, workflow engine, or retained system?
+    validations:
+      required: true
+  - type: textarea
+    id: preservation
+    attributes:
+      label: Preservation status
+      description: What was exported and checksummed across records, files, audit history, configuration, identities, and replay material? Name accepted gaps.
+    validations:
+      required: true
+  - type: textarea
     id: pipeline-gaps
     attributes:
       label: What this skill missed
       description: Steps, signals, or template fields the pipeline should have but doesn't — this is how the skill improves
+  - type: textarea
+    id: limitations
+    attributes:
+      label: What this teardown does not establish
+      description: Non-claims, DEFER gates, sampling limits, and generalization limits
+    validations:
+      required: true
   - type: dropdown
     id: rebuild-status
     attributes:
@@ -75,5 +115,5 @@ body:
     attributes:
       label: Sanitization check
       options:
-        - label: I confirm this report contains no tenant data, PII, or confidential information
+        - label: I confirm this report contains no direct identifiers, record contents, secrets, internal URLs, or confidential tenant material
           required: true

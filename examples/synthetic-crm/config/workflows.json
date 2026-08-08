@@ -1,0 +1,12 @@
+{
+  "schema_version": "1",
+  "integrations": {
+    "social_enrichment": {
+      "enabled": false,
+      "endpoint": "https://example.invalid/enrich"
+    }
+  },
+  "imports": {
+    "customer_template_version": "2"
+  }
+}

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to create and release (e.g. v0.6.0)"
+        description: "Tag to create and release (for example, v0.7.0)"
         required: true
       target:
         description: "Commitish the tag points at"
@@ -16,16 +16,19 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 concurrency: release
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
 
@@ -57,8 +60,37 @@ jobs:
         # A version that doesn't pass the suite doesn't become a release.
         if: steps.tag.outputs.exists == 'false'
         run: |
-          pip install pytest jsonschema pyyaml
-          pytest tests/ -q
+          python -m pip install --requirement requirements-dev.txt
+          python -m pytest tests/ -q
+          PYTHONWARNINGS=error::ResourceWarning \
+            python -m unittest discover \
+            -s skills/export-compliance/tools/xscreen/tests \
+            -t skills/export-compliance/tools
+
+      - name: Require tag and plugin version to agree
+        if: steps.tag.outputs.exists == 'false'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib
+          version = json.loads(
+              pathlib.Path(".claude-plugin/plugin.json").read_text()
+          )["version"]
+          tag = os.environ["TAG"]
+          if tag != f"v{version}":
+              raise SystemExit(f"tag {tag!r} does not match plugin version v{version}")
+          PY
+
+      - name: Build reproducible release archives
+        if: steps.tag.outputs.exists == 'false'
+        run: python scripts/package_skills.py --output-dir dist
+
+      - name: Attest release archives
+        if: steps.tag.outputs.exists == 'false'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/*.zip
 
       - name: Create the GitHub release
         # gh creates the tag server-side when it doesn't exist yet
@@ -70,12 +102,12 @@ jobs:
           INPUT_TARGET: ${{ inputs.target }}
         run: |
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            gh release create "$TAG" dist/*.zip \
+            gh release create "$TAG" dist/*.zip dist/SHA256SUMS \
               --repo "${GITHUB_REPOSITORY}" \
               --title "$TAG" \
               --generate-notes
           else
-            gh release create "$TAG" dist/*.zip \
+            gh release create "$TAG" dist/*.zip dist/SHA256SUMS \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${INPUT_TARGET:-$GITHUB_SHA}" \
               --title "$TAG" \

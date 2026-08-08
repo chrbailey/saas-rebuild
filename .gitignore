@@ -1,9 +1,15 @@
 .DS_Store
 *.log
 exports/
+!examples/synthetic-crm/exports/
+!examples/synthetic-crm/exports/**
 teardowns/
-__pycache__/
-*.pyc
 lists/
 runs/
+__pycache__/
+*.py[cod]
 .pytest_cache/
+.venv/
+*.egg-info/
+/dist/*.zip
+/dist/SHA256SUMS

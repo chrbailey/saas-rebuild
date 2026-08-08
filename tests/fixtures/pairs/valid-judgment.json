@@ -1,33 +1,39 @@
 {
+  "schema_version": "0.7.0",
+  "pair_id": "pair-commission-judgment",
   "pair_type": "judgment",
-  "input": {
-    "feature": {
-      "id": "commission-plans",
-      "kind": "setting",
-      "observed_signals": {"empty_state": true}
-    }
-  },
-  "output": {
-    "verdict": "DROP",
-    "usage": "never",
-    "why": "Configured module with zero records since tenant creation."
-  },
-  "rationale": "Structure evidence exists but no runtime evidence joins it; per the Phase 3 join rule this is configured-never-enabled.",
+  "input": {"feature_id": "commission-plans", "lifetime_records": 0},
+  "output": {"verdict": "DROP", "usage": "never"},
+  "rationale": "A complete-history runtime census supports the synthetic conclusion.",
   "label_authority": "analyst",
+  "dataset_role": "development",
+  "split_group": "commission-plans-analysis",
   "evidence": [
     {
-      "plane": "config-census",
-      "claim": "commission plans module is enabled but zero plan records exist",
-      "source": "Settings > Sales > Commission plans",
-      "observed_at": null,
-      "confidence": "medium"
+      "evidence_id": "ev-commission-census",
+      "evidence_class": "runtime",
+      "plane": "transactional",
+      "claim": "No commission plan or execution record exists in the complete synthetic history.",
+      "source": "synthetic lifetime census query v1",
+      "observed_at": "2026-07-28T10:00:00Z",
+      "coverage": {"kind": "all-time", "start": "2019-03-02", "end": "2026-07-28"},
+      "confidence": "high",
+      "sensitivity": "public",
+      "supports": ["usage", "verdict"]
     }
   ],
   "provenance": {
-    "app": "erp-cat-01",
-    "teardown_id": "td-demo-001",
+    "app": "fixture-app",
+    "teardown_id": "fixture-teardown",
     "phase": 3,
-    "created": "2026-08-08"
+    "created_at": "2026-07-28T10:05:00Z",
+    "source_artifact_refs": ["tests/fixtures/valid-unused-with-nulls.json"]
   },
-  "sanitization_tier": "sanitized-shareable"
+  "sanitization_tier": "sanitized-shareable",
+  "sanitization_review": {
+    "status": "approved",
+    "reviewed_by": "fixture-reviewer",
+    "reviewed_at": "2026-07-28T10:10:00Z",
+    "method": "synthetic fixture inspection"
+  }
 }

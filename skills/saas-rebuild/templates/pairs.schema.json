@@ -1,112 +1,234 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Teardown supervised pair (one line of pairs.jsonl)",
-  "description": "The teardown pipeline is a labeling process: the legacy system labels replay transactions, analysts label verdicts, the UI walk labels screen-to-schema extraction. Every phase therefore emits supervised (input, output) pairs — one JSON object per line of pairs.jsonl — which later serve as fine-tuning data, eval suites, and regression harnesses for the replacement skill. Only pairs whose label_authority is system-of-record or observed-ui are ground truth; analyst-labeled pairs are the pipeline's own opinions.",
+  "$id": "https://github.com/chrbailey/saas-rebuild/skills/saas-rebuild/templates/pairs.schema.json",
+  "title": "Teardown behavioral or judgment pair",
+  "description": "One JSONL case. Dataset role and lineage group prevent training/evaluation leakage; label authority distinguishes observations from analyst opinions.",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "schema_version",
+    "pair_id",
     "pair_type",
     "input",
     "output",
+    "label_authority",
+    "dataset_role",
+    "split_group",
     "provenance",
     "sanitization_tier"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "pair_type": { "const": "replay" } },
+        "required": ["pair_type"]
+      },
+      "then": {
+        "required": ["replay_context"],
+        "properties": {
+          "label_authority": { "const": "system-of-record" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "pair_type": { "const": "perception" } },
+        "required": ["pair_type"]
+      },
+      "then": {
+        "properties": {
+          "label_authority": { "const": "observed-ui" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "pair_type": { "const": "judgment" } },
+        "required": ["pair_type"]
+      },
+      "then": {
+        "required": ["evidence"],
+        "properties": {
+          "label_authority": { "const": "analyst" },
+          "evidence": { "minItems": 1 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "pair_type": { "const": "design" } },
+        "required": ["pair_type"]
+      },
+      "then": {
+        "required": ["evidence"],
+        "properties": {
+          "label_authority": {
+            "enum": ["analyst", "validated-design"]
+          },
+          "evidence": { "minItems": 1 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "sanitization_tier": { "const": "sanitized-shareable" }
+        },
+        "required": ["sanitization_tier"]
+      },
+      "then": {
+        "required": ["sanitization_review"],
+        "properties": {
+          "sanitization_review": {
+            "properties": { "status": { "const": "approved" } },
+            "required": ["status", "reviewed_by", "reviewed_at"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "dataset_role": { "const": "holdout-eval" } },
+        "required": ["dataset_role"]
+      },
+      "then": {
+        "properties": {
+          "label_authority": {
+            "enum": ["system-of-record", "observed-ui", "validated-design"]
+          }
+        }
+      }
+    }
+  ],
   "properties": {
-    "pair_type": {
-      "enum": [
-        "replay",
-        "judgment",
-        "perception",
-        "design"
-      ],
-      "description": "replay: historical transaction input to system-of-record output (the legacy system is the labeling function). judgment: evidence bundle to verdict plus why. perception: screen text/DOM excerpt to structured feature entry. design: usage evidence plus workarounds to rebuilt workflow spec."
-    },
-    "input": {
-      "type": [
-        "object",
-        "string"
-      ],
-      "description": "the stimulus side: what the model is given"
-    },
-    "output": {
-      "type": [
-        "object",
-        "string"
-      ],
-      "description": "the labeled response side: what a correct system produces"
-    },
-    "rationale": {
+    "schema_version": { "const": "0.7.0" },
+    "pair_id": {
       "type": "string",
-      "description": "why this output is correct; one paragraph max"
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
     },
+    "pair_type": {
+      "enum": ["replay", "judgment", "perception", "design"]
+    },
+    "input": { "type": ["object", "string"] },
+    "output": { "type": ["object", "string"] },
+    "rationale": { "type": "string" },
     "label_authority": {
       "enum": [
         "system-of-record",
         "observed-ui",
         "analyst",
         "validated-design"
-      ],
-      "description": "who labeled the output side. analyst-labeled pairs are opinions, not ground truth: use for behavior cloning and audit, never as eval gold. design pairs start as analyst and are promoted to validated-design only after the workflow passes parallel-run"
+      ]
+    },
+    "dataset_role": {
+      "enum": ["development", "regression", "holdout-eval"],
+      "description": "holdout-eval lineages must never be used for training or design selection"
+    },
+    "split_group": {
+      "type": "string",
+      "minLength": 1,
+      "description": "stable case/workflow/customer/period lineage used to prevent correlated leakage"
     },
     "evidence": {
       "type": "array",
-      "description": "typed citations backing the pair; mirrors the citation shape in feature-inventory.schema.json (duplicated in $defs so this schema stays self-contained)",
-      "items": {
-        "$ref": "#/$defs/citation"
-      }
+      "items": { "$ref": "#/$defs/citation" }
     },
     "provenance": {
       "type": "object",
-      "description": "where the pair came from, enough to trace it back to its teardown",
       "additionalProperties": false,
       "required": [
         "app",
         "teardown_id",
         "phase",
-        "created"
+        "created_at",
+        "source_artifact_refs"
       ],
       "properties": {
-        "app": {
-          "type": "string",
-          "description": "app slug; may be a category code after sanitization"
-        },
+        "app": { "type": "string", "minLength": 1 },
         "teardown_id": {
           "type": "string",
-          "description": "stable id of the teardown run that emitted the pair"
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         },
-        "phase": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 5,
-          "description": "pipeline phase (0-5) that emitted the pair"
-        },
-        "created": {
+        "phase": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "created_at": {
           "type": "string",
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}",
-          "description": "ISO date the pair was written"
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "source_artifact_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "replay_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "as_of",
+        "legacy_config_ref",
+        "state_capture",
+        "side_effect_free_verified"
+      ],
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}"
+        },
+        "legacy_config_ref": { "type": "string", "minLength": 1 },
+        "state_capture": {
+          "enum": ["captured", "self-contained", "unavailable"]
+        },
+        "side_effect_free_verified": { "const": true },
+        "expected_divergence_ref": {
+          "type": ["string", "null"]
         }
       }
     },
     "sanitization_tier": {
-      "enum": [
-        "raw-local-only",
-        "sanitized-shareable",
-        "synthetic"
-      ],
-      "description": "raw-local-only: contains tenant data, never leaves the output dir. sanitized-shareable: structure only, names coded, figures rounded. synthetic: statistically regenerated, safe to publish. Rule: only sanitized-shareable and synthetic tiers may leave ~/Dev/teardowns/, and tier assignment gets an independent critic check first."
+      "enum": ["raw-local-only", "sanitized-shareable", "synthetic"]
+    },
+    "sanitization_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["pending", "approved", "rejected"] },
+        "reviewed_by": { "type": "string", "minLength": 1 },
+        "reviewed_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "method": { "type": "string" },
+        "notes": { "type": "string" }
+      }
     }
   },
   "$defs": {
     "citation": {
       "type": "object",
-      "description": "one typed evidence citation; same shape as the feature schema's evidence items",
       "additionalProperties": false,
       "required": [
+        "evidence_id",
+        "evidence_class",
         "plane",
         "claim",
-        "source"
+        "source",
+        "observed_at",
+        "coverage",
+        "confidence",
+        "sensitivity",
+        "supports"
       ],
       "properties": {
+        "evidence_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "evidence_class": {
+          "enum": ["structure", "runtime", "human-framing"]
+        },
         "plane": {
           "enum": [
             "ui-walk",
@@ -121,39 +243,64 @@
             "interview",
             "contract",
             "document"
-          ],
-          "description": "which evidence stream produced the signal; see SKILL.md Phase 3 for the plane-to-class mapping the join rule uses"
+          ]
         },
-        "claim": {
-          "type": "string",
-          "description": "the specific assertion this citation supports, one sentence"
-        },
-        "source": {
-          "type": "string",
-          "description": "where it was seen, precisely enough to re-run: table/report/log window/doc, no record contents"
-        },
+        "claim": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
         "observed_at": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}",
-          "description": "ISO date the signal was observed; null if not recorded"
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
         },
-        "confidence": {
-          "enum": [
-            "high",
-            "medium",
-            "low"
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "allOf": [
+            {
+              "if": {
+                "properties": { "kind": { "const": "window-bounded" } },
+                "required": ["kind"]
+              },
+              "then": { "required": ["start", "end"] }
+            }
           ],
-          "description": "how directly the signal supports the claim"
+          "properties": {
+            "kind": {
+              "enum": [
+                "all-time",
+                "window-bounded",
+                "point-in-time",
+                "not-applicable"
+              ]
+            },
+            "start": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}" },
+            "end": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}" },
+            "notes": { "type": "string" }
+          }
+        },
+        "confidence": { "enum": ["high", "medium", "low"] },
+        "sensitivity": {
+          "enum": ["public", "internal", "confidential", "restricted"]
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["usage", "criticality", "verdict", "dependency"]
+          }
+        },
+        "source_digest": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
         },
         "derived_from": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "id or source of another citation this one is derived from; two citations sharing a derivation chain count as ONE signal for corroboration"
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
         }
       }
     }

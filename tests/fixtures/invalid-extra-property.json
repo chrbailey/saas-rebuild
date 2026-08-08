@@ -1,7 +1,0 @@
-{
-  "id": "invoices-list",
-  "nav_path": "Billing > Invoices",
-  "name": "Invoice list",
-  "kind": "screen",
-  "usage_evidence": "legacy free-text field, removed in v0.4"
-}

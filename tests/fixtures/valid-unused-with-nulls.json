@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "id": "commission-plans",
   "nav_path": "Settings > Sales > Commission plans",
   "name": "Commission plans",
@@ -8,21 +9,26 @@
     "newest_record": null,
     "oldest_record": null,
     "empty_state": true,
-    "notes": "empty-state screen with setup wizard"
+    "notes": "Synthetic fixture"
   },
   "usage": "never",
   "evidence": [
     {
-      "plane": "config-census",
-      "claim": "commission plans module is enabled but zero plan records exist",
-      "source": "Settings > Sales > Commission plans",
-      "observed_at": null,
-      "confidence": "medium"
+      "evidence_id": "ev-commission-census",
+      "evidence_class": "runtime",
+      "plane": "transactional",
+      "claim": "No commission plan or execution record exists in the complete synthetic history.",
+      "source": "synthetic lifetime census query v1",
+      "observed_at": "2026-07-28T10:00:00Z",
+      "coverage": {"kind": "all-time", "start": "2019-03-02", "end": "2026-07-28"},
+      "confidence": "high",
+      "sensitivity": "public",
+      "supports": ["usage", "verdict"]
     }
   ],
   "criticality": "none",
   "replaceability": "trivial",
   "verdict": "DROP",
-  "why": "Configured module with zero records since tenant creation.",
+  "why": "No records or executions exist across the complete synthetic history.",
   "unused_reason": "configured-never-enabled"
 }

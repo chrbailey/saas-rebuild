@@ -1,13 +1,13 @@
 ---
 name: saas-rebuild
-description: Tear down a SaaS application the user administers and plan its replacement as a Claude skill. Ships per-app extraction recipes for the 100 most-adopted SaaS apps that seed the route map the moment the app is named. Inventory every screen via browser automation, extract configuration, transactional, master-data, setup, and code evidence through the platform's own APIs, mine audit logs for observed process flow, and attach typed evidence citations to every used-vs-unused verdict. Derives rebuild milestones from a dependency graph, validates by replaying historical transactions, runs a full-tenant preservation export, and emits supervised training pairs from every phase. Also runs document-based teardowns from engagement archives when no live tenant exists. Trigger phrases include "tear down this app", "extract and redesign", "what do we actually use in [app]", "replace [app] with a skill", "rebuild this software as a skill", "analyze our ERP implementation", "mine our audit log", "what does this system actually do".
+description: Audit a SaaS tenant the user owns or administers, preserve its data, identify which configured capabilities are actually used, and derive a smaller replacement architecture from cited evidence. Start supported applications from cited extraction recipes, but verify every document-derived route in the tenant. Use for live-tenant or document-based teardowns, process and integration discovery, KEEP/SIMPLIFY/DROP/DEFER decisions, historical replay, and migration planning. Select the honest target for each capability—a Claude skill, deterministic code, service, application, workflow engine, or hybrid.
 ---
 
-# SaaS Rebuild — teardown, usage analysis, and skill rebuild plan
+# SaaS Rebuild — evidence-driven teardown and replacement design
 
-Systematic pipeline: inventory a SaaS app's full surface area → score what is
-actually used and why → map how to get the data out → design the replacement
-as a Claude skill (schema + corpus + CSV bridge + audit trail).
+Systematic pipeline: inventory the tenant-specific system → identify observed
+behavior and uncertainty → preserve every data category → choose the smallest
+sound target architecture → verify it with disjoint historical cases.
 
 ## Guardrails (do these before anything else)
 
@@ -33,6 +33,11 @@ as a Claude skill (schema + corpus + CSV bridge + audit trail).
    drive the already-authenticated session.
 4. All outputs go to `~/Dev/teardowns/<app-slug>/` (create it; ask the user for
    a different location if they prefer). Never use scratch/tmp directories.
+5. **Approve the actual data boundary before acquisition.** Record whether the
+   model and each connector are local, self-hosted, vendor-cloud, or mixed;
+   which data classifications may cross each boundary; who approved it; and
+   where artifacts are written. `raw-local-only` is an artifact-distribution
+   label, not a claim that browser, connector, or model traffic stayed local.
 
 ## Phase 0 — Scope
 
@@ -41,12 +46,13 @@ most, who are the users (names/roles count), and whether an admin/audit-log
 area is accessible. Create the output dir and `teardown.json` state file:
 
 ```json
-{"app": "", "url": "", "started": "", "phase": 0, "preflight": {},
- "features": [], "evidence": {}, "extraction": [], "decisions": []}
+{"schema_version":"0.7.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Dev/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl"},"extraction":[],"decisions":[],"action_log":[]}
 ```
 
 State is resumable — on re-invocation, read `teardown.json` and continue from
-the recorded phase. Each phase updates `phase` on completion.
+the recorded phase. Each phase updates `phase` on completion. Validate every
+write against `templates/teardown-state.schema.json`; a prose promise of
+resumability is not a state contract.
 
 ### Phase 0 pre-flight (do these before the walk — some clocks are already running)
 
@@ -68,16 +74,19 @@ the recorded phase. Each phase updates `phase` on completion.
    agent writes and runs the queries and profiling scripts, but planes 2/3/5
    need either an API token or a colleague who has one — record who that is
    before Phase 1b, not when you stall inside it.
-4. **Verify the browser-automation MCP is connected** (e.g. Claude in Chrome)
-   before scheduling the walk; Phase 1 cannot start without it.
-5. **Check the extraction-recipe corpus.** If the named app has a recipe in
-   `corpus/extraction-recipes/<app-slug>.json` (target list:
-   `corpus/apps.json`), load it now — it seeds the Phase 4 route map, the
-   Phase 4b preservation checklist, and names the SKU/role gates to request
-   on day one. Treat its `verification` field honestly:
-   `doc-derived-unverified` recipes are hypotheses to confirm against the
-   tenant, not facts — and a verified teardown should flow corrections back
-   as a recipe PR promoting it to `tenant-verified`.
+4. **Approve the data boundary.** Include model, browser, connector, artifact,
+   backup, and residency boundaries; block any data class the approval does not
+   cover.
+5. **Verify the browser-automation connector is connected** before scheduling
+   a live-tenant walk. Document mode does not require one.
+6. **Check the extraction-recipe corpus.** Look for
+   `corpus/extraction-recipes/<app-slug>.json`; `corpus/apps.json` is a target
+   index and does not imply that a recipe exists. A recipe can seed the Phase 4
+   route map, the Phase 4b preservation checklist, and day-one role/SKU
+   requests. It cannot prove tenant usage, entitlement, export completeness,
+   or present-day vendor behavior. Re-check source freshness and confirm each
+   route against the authorized tenant. Preserve the `verification` status;
+   submit corrections and evidence through a reviewable recipe PR.
 
 Record each pre-flight item's status in `teardown.json` under `preflight`;
 an item marked blocked gets an owner and a ticket reference, not silence.
@@ -85,16 +94,14 @@ an item marked blocked gets an owner and a ticket reference, not silence.
 ## Alternate mode — document-based teardown (no tenant access needed)
 
 If the user has engagement archives instead of (or in addition to) live tenant
-access — FRDs/change tickets, test plans, training manuals, selection
-scorecards, recovery-project findings, meeting notes — run Phases 1–2 against
-the documents: fan out one extraction agent per evidence stream, each returning
-the feature schema with cited evidence. Two hard-won rules: **change-ticket
-corpora beat UI walks for mature tenants** (churn concentration maps directly
-to poor-fit features), and **recovery/rescue-project findings docs are teardown
-gold** (they enumerate broken and never-enabled features with CFO-level candor).
-Label the report's methodology honestly as document-based. Sanitize from the
-first artifact: client names become codes (keep a local-only names map),
-individual names never appear (roles only), and figures are rounded.
+access — requirements, change tickets, test plans, training manuals, selection
+scorecards, recovery findings, meeting notes — run Phases 1–2 against those
+documents and return feature entries with precise citations. Treat change
+frequency and recovery findings as candidate poor-fit signals, not truth: both
+are affected by reporting practices and project scope. Label the methodology
+honestly as document-based. Sanitize from the first artifact: client names
+become codes, individuals become roles, and distinctive figures are generalized
+only where doing so does not invalidate the evidence.
 
 ## Paired-data capture (runs from day one)
 
@@ -112,12 +119,17 @@ pairs to `pairs.jsonl` in the output dir, one JSON object per line per
 - `design` — Phase 5 workflow design: usage evidence + workarounds → rebuilt
   workflow spec.
 
-The reframe: the replay corpus makes the rebuild a **distillation of the
-legacy system against ground truth** — and doubles as the permanent
-regression suite for the replacement skill. Every pair carries a
-`sanitization_tier`; `raw-local-only` pairs (tenant data) never leave the
-output dir — only `sanitized-shareable` and `synthetic` may leave
-`~/Dev/teardowns/`. Each pair also records its `label_authority`:
+The replay corpus supports behavioral distillation and regression, but those
+roles are not interchangeable. Before any development, assign each lineage a
+`dataset_role` (`development`, `regression`, or `holdout-eval`) and stable
+`split_group`. Never train, tune prompts, select architecture, or choose
+thresholds using a holdout group. Never place correlated cases from one
+customer, workflow instance, period, or configuration regime on both sides of
+a split. Every pair carries a `sanitization_tier`; only
+`sanitized-shareable` and `synthetic` artifacts may be distributed. The
+`raw-local-only` label governs artifact movement only; the approved
+`data_boundary` governs model and connector traffic. Each pair also records
+its `label_authority`:
 `system-of-record` (replay) and `observed-ui` (perception) are ground
 truth; `analyst` labels (judgment, unvalidated design) are the pipeline's
 own opinions — usable for behavior cloning and audit, never as eval gold.
@@ -138,15 +150,18 @@ call). Have the user log in if not already. Then walk the app breadth-first:
 - For each screen: read the page text (+ screenshot for complex screens),
   record a feature entry per `templates/feature-inventory.schema.json`:
   id, nav_path, name, kind (screen | form | report | setting | integration |
-  automation), data_entities touched, actions available, notes.
+  automation), business processes, data entities, actions, observed signals,
+  and typed evidence. Give every citation a stable `evidence_id`, coverage
+  horizon, sensitivity, support scope, and derivation parents.
 - Record counts where the UI shows them ("312 records", empty-state screens,
   "last modified" columns) — this is usage evidence, capture it inline as
   `observed_signals` on the feature.
 - Cap the walk sensibly: if the app has more than ~60 screens, inventory nav
   labels for the long tail and deep-walk only the modules the user named in
   Phase 0. Log what was skipped — no silent truncation.
-- Write features into `teardown.json` as you go (crash-safe), and a human
-  `inventory.md` table at the end.
+- Write `feature-inventory.json` atomically as you go and keep its path in
+  `teardown.json.artifacts` (one authoritative copy, not two drifting copies).
+  Generate a human `inventory.md` rendering at the end.
 
 ## Phase 1b — Technical extraction (the five data planes)
 
@@ -156,13 +171,16 @@ technique matrix, platform specifics, gotchas, and the ranked default order):
 
 1. **Configuration/metadata census** — export every custom object, field, form,
    workflow, role, saved search, enabled module (platform metadata API or SDF/
-   Metadata-API export). The delta from vanilla is the requirements list the
-   client paid for. Run FIRST — highest evidence value per effort.
+   Metadata-API export). A delta from a version-matched baseline is a candidate
+   requirements inventory; runtime and human evidence determine whether it
+   remains a requirement. Run first by default.
 2. **Transactional archaeology** — transaction-type frequencies, volume
    time-series, human-vs-integration `created_by` attribution, row counts +
-   max(modified) per table. Empty tables = unused modules in one query.
+   max(modified) per table. Empty tables are absence signals only after checking
+   scope, archival, retention, integration-only use, and relevant cadence.
 3. **Master-data profiling** — field fill rates, cardinality, custom-field
-   population %. A 0.3%-populated field is an abandoned experiment.
+   population %. Low fill rate is a profiling flag, not proof of abandonment;
+   segment by record type, age, role, and applicable population first.
 4. **Setup census** — entities, periods, tax, scheduled jobs, integration
    tokens, role assignments (join grants to login telemetry before trusting).
 5. **Code static analysis** — export all scripts/workflow definitions; fan out
@@ -225,7 +243,8 @@ For every feature, score and classify:
 - `usage`: daily | weekly | rare | never | workaround-external |
   workaround-internal | unknown.
   Citations are structured: each feature carries an `evidence` array of typed
-  citations (plane + claim + source) per
+  citations (stable id + class + plane + claim + source + observation time +
+  coverage + confidence + sensitivity + support scope + derivation) per
   `templates/feature-inventory.schema.json` — a feature with a `verdict` but
   an empty `evidence` array gets `usage: unknown` and its verdict reverted to
   DEFER until a citation exists. `workaround-external` means the job
@@ -235,7 +254,8 @@ For every feature, score and classify:
   `references/process-mining.md`). Both are different, more actionable
   findings than "unused": the workaround is the requirement the configured
   flow failed to meet
-- `criticality`: does a business process break without it?
+- `criticality`: does a named business process break without it? Critical
+  entries list stable process ids in `business_processes`.
 - `replaceability`: trivial (a prompt), moderate (skill workflow), hard
   (needs external integration/state)
 - `verdict`: KEEP | SIMPLIFY | DROP | DEFER, plus one-sentence **why**
@@ -276,7 +296,8 @@ substitutes for the RUNTIME side on its own. "Independent" means independent
 query of the same table are one signal — when counting corroborating
 citations, collapse `derived_from` chains first.
 
-Where Phase 1b ran, build the dependency graph per
+Where Phase 1b ran, write `graph.json` against
+`templates/dependency-graph.schema.json` and build it per
 `references/dependency-graph.md` before finalizing verdicts: color nodes
 by verdict and act on the mismatches — a DROP node a kept path depends on
 keeps its verdict but DEFERs its removal, and a KEEP island no critical
@@ -327,39 +348,59 @@ cannot be exported (vendor ticket reference, missing SKU, no route found):
 
 Verify completeness at export time: compare exported row counts and date
 ranges against the Phase 1b tenant counts, per entity, and log the diff.
-Write `preservation-manifest.md`: per item — route used, file(s), row/file
-counts, checksum, gaps, and who accepted each gap. Store the whole set with
-the same handling as `raw-local-only` pairs: it never leaves the output
-location, and the location itself must be encrypted, access-controlled, and
-covered by backup — this directory is now the company's system of record
-in waiting.
+Write and validate `preservation-manifest.json` against
+`templates/preservation-manifest.schema.json`: per item — route, files,
+row/file counts, SHA-256 digests, gaps, and accountable gap acceptance. A
+human-readable Markdown rendering is optional and must be generated from the
+JSON, not maintained as a competing source of truth. Apply the approved data
+boundary to the whole preservation set; require encryption, access control,
+backup, and a named retention owner.
 
-## Phase 5 — Rebuild plan as a skill
+## Phase 5 — Target architecture and rebuild plan
+
+Classify every retained capability before choosing its runtime:
+
+| Capability property | Default target |
+|---|---|
+| Reasoning, analysis, document transformation | Claude skill with schemas/tools |
+| Deterministic calculation or file transformation | Tested library, script, or service |
+| Shared mutable state, concurrency, permissions | Application + database + identity |
+| Cross-system event flow | Workflow or integration runtime |
+| Regulated or irreversible action | Deterministic guard + accountable approval |
+
+Most serious replacements are hybrid. Record each target decision and its
+evidence; do not force a ledger, identity system, statutory rules engine, or
+multi-user transactional workflow into prompt-only architecture.
 
 Design the replacement:
 
 - **Schema first**: one JSON schema per core entity (fields, confidence
   labels where extraction is fuzzy).
-- **Corpus**: extracted data lives as a JSON corpus the skill loads (a single
-  list file keeps the loader simple).
-- **Workflows**: each KEEP verdict becomes a skill workflow section; each
+- **Corpus/state**: choose immutable files, a database, or an external system
+  of record according to consistency, update, retention, and access needs.
+- **Workflows**: each KEEP verdict becomes a target workflow; each
   SIMPLIFY gets redesigned around what users actually did, not what the app
   offered. Spreadsheet workarounds from interviews become first-class flows.
 - **Bridges**: CSV in/out for whatever systems remain (accounting, ERP).
 - **Audit**: append-only audit log entries for every state-changing action.
 - **Out of scope honestly**: DEFER/DROP list with revisit conditions, plus
-  anything needing real multi-user state or external writes — recommend the
-  right home for those (app, automation, or keep in old system).
+  anything needing unsupported multi-user state or external writes — choose
+  an app, service, automation, controlled bridge, or the old system.
 
 Structure the plan around a **capability map** populated from the data planes
 (not interviews alone — interview-only maps reproduce the org chart), sequence
 it **strangler-fig** (capability-by-capability behind the CSV/API bridges,
-never big-bang), and validate by **replay**: re-run a sample of real historical
-transactions through the rebuilt skill and diff outputs against the system of
-record at posting, document, and total level. Behavioral equivalence on
-historical data is the acceptance test.
+never big-bang), and validate by **replay**: re-run disjoint historical cases
+through the replacement and diff outputs against the system of record at
+posting, document, and total level. This is bounded acceptance evidence, not a
+proof of universal equivalence.
 
 Replay has preconditions — check them before trusting any diff:
+
+- **Freeze the split before implementation.** Development, regression, and
+  `holdout-eval` groups are disjoint by `split_group`. If a holdout case is
+  inspected during design or debugging, demote and replace the entire lineage;
+  do not pretend it remains independent.
 
 - **The legacy system is not a pure function.** Outputs depend on
   at-the-time state (rates, balances, sequence numbers, open periods).
@@ -388,17 +429,18 @@ defect, exclude the pair from the regression suite's gold set, and do not
 reproduce the bug.
 
 Derive the milestone structure from the graph, don't guess it
-(`references/dependency-graph.md`): capability islands are the
-strangler-fig milestones, the condensed topo-sort is their order,
+(`references/dependency-graph.md`): capability islands are candidate
+strangler-fig milestones, the projected dependency DAG gives their order,
 load-bearing entities get their schemas first, and every articulation
 point enters the risk register with an explicit bridge-or-replace
 decision.
 
-Write `REBUILD_PLAN.md` per `templates/rebuild-plan-template.md`: phased
+Write `REBUILD_PLAN.md` per `templates/rebuild-plan-template.md`: target
+selection plus phased
 milestones (walking skeleton → core workflow → bridges → parallel-run →
 cutover), each milestone with a verification step.
 
-**Org deployment (Claude for Work):** package as a versioned zip (no angle
+**If the target includes a Claude skill:** package it as a versioned zip (no angle
 brackets in the SKILL.md description — the workspace uploader rejects them),
 upload to the org's Claude workspace, and verify the installed version
 end-to-end after upload. Plan the operational envelope: corpus refresh cadence
@@ -408,9 +450,13 @@ version retained).
 
 ## Deliverables recap
 
-`~/Dev/teardowns/<app-slug>/`: teardown.json (state), inventory.md,
-usage-analysis.md, extraction-runbook.md, preservation-manifest.md, exports/,
-pairs.jsonl (supervised pairs, tiered per sanitization rule),
-interview-questions.md (if used), REBUILD_PLAN.md. Send REBUILD_PLAN.md to
-the user at the end and summarize KEEP/SIMPLIFY/DROP counts and the top 3
-findings.
+`~/Dev/teardowns/<app-slug>/`: `teardown.json`, `graph.json`, `inventory.md`,
+`usage-analysis.md`, `extraction-runbook.md`,
+`preservation-manifest.json`, `exports/`, `pairs.jsonl`,
+`interview-questions.md` (if used), and `REBUILD_PLAN.md`. Validate every JSON
+or JSONL artifact against its template before delivery. When Python and the
+declared `requirements.txt` dependency are available, run
+`tools/validate_artifacts.py <output-dir>` to enforce cross-file identities,
+lineage isolation, graph references, and preservation digests. Summarize
+KEEP/SIMPLIFY/DROP/DEFER counts, target-runtime counts, top findings, material
+unknowns, holdout status, and preservation gaps.

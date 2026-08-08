@@ -1,10 +1,9 @@
 # Process Mining on Audit Logs
 
-Upgrades the pipeline's weakest evidence (interviews: "which screens do
-you touch") to its strongest: observed behavior. A mined audit log shows
-what the process actually is — variants, rework loops, waits — with case
-counts attached. Evidence class A (runtime). The extraction playbook
-calls this a judgment call; the judgment is the first section below.
+Converts suitable audit logs into bounded runtime evidence about observed
+behavior. A mined log can show variants, rework loops, and waits within its
+case definition, sampling window, retention policy, and activity mapping. It
+does not reveal unlogged work or establish why a pattern occurred.
 
 ## When it applies — and when to skip
 
@@ -31,8 +30,8 @@ Bail out honestly when:
   Case correlation and cleanup cost real hours; spend them where planes
   1–3 left a dispute or a mystery.
 
-Where it does apply, it is the one evidence stream that survives "that's
-not how we actually do it" — because it IS how they actually do it.
+Where it applies, it can resolve disputes about what the instrumented system
+recorded. It cannot by itself resolve off-system work, intent, or causality.
 
 ## Event-log construction (the genuinely hard part)
 
@@ -140,13 +139,13 @@ checking, or by hand for small state machines). Two asymmetric findings:
 
 ### 3. Bottlenecks → Phase 5 automation ranking
 
-For each directly-follows edge, compute the **median** waiting time
-between the two activities (median, not mean — a few stuck cases dominate
-the mean). Rank edges by `median_wait x case_count` — queue-hours at
-stake, not either factor alone. The longest waits
-are what the rebuilt skill should automate first: that is where work sits
-in queues, and it turns Phase 5 workflow prioritization from opinion into
-a ranked list with hours attached.
+For each directly-follows edge, compute the **median** waiting time between
+activities and report the distribution and case count. Rank candidates by
+`median_wait × case_count` as an **exposure score**. It is not additive queue
+hours and not an estimate of recoverable savings: the median is replicated
+across cases, waits may overlap, and batching, calendars, staffing, upstream
+quality, or policy holds may confound the edge. Use the score to prioritize
+investigation, then validate causes before proposing automation.
 
 ## SQL fallback (no PM4Py, no Python)
 
@@ -180,9 +179,19 @@ one-sentence claim; and the source — the exact query or log window plus
 case count, so the finding is re-runnable. Example:
 
 ```json
-{"plane": "telemetry",
- "claim": "Top-5 variants cover 41% of human-lane orders (n=2,310)",
- "source": "audit_log 2026-05-01..2026-07-30, human lane, DFG query v2"}
+{
+  "evidence_id": "ev-synthetic-order-variants",
+  "evidence_class": "runtime",
+  "plane": "telemetry",
+  "claim": "Synthetic example: top-3 variants cover 40% of completed cases (n=100; 5% boundary-censored)",
+  "source": "synthetic-fixture/order-dfg.sql over SYNTHETIC_LOG_SHA256",
+  "observed_at": "2026-07-31T12:00:00Z",
+  "coverage": {"kind":"window-bounded","start":"2026-05-01","end":"2026-07-30"},
+  "confidence": "medium",
+  "sensitivity": "public",
+  "supports": ["usage", "verdict"],
+  "derived_from": ["ev-synthetic-audit-log"]
+}
 ```
 
 **No finding enters the evidence base without passing the critic pass in

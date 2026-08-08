@@ -1,0 +1,4 @@
+event_id,case_id,actor_role,action,timestamp
+E-001,C-001,service-agent,customer_search,2026-07-29T09:00:00Z
+E-002,C-002,service-agent,customer_search,2026-07-30T10:15:00Z
+E-003,I-008,data-steward,customer_import,2026-07-28T14:00:00Z

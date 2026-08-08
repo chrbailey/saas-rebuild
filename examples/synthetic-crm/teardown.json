@@ -1,0 +1,64 @@
+{
+  "schema_version": "0.7.0",
+  "teardown_id": "synthetic-crm-2026",
+  "app": {
+    "name": "SYNTHETIC CRM FIXTURE",
+    "slug": "synthetic-crm",
+    "url": null,
+    "methodology": "hybrid"
+  },
+  "started_at": "2026-07-31T10:00:00Z",
+  "updated_at": "2026-08-01T17:00:00Z",
+  "phase": 5,
+  "status": "complete",
+  "data_boundary": {
+    "model_boundary": "local",
+    "connector_boundary": "local",
+    "artifact_root": "examples/synthetic-crm/",
+    "allowed_data_classes": ["public"],
+    "approved_by": "synthetic-example-owner",
+    "approved_at": "2026-07-31T10:00:00Z",
+    "notes": "All records and identifiers are invented."
+  },
+  "preflight": [
+    {"id": "authorization", "status": "ready", "owner": "synthetic-example-owner", "evidence": "Fictional data declaration in README.md"},
+    {"id": "data-boundary", "status": "ready", "owner": "synthetic-example-owner", "evidence": "Public synthetic data only"},
+    {"id": "vendor-terms", "status": "not-applicable", "owner": "synthetic-example-owner"},
+    {"id": "volatile-logs", "status": "ready", "owner": "synthetic-example-owner", "evidence": "audit/events.csv"},
+    {"id": "contracts", "status": "ready", "owner": "synthetic-example-owner", "evidence": "Synthetic policy citation POL-07"},
+    {"id": "admin-access", "status": "not-applicable", "owner": "synthetic-example-owner"},
+    {"id": "browser-automation", "status": "not-applicable", "owner": "synthetic-example-owner"}
+  ],
+  "artifacts": {
+    "feature_inventory": "feature-inventory.json",
+    "pairs": "pairs.jsonl",
+    "graph": "graph.json",
+    "preservation_manifest": "preservation-manifest.json",
+    "rebuild_plan": "REBUILD_PLAN.md"
+  },
+  "extraction": [
+    {"entity": "customer", "route": "built-in-export", "status": "verified", "notes": "Synthetic CSV count matched three-record source census."},
+    {"entity": "audit-event", "route": "api", "status": "verified", "notes": "Synthetic 60-day window."},
+    {"entity": "attachment", "route": "none", "status": "verified", "notes": "Synthetic tenant declares no attachments."}
+  ],
+  "decisions": [
+    {
+      "id": "decision-hybrid-target",
+      "made_at": "2026-08-01T15:00:00Z",
+      "decision": "Use a transactional service for customer state and a skill for assisted search/summarization.",
+      "reason": "Shared records require durable state and permissions; reasoning does not.",
+      "evidence_ids": ["ev-search-runtime", "ev-search-criticality", "ev-import-runtime"]
+    },
+    {
+      "id": "decision-defer-tax-report",
+      "made_at": "2026-08-01T15:10:00Z",
+      "decision": "Defer target selection for the annual tax certificate.",
+      "reason": "The runtime window excludes its plausible annual cadence.",
+      "evidence_ids": ["ev-tax-window", "ev-tax-contract"]
+    }
+  ],
+  "action_log": [
+    {"at": "2026-07-31T10:10:00Z", "actor": "example-runner", "action": "read synthetic artifacts", "target": "examples/synthetic-crm", "effect": "read-only"},
+    {"at": "2026-08-01T17:00:00Z", "actor": "example-runner", "action": "write teardown artifacts", "target": "examples/synthetic-crm", "effect": "local-write"}
+  ]
+}

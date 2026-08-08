@@ -1,46 +1,52 @@
-"""Version consistency. The plugin version (plugin.json ↔ marketplace.json)
-is hand-edited in two places and must agree. Skill zips in dist/ are
-versioned per skill, independently of the plugin version, but each must be
-semver-named after a skill directory that actually exists."""
+"""One version source per skill and correctly named generated archives."""
 
+import json
 import re
+import subprocess
+import sys
 
-from conftest import DIST_DIR, REPO_ROOT
+from conftest import REPO_ROOT
+
 
 SEMVER = r"\d+\.\d+\.\d+"
+VERSIONS_PATH = REPO_ROOT / "skill-versions.json"
 
 
-def test_plugin_and_marketplace_versions_in_sync(plugin_manifest, marketplace_manifest):
-    entry = next(
-        (p for p in marketplace_manifest["plugins"] if p["name"] == plugin_manifest["name"]),
-        None,
+def test_declared_versions_are_complete_and_semver(plugin_manifest):
+    versions = json.loads(VERSIONS_PATH.read_text())
+    skills = {path.name for path in (REPO_ROOT / "skills").iterdir() if path.is_dir()}
+    assert set(versions) == skills
+    assert all(re.fullmatch(SEMVER, version) for version in versions.values())
+    assert plugin_manifest["version"] == versions["saas-rebuild"]
+
+
+def test_generated_zips_match_declared_versions(tmp_path):
+    subprocess.run(
+        [sys.executable, "scripts/package_skills.py", "--output-dir", str(tmp_path)],
+        cwd=REPO_ROOT,
+        check=True,
     )
-    assert entry, f"marketplace.json has no entry named {plugin_manifest['name']}"
-    assert entry["version"] == plugin_manifest["version"], (
-        f"version drift: plugin.json {plugin_manifest['version']} "
-        f"vs marketplace.json {entry['version']}"
+    versions = json.loads(VERSIONS_PATH.read_text())
+    expected = {f"{name}-{version}.zip" for name, version in versions.items()}
+    actual = {path.name for path in tmp_path.glob("*.zip")}
+    assert actual == expected
+
+
+def test_saas_contract_versions_match_skill_version():
+    versions = json.loads(VERSIONS_PATH.read_text())
+    expected = versions["saas-rebuild"]
+    for path in sorted((REPO_ROOT / "skills" / "saas-rebuild" / "templates").glob("*.schema.json")):
+        schema = json.loads(path.read_text())
+        assert schema["properties"]["schema_version"]["const"] == expected, path.name
+
+
+def test_each_generated_zip_name_maps_to_a_real_skill(tmp_path):
+    subprocess.run(
+        [sys.executable, "scripts/package_skills.py", "--output-dir", str(tmp_path)],
+        cwd=REPO_ROOT,
+        check=True,
     )
-
-
-def test_plugin_version_is_semver(plugin_manifest):
-    assert re.fullmatch(SEMVER, plugin_manifest["version"])
-
-
-def test_dist_zips_are_semver_named_after_real_skills():
-    zips = sorted(DIST_DIR.glob("*.zip"))
-    assert zips, "expected at least one packaged skill zip in dist/"
-    for z in zips:
-        match = re.fullmatch(rf"([a-z0-9-]+)-({SEMVER})\.zip", z.name)
-        assert match, f"dist zip name not in <skill>-X.Y.Z.zip form: {z.name}"
-        skill_dir = REPO_ROOT / "skills" / match.group(1)
-        assert skill_dir.is_dir(), f"{z.name} names no skill directory: skills/{match.group(1)}"
-
-
-def test_one_zip_per_skill():
-    by_skill = {}
-    for z in DIST_DIR.glob("*.zip"):
-        match = re.fullmatch(rf"([a-z0-9-]+)-{SEMVER}\.zip", z.name)
-        if match:
-            by_skill.setdefault(match.group(1), []).append(z.name)
-    stale = {k: v for k, v in by_skill.items() if len(v) > 1}
-    assert not stale, f"multiple zip versions for the same skill in dist/: {stale}"
+    for path in tmp_path.glob("*.zip"):
+        match = re.fullmatch(rf"([a-z0-9-]+)-({SEMVER})\.zip", path.name)
+        assert match
+        assert (REPO_ROOT / "skills" / match.group(1)).is_dir()

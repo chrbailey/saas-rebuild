@@ -1,8 +1,10 @@
 {
+  "schema_version": "0.7.0",
   "id": "invoices-aging-report",
   "nav_path": "Reports > Billing > Aging",
   "name": "Invoice aging report",
   "kind": "report",
+  "business_processes": ["collect-receivables"],
   "data_entities": ["invoice", "customer"],
   "actions": ["export-csv", "schedule-email"],
   "observed_signals": {
@@ -10,27 +12,38 @@
     "newest_record": "2026-07-28",
     "oldest_record": "2019-03-02",
     "empty_state": false,
-    "notes": "last-modified column visible; export button present"
+    "notes": "Synthetic fixture"
   },
   "usage": "weekly",
   "evidence": [
     {
+      "evidence_id": "ev-aging-interview",
+      "evidence_class": "human-framing",
       "plane": "interview",
-      "claim": "AR clerk pulls this report every Monday for the collections call",
-      "source": "interview batch 1, AR group",
-      "confidence": "high"
+      "claim": "The receivables role uses the report in weekly collection work.",
+      "source": "synthetic interview INT-02",
+      "observed_at": "2026-07-28T09:00:00Z",
+      "coverage": {"kind": "point-in-time"},
+      "confidence": "medium",
+      "sensitivity": "public",
+      "supports": ["criticality", "verdict"]
     },
     {
+      "evidence_id": "ev-aging-telemetry",
+      "evidence_class": "runtime",
       "plane": "telemetry",
-      "claim": "report executed 41 times in the trailing 90 days",
-      "source": "report execution log",
-      "observed_at": "2026-07-28",
-      "confidence": "high"
+      "claim": "The report executed 41 times in the trailing 90 days.",
+      "source": "synthetic report execution log query v1",
+      "observed_at": "2026-07-28T09:05:00Z",
+      "coverage": {"kind": "window-bounded", "start": "2026-04-29", "end": "2026-07-28"},
+      "confidence": "high",
+      "sensitivity": "public",
+      "supports": ["usage", "verdict"]
     }
   ],
   "criticality": "critical",
   "replaceability": "moderate",
   "verdict": "KEEP",
-  "why": "Drives the weekly collections process; no substitute exists.",
+  "why": "Observed weekly use supports the critical collections process.",
   "unused_reason": null
 }

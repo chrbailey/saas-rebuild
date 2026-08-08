@@ -1,0 +1,29 @@
+{
+  "schema_version": "0.7.0",
+  "nodes": [
+    {"id": "customer-search", "type": "feature", "label": "Customer search", "verdict": "KEEP"},
+    {"id": "bulk-customer-import", "type": "feature", "label": "Bulk customer import", "verdict": "SIMPLIFY"},
+    {"id": "social-enrichment", "type": "feature", "label": "Social enrichment", "verdict": "DROP"},
+    {"id": "annual-tax-certificate", "type": "feature", "label": "Annual tax certificate", "verdict": "DEFER"},
+    {"id": "customer", "type": "entity", "label": "Customer"},
+    {"id": "enrichment-api", "type": "integration", "label": "Social enrichment API", "edges_unverified": false},
+    {"id": "service-customers", "type": "business-process", "label": "Service customers", "critical": true},
+    {"id": "annual-tax-filing", "type": "business-process", "label": "Annual tax filing", "critical": true}
+  ],
+  "edges": [
+    {"from": "customer-search", "to": "customer", "type": "reads", "runtime_status": "observed", "evidence_ids": ["ev-search-runtime"]},
+    {"from": "bulk-customer-import", "to": "customer", "type": "writes", "runtime_status": "observed", "evidence_ids": ["ev-import-runtime"]},
+    {"from": "social-enrichment", "to": "enrichment-api", "type": "exports-to", "runtime_status": "structural-only", "evidence_ids": ["ev-enrich-config"]},
+    {"from": "customer-search", "to": "service-customers", "type": "supports", "runtime_status": "observed", "evidence_ids": ["ev-search-criticality"]},
+    {"from": "bulk-customer-import", "to": "service-customers", "type": "supports", "runtime_status": "observed", "evidence_ids": ["ev-import-runtime"]},
+    {"from": "annual-tax-certificate", "to": "annual-tax-filing", "type": "supports", "runtime_status": "unknown", "evidence_ids": ["ev-tax-contract"]}
+  ],
+  "derived": {
+    "generated_at": "2026-08-01T16:00:00Z",
+    "algorithm_version": "interaction-projection-1",
+    "sensitivity_parameters": {
+      "structural_edges_included": true,
+      "entity_weights": {"writes": 3, "joins-on": 2, "reads": 1}
+    }
+  }
+}

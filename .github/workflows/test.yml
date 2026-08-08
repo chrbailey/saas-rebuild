@@ -5,18 +5,26 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: xscreen-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   xscreen:
     name: xscreen (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.11", "3.12", "3.13"]
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python }}
 
@@ -28,6 +36,8 @@ jobs:
 
       - name: Run the suite
         working-directory: skills/export-compliance/tools
+        env:
+          PYTHONWARNINGS: error::ResourceWarning
         run: python -m unittest discover -s xscreen/tests -t . -v
 
       - name: Run the suite under a different hash seed
@@ -99,56 +109,4 @@ jobs:
                       print(f"row {i}: {x} != {y}")
               sys.exit(1)
           print(f"deterministic across runs ({len(a)} rows compared)")
-          PY
-
-  manifests:
-    name: manifests and skill frontmatter
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Validate JSON and SKILL.md frontmatter
-        run: |
-          python - <<'PY'
-          import json, pathlib, re, sys
-
-          fail = []
-          for p in pathlib.Path(".").rglob("*.json"):
-              if ".git" in p.parts:
-                  continue
-              try:
-                  json.loads(p.read_text(encoding="utf-8"))
-              except Exception as e:
-                  fail.append(f"{p}: {e}")
-
-          for p in pathlib.Path("skills").rglob("SKILL.md"):
-              text = p.read_text(encoding="utf-8")
-              if not text.startswith("---"):
-                  fail.append(f"{p}: missing YAML frontmatter")
-                  continue
-              fm = text.split("---")[1]
-              if "<" in fm or ">" in fm:
-                  # The Claude for Work skill uploader rejects angle brackets
-                  # in the description field.
-                  fail.append(f"{p}: angle brackets in frontmatter")
-              for key in ("name:", "description:"):
-                  if key not in fm:
-                      fail.append(f"{p}: frontmatter missing {key}")
-
-          plugin = json.loads(pathlib.Path(".claude-plugin/plugin.json").read_text())
-          market = json.loads(pathlib.Path(".claude-plugin/marketplace.json").read_text())
-          entry = next((x for x in market["plugins"] if x["name"] == plugin["name"]), None)
-          if entry is None:
-              fail.append("marketplace.json has no entry for the plugin")
-          elif entry["version"] != plugin["version"]:
-              fail.append(
-                  f"version drift: plugin.json {plugin['version']} "
-                  f"vs marketplace.json {entry['version']}"
-              )
-
-          for f in fail:
-              print(f"::error::{f}")
-          sys.exit(1 if fail else 0)
           PY
