@@ -1,0 +1,29 @@
+name: labels
+
+# dependabot.yml assigns these labels to its PRs; Dependabot refuses to
+# open PRs when they don't exist in the repo. This keeps them existing —
+# it runs whenever the label set (here) or dependabot.yml changes.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/dependabot.yml"
+      - ".github/workflows/labels.yml"
+
+permissions:
+  issues: write
+
+jobs:
+  ensure:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create dependencies --repo "$GITHUB_REPOSITORY" \
+            --color 0366d6 --description "Dependency updates" --force
+          gh label create github-actions --repo "$GITHUB_REPOSITORY" \
+            --color 24292f --description "GitHub Actions workflow updates" --force
+          gh label create python --repo "$GITHUB_REPOSITORY" \
+            --color 3572A5 --description "Python dependency updates" --force
