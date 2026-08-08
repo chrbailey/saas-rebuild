@@ -82,9 +82,58 @@
         "unknown"
       ]
     },
-    "usage_evidence": {
-      "type": "string",
-      "description": "cite the signal or interview answer"
+    "evidence": {
+      "type": "array",
+      "description": "typed citations backing usage and verdict; one item per independent signal",
+      "items": {
+        "type": "object",
+        "required": [
+          "plane",
+          "claim"
+        ],
+        "properties": {
+          "plane": {
+            "enum": [
+              "ui-walk",
+              "config-census",
+              "transactional",
+              "master-data",
+              "setup-census",
+              "code-analysis",
+              "telemetry",
+              "integration-inventory",
+              "export",
+              "interview",
+              "contract",
+              "document"
+            ],
+            "description": "which evidence stream produced the signal"
+          },
+          "claim": {
+            "type": "string",
+            "description": "the specific assertion this citation supports, one sentence"
+          },
+          "source": {
+            "type": "string",
+            "description": "where it was seen: table/report/log/doc, no record contents"
+          },
+          "observed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ISO date the signal was observed; null if not recorded"
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "description": "how directly the signal supports the claim"
+          }
+        }
+      }
     },
     "criticality": {
       "enum": [

@@ -50,6 +50,29 @@ Label the report's methodology honestly as document-based. Sanitize from the
 first artifact: client names become codes (keep a local-only names map),
 individual names never appear (roles only), and figures are rounded.
 
+## Paired-data capture (runs from day one)
+
+The teardown is a labeling process — the legacy system labels replay
+transactions, analysts label verdicts, the walk labels UI-to-schema
+extraction — so harvest the labels as you go. Every phase appends supervised
+pairs to `pairs.jsonl` in the output dir, one JSON object per line per
+`templates/pairs.schema.json`. Four pair types:
+
+- `perception` — Phase 1 walk: screen text/DOM excerpt → the structured
+  feature entry it produced.
+- `judgment` — Phase 3 verdicts: evidence bundle → verdict + why.
+- `replay` — Phase 5 replay validation: historical transaction input → the
+  system-of-record output.
+- `design` — Phase 5 workflow design: usage evidence + workarounds → rebuilt
+  workflow spec.
+
+The reframe: the replay corpus makes the rebuild a **distillation of the
+legacy system against ground truth** — and doubles as the permanent
+regression suite for the replacement skill. Every pair carries a
+`sanitization_tier`; `raw-local-only` pairs (tenant data) never leave the
+output dir — only `sanitized-shareable` and `synthetic` may leave
+`~/Dev/teardowns/`.
+
 ## Phase 1 — Feature inventory (browser walk)
 
 Load browser-automation tools (e.g. Claude in Chrome MCP; one ToolSearch
@@ -134,8 +157,11 @@ Four independent evidence streams; gather all four:
 
 For every feature, score and classify:
 
-- `usage`: daily | weekly | rare | never | workaround-external | unknown (from
-  evidence, not vibes — cite which signal). `workaround-external` means the job
+- `usage`: daily | weekly | rare | never | workaround-external | unknown.
+  Citations are structured: each feature carries an `evidence` array of typed
+  citations (plane + claim + source) per
+  `templates/feature-inventory.schema.json` — a verdict without at least one
+  citation is `unknown`, not a verdict. `workaround-external` means the job
   is actively done in a satellite tool or spreadsheet instead — that is a
   different, more actionable finding than "unused"
 - `criticality`: does a business process break without it?
@@ -204,6 +230,7 @@ version retained).
 ## Deliverables recap
 
 `~/Dev/teardowns/<app-slug>/`: teardown.json (state), inventory.md,
-usage-analysis.md, extraction-runbook.md, exports/, interview-questions.md
+usage-analysis.md, extraction-runbook.md, exports/, pairs.jsonl (supervised
+pairs, tiered per sanitization rule), interview-questions.md
 (if used), REBUILD_PLAN.md. Send REBUILD_PLAN.md to the user at the end and
 summarize KEEP/SIMPLIFY/DROP counts and the top 3 findings.
