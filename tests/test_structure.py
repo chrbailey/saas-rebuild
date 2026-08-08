@@ -26,6 +26,15 @@ def test_skill_frontmatter_required_keys(skill_frontmatter):
     assert skill_frontmatter.get("description"), "SKILL.md frontmatter needs a description"
 
 
+def marketplace_entry(marketplace_manifest, plugin_manifest):
+    entry = next(
+        (p for p in marketplace_manifest["plugins"] if p["name"] == plugin_manifest["name"]),
+        None,
+    )
+    assert entry, f"marketplace.json has no entry named {plugin_manifest['name']}"
+    return entry
+
+
 def test_no_angle_brackets_in_descriptions(skill_frontmatter, plugin_manifest, marketplace_manifest):
     # The Claude for Work workspace uploader rejects skill descriptions
     # containing angle brackets (documented in SKILL.md's org-deployment
@@ -33,7 +42,7 @@ def test_no_angle_brackets_in_descriptions(skill_frontmatter, plugin_manifest, m
     descriptions = {
         "SKILL.md frontmatter": skill_frontmatter["description"],
         "plugin.json": plugin_manifest["description"],
-        "marketplace.json": marketplace_manifest["plugins"][0]["description"],
+        "marketplace.json": marketplace_entry(marketplace_manifest, plugin_manifest)["description"],
     }
     for source, text in descriptions.items():
         assert "<" not in text and ">" not in text, f"angle bracket in {source} description"
@@ -43,7 +52,7 @@ def test_names_agree_everywhere(skill_frontmatter, plugin_manifest, marketplace_
     names = {
         skill_frontmatter["name"],
         plugin_manifest["name"],
-        marketplace_manifest["plugins"][0]["name"],
+        marketplace_entry(marketplace_manifest, plugin_manifest)["name"],
         SKILL_DIR.name,
     }
     assert names == {"saas-rebuild"}, f"name mismatch across manifests: {names}"

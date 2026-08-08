@@ -1,6 +1,7 @@
-"""The committed dist/ zip must exactly mirror skills/saas-rebuild/ —
-same file set, byte-identical contents — so an edit to the skill source
-can't ship without repackaging."""
+"""The committed saas-rebuild zip in dist/ must exactly mirror
+skills/saas-rebuild/ — same file set, byte-identical contents — so an
+edit to the skill source can't ship without repackaging. (Other skills
+in this repo package their own zips; this suite covers saas-rebuild.)"""
 
 import zipfile
 
@@ -10,8 +11,8 @@ ZIP_PREFIX = "saas-rebuild/"
 
 
 def zip_entries():
-    zips = sorted(DIST_DIR.glob("*.zip"))
-    assert len(zips) == 1
+    zips = sorted(DIST_DIR.glob("saas-rebuild-*.zip"))
+    assert len(zips) == 1, f"expected one saas-rebuild zip in dist/, found {[z.name for z in zips]}"
     with zipfile.ZipFile(zips[0]) as zf:
         return {
             info.filename: zf.read(info.filename)
