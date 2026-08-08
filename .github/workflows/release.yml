@@ -3,6 +3,15 @@ name: release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to create and release (e.g. v0.6.0)"
+        required: true
+      target:
+        description: "Commitish the tag points at"
+        required: false
+        default: "main"
 
 permissions:
   contents: write
@@ -24,10 +33,22 @@ jobs:
           pytest tests/ -q
 
       - name: Create the GitHub release
+        # On a tag push, release the pushed tag. On manual dispatch,
+        # gh creates the tag server-side at the requested target first.
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_TARGET: ${{ inputs.target }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/*.zip \
-            --repo "${GITHUB_REPOSITORY}" \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes
+          if [ -n "$INPUT_TAG" ]; then
+            gh release create "$INPUT_TAG" dist/*.zip \
+              --repo "${GITHUB_REPOSITORY}" \
+              --target "$INPUT_TARGET" \
+              --title "$INPUT_TAG" \
+              --generate-notes
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/*.zip \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi
