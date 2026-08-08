@@ -1,10 +1,28 @@
 {
   "name": "saas-rebuild",
   "displayName": "SaaS Rebuild",
-  "description": "Replace SaaS you don't control. Tear down an app you administer and plan its rebuild as a skill, and run U.S. export-control restricted-party screening on premise against the official government lists.",
-  "version": "0.5.0",
+  "description": "Replace SaaS you don't control. Tear down an app you administer - five-plane data extraction, audit-log process mining, evidence-cited verdicts, a full-tenant preservation export, and a dependency-graph-derived rebuild plan validated by transaction replay, emitting a supervised training-pair corpus - and run U.S. restricted-party screening on premise: deterministic matching, hash-chained audit trail, zero dependencies.",
+  "version": "0.6.0",
   "skills": "./skills/",
-  "author": { "name": "Chris Bailey", "url": "https://github.com/chrbailey" },
+  "author": {
+    "name": "Chris Bailey",
+    "url": "https://github.com/chrbailey"
+  },
   "license": "MIT",
-  "keywords": ["saas", "teardown", "migration", "usage-analysis", "skill-authoring", "export-compliance", "sanctions-screening", "ofac", "denied-party", "on-premise"]
+  "keywords": [
+    "saas",
+    "teardown",
+    "migration",
+    "usage-analysis",
+    "skill-authoring",
+    "process-mining",
+    "training-data",
+    "dependency-graph",
+    "replay-testing",
+    "export-compliance",
+    "sanctions-screening",
+    "ofac",
+    "denied-party",
+    "on-premise"
+  ]
 }

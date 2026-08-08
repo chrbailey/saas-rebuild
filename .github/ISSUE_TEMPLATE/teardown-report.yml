@@ -43,7 +43,13 @@ body:
     id: why-unused
     attributes:
       label: Top "why unused" reasons
-      placeholder: "e.g. duplicate-of-spreadsheet (12), too-complex (9), never-needed (17)"
+      placeholder: "e.g. configured-never-enabled (14), never-needed (11), too-complex (9), duplicate (7), wrong-fit (3)"
+  - type: input
+    id: pairs-captured
+    attributes:
+      label: Shareable pairs captured
+      description: "Counts by tier: sanitized-shareable / synthetic only — never raw-local-only."
+      placeholder: "e.g. 120 sanitized-shareable, 40 synthetic"
   - type: textarea
     id: workarounds
     attributes:

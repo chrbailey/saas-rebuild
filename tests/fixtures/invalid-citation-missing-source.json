@@ -1,0 +1,12 @@
+{
+  "id": "invoices-list",
+  "nav_path": "Billing > Invoices",
+  "name": "Invoice list",
+  "kind": "screen",
+  "evidence": [
+    {
+      "plane": "telemetry",
+      "claim": "report executed 41 times in the trailing 90 days"
+    }
+  ]
+}

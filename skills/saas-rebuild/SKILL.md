@@ -1,6 +1,6 @@
 ---
 name: saas-rebuild
-description: Tear down a SaaS application the user administers - log in via browser automation, inventory every screen and feature, gather used-vs-unused evidence from tenant data and user interviews, map data extraction routes, and produce a plan to rebuild the kept workflows as a Claude skill. Trigger phrases include "tear down this app", "extract and redesign", "rebuild this software as a skill", "what do we actually use in [app]", "replace [app] with a skill".
+description: Tear down a SaaS application the user administers and plan its replacement as a Claude skill. Inventory every screen via browser automation, extract configuration, transactional, master-data, setup, and code evidence through the platform's own APIs, mine audit logs for observed process flow, and attach typed evidence citations to every used-vs-unused verdict. Derives rebuild milestones from a dependency graph, validates by replaying historical transactions, runs a full-tenant preservation export, and emits supervised training pairs from every phase. Also runs document-based teardowns from engagement archives when no live tenant exists. Trigger phrases include "tear down this app", "extract and redesign", "what do we actually use in [app]", "replace [app] with a skill", "rebuild this software as a skill", "analyze our ERP implementation", "mine our audit log", "what does this system actually do".
 ---
 
 # SaaS Rebuild — teardown, usage analysis, and skill rebuild plan
@@ -14,9 +14,21 @@ as a Claude skill (schema + corpus + CSV bridge + audit trail).
 1. Confirm the user **owns or administers** the account and is analyzing their
    own tenant/data for migration purposes. Never probe other tenants, other
    users' private data, or anything the account doesn't legitimately expose.
-2. Note that mass scraping may sit awkwardly with some vendors' ToS; prefer
-   built-in exports, reports, and APIs over screen-scraping wherever they exist.
-   Flag it to the user, don't decide for them.
+2. **Extraction legality is a checklist, not a vibe.** Before bulk extraction,
+   have the user locate these in the vendor agreement (they can search the PDF;
+   no lawyer needed to *find* them): (a) the data ownership / export-rights
+   clause — most agreements state customer data belongs to the customer and
+   may be exported; quote it in the runbook; (b) API terms and rate limits —
+   stay inside them, and prefer the vendor's bulk-export endpoints over
+   hammering list APIs; (c) any anti-scraping / automated-access clause — if
+   one exists, screen-scraping drops from "last resort" to "counsel signs off
+   first"; (d) the post-termination data-retrieval window — record its length
+   as a project deadline. Escalate to legal counsel only when: a clause
+   forbids export of the customer's own data, scraping is the only route for
+   something material, or the tenant contains regulated personal data
+   (employee monitoring logs, health, payments) crossing a border. Everything
+   through official exports and documented APIs of your own tenant, inside
+   rate limits, is the normal case — do it and log it; don't stall on it.
 3. Never capture credentials. The user logs in themselves in the browser; you
    drive the already-authenticated session.
 4. All outputs go to `~/Dev/teardowns/<app-slug>/` (create it; ask the user for
@@ -29,12 +41,38 @@ most, who are the users (names/roles count), and whether an admin/audit-log
 area is accessible. Create the output dir and `teardown.json` state file:
 
 ```json
-{"app": "", "url": "", "started": "", "phase": 0,
+{"app": "", "url": "", "started": "", "phase": 0, "preflight": {},
  "features": [], "evidence": {}, "extraction": [], "decisions": []}
 ```
 
 State is resumable — on re-invocation, read `teardown.json` and continue from
 the recorded phase. Each phase updates `phase` on completion.
+
+### Phase 0 pre-flight (do these before the walk — some clocks are already running)
+
+1. **Snapshot volatile logs today.** Login/audit/access-log retention is often
+   30–90 days and every day waited is a day lost off the back of the window.
+   Export whatever the admin panel offers now, crudely — refine later. Verify
+   the actual retention window in the vendor's docs rather than assuming.
+2. **Request the paper trail now.** Order forms, renewal quotes, and module
+   line items usually live with finance/procurement and take days to surface;
+   they are Phase 2's strongest stream. Ask on day one. While you're there,
+   ask for the vendor agreement and note two things: the data-export/return
+   clause, and the post-termination data-retrieval window — that window's end
+   date is the project's hardest deadline.
+3. **Check your access, and name who fills the gaps.** The pipeline wants:
+   full admin UI, audit-log area (sometimes a paid SKU — file the vendor
+   ticket now if missing), report builder, user/role administration, and an
+   API token the user creates themselves (read-only scope, clearly named,
+   revoked at project end). The user does not need to be a developer: the
+   agent writes and runs the queries and profiling scripts, but planes 2/3/5
+   need either an API token or a colleague who has one — record who that is
+   before Phase 1b, not when you stall inside it.
+4. **Verify the browser-automation MCP is connected** (e.g. Claude in Chrome)
+   before scheduling the walk; Phase 1 cannot start without it.
+
+Record each pre-flight item's status in `teardown.json` under `preflight`;
+an item marked blocked gets an owner and a ticket reference, not silence.
 
 ## Alternate mode — document-based teardown (no tenant access needed)
 
@@ -71,7 +109,16 @@ legacy system against ground truth** — and doubles as the permanent
 regression suite for the replacement skill. Every pair carries a
 `sanitization_tier`; `raw-local-only` pairs (tenant data) never leave the
 output dir — only `sanitized-shareable` and `synthetic` may leave
-`~/Dev/teardowns/`.
+`~/Dev/teardowns/`. Each pair also records its `label_authority`:
+`system-of-record` (replay) and `observed-ui` (perception) are ground
+truth; `analyst` labels (judgment, unvalidated design) are the pipeline's
+own opinions — usable for behavior cloning and audit, never as eval gold.
+A design pair is promoted to `validated-design` only after its workflow
+passes parallel-run. Tier assignment gets its own critic check before
+anything leaves the output dir: re-read every `sanitized-shareable` pair
+for names, figures precise enough to identify the tenant, and internal
+URLs — rounding is not anonymity when the tenant is distinctive, and the
+critic that checks tiers must not be the pass that assigned them.
 
 ## Phase 1 — Feature inventory (browser walk)
 
@@ -171,8 +218,9 @@ For every feature, score and classify:
   workaround-internal | unknown.
   Citations are structured: each feature carries an `evidence` array of typed
   citations (plane + claim + source) per
-  `templates/feature-inventory.schema.json` — a verdict without at least one
-  citation is `unknown`, not a verdict. `workaround-external` means the job
+  `templates/feature-inventory.schema.json` — a feature with a `verdict` but
+  an empty `evidence` array gets `usage: unknown` and its verdict reverted to
+  DEFER until a citation exists. `workaround-external` means the job
   is actively done in a satellite tool or spreadsheet instead;
   `workaround-internal` means users bend the app from inside (status skips,
   admin-edit bypasses — surfaced by conformance checking in
@@ -186,11 +234,39 @@ For every feature, score and classify:
 - Attribute unused-ness: never-needed vs. too-complex vs. duplicate vs.
   wrong-fit vs. unknown. This drives redesign, not just deletion.
 
+Default verdict matrix — deviations are allowed but must be recorded in
+`decisions[]` with a reason: RUNTIME-evidenced use + `critical` → KEEP;
+RUNTIME-evidenced use + any workaround signal → SIMPLIFY (the workaround is
+the spec); `never` (all-time evidence) + not `critical` → DROP; `unknown`
+usage, or window-bounded absence on a `critical` feature → DEFER pending
+better evidence. Criticality follows the same citation discipline as usage:
+`critical` requires a citation naming the business process that breaks
+(interview, contract SLA, or a dependency-graph path to a critical process)
+— an uncited `critical` is `important`.
+
 Join rules (where Phase 1b ran): a feature is only "used" when STRUCTURE
 evidence (it exists/is configured) joins with RUNTIME evidence (transactions,
-telemetry, executions) — configured-alone defaults to `configured-never-enabled`
-until proven. Score recency and criticality separately: year-end close runs
-once and is still KEEP.
+telemetry, executions — see the plane-to-class mapping below). Configured-alone
+resolves by evidence horizon: if the runtime evidence is *all-time* (empty
+table, zero records since tenant creation), set `usage: never` with
+`unused_reason: configured-never-enabled`; if the runtime evidence is
+*window-bounded* (telemetry, logs) and the window is shorter than the
+feature's plausible cadence, set `usage: unknown` with
+`unused_reason: unknown` and note the window — "not observed in a 60-day
+window" never demotes an annual feature. Score recency and criticality
+separately: year-end close runs once and is still KEEP.
+
+Plane-to-class mapping for the join rule — RUNTIME: `transactional`,
+`telemetry`, `integration-inventory`; STRUCTURE: `config-census`,
+`master-data`, `setup-census`, `code-analysis`; HUMAN/FRAMING: `interview`,
+`contract`, `document`. `ui-walk` and `export` are *routes*, not classes:
+they inherit the class of what they observed (a record count seen on-screen
+or in an export is RUNTIME; a settings page seen on-screen is STRUCTURE) —
+record which in the claim. HUMAN evidence corroborates a join; it never
+substitutes for the RUNTIME side on its own. "Independent" means independent
+*provenance*, not independent extraction route: an export of a table and a
+query of the same table are one signal — when counting corroborating
+citations, collapse `derived_from` chains first.
 
 Where Phase 1b ran, build the dependency graph per
 `references/dependency-graph.md` before finalizing verdicts: color nodes
@@ -210,6 +286,45 @@ ToolSearch for one first) → built-in export → report-builder CSV →
 screen-scrape (last resort, flag ToS). Produce `extraction-runbook.md`: per
 entity — route, steps, expected fields, refresh cadence for the transition
 period (the old app usually runs in parallel for a while).
+
+## Phase 4b — Preservation export (everything, before the verdicts matter)
+
+The extraction map serves the rebuild; this phase serves the company. Verdicts
+decide what gets *rebuilt* — they must never decide what gets *saved*. The day
+the subscription ends, anything not exported is gone, and retention obligations
+(financial records, audit trails, e-discovery) don't care about your KEEP set.
+Run this regardless of verdicts, and complete it before any termination notice
+— check the contract's post-termination data-retrieval window (often 30–90
+days) and treat its end date as the project's hardest deadline.
+
+Preservation checklist — export and checksum each, or record explicitly why it
+cannot be exported (vendor ticket reference, missing SKU, no route found):
+
+- **Every entity's records** — KEEP, SIMPLIFY, DROP, and DEFER alike, full
+  history where the platform offers it, not just current state.
+- **Attachments, documents, and generated files** (invoices, PDFs, uploads) —
+  these rarely ride along with record CSVs; find the file-export or bulk
+  attachment route separately.
+- **Activity history** — emails, notes, call logs, timeline events, comments.
+- **The audit logs themselves** — the full available window, not the samples
+  used as evidence.
+- **Configuration as artifacts** — custom object/field definitions, form
+  layouts, workflow/automation definitions, saved report and search
+  definitions, in the platform's native export format (SDF, Metadata API
+  package, config export) so they are restorable, not merely documented.
+- **Users, roles, and permission assignments.**
+- **Replay corpus** — for each KEEP workflow, historical transaction inputs
+  AND system-of-record outputs at posting/document level (Phase 5's replay
+  validation is impossible without it).
+
+Verify completeness at export time: compare exported row counts and date
+ranges against the Phase 1b tenant counts, per entity, and log the diff.
+Write `preservation-manifest.md`: per item — route used, file(s), row/file
+counts, checksum, gaps, and who accepted each gap. Store the whole set with
+the same handling as `raw-local-only` pairs: it never leaves the output
+location, and the location itself must be encrypted, access-controlled, and
+covered by backup — this directory is now the company's system of record
+in waiting.
 
 ## Phase 5 — Rebuild plan as a skill
 
@@ -236,6 +351,34 @@ transactions through the rebuilt skill and diff outputs against the system of
 record at posting, document, and total level. Behavioral equivalence on
 historical data is the acceptance test.
 
+Replay has preconditions — check them before trusting any diff:
+
+- **The legacy system is not a pure function.** Outputs depend on
+  at-the-time state (rates, balances, sequence numbers, open periods).
+  Capture that state with the transaction where possible; where not,
+  restrict the replay sample to transactions whose inputs are
+  self-contained, and say so.
+- **Historical outputs came from historical config.** If the config or
+  scripts changed during the corpus window (the change log from plane 1
+  tells you), partition the corpus at each change and only compare like
+  with like. A diff against an output produced under a different rule set
+  is noise, not a regression.
+- **Replay must be side-effect-free.** Run it with every bridge stubbed or
+  in dry-run mode; a replayed invoice that reaches the live accounting
+  bridge is a double-posting incident, not a test. Verify the stub before
+  the first batch.
+
+Equivalence is the acceptance test **per verdict class**: KEEP workflows
+must diff clean; SIMPLIFY workflows carry an **expected-divergence
+register** — each intended behavior change written down *before* replay,
+with the evidence that motivated it. A diff is then either (a) matches
+legacy, (b) matches a registered divergence, or (c) unexplained — and only
+(c) fails the milestone. An unregistered divergence discovered at replay
+time is a finding, never a retroactive registry entry. Where replay shows
+the legacy output was itself wrong (it happens), record it as a legacy
+defect, exclude the pair from the regression suite's gold set, and do not
+reproduce the bug.
+
 Derive the milestone structure from the graph, don't guess it
 (`references/dependency-graph.md`): capability islands are the
 strangler-fig milestones, the condensed topo-sort is their order,
@@ -258,7 +401,8 @@ version retained).
 ## Deliverables recap
 
 `~/Dev/teardowns/<app-slug>/`: teardown.json (state), inventory.md,
-usage-analysis.md, extraction-runbook.md, exports/, pairs.jsonl (supervised
-pairs, tiered per sanitization rule), interview-questions.md
-(if used), REBUILD_PLAN.md. Send REBUILD_PLAN.md to the user at the end and
-summarize KEEP/SIMPLIFY/DROP counts and the top 3 findings.
+usage-analysis.md, extraction-runbook.md, preservation-manifest.md, exports/,
+pairs.jsonl (supervised pairs, tiered per sanitization rule),
+interview-questions.md (if used), REBUILD_PLAN.md. Send REBUILD_PLAN.md to
+the user at the end and summarize KEEP/SIMPLIFY/DROP counts and the top 3
+findings.

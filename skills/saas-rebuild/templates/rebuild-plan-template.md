@@ -19,10 +19,17 @@ what the replacement skill covers, and what stays out of scope.
 - CSV bridges to remaining systems
 - Audit log design
 - Confidence labeling for fuzzy-extracted fields
+- Replay corpus: pairs.jsonl replay pairs as the acceptance test and the
+  permanent regression suite (see SKILL.md Phase 5 preconditions)
+- Expected-divergence register: every intended SIMPLIFY behavior change,
+  written before replay, with motivating evidence
 
 ## Data migration
 Per entity: extraction route, field mapping, validation check (row counts,
 spot-check N records), transition refresh plan while both systems run.
+Preservation export status per preservation-manifest.md — the full-tenant
+export (all verdicts, attachments, audit logs, config artifacts) is complete
+and verified before any termination notice.
 
 ## Milestones
 1. **Walking skeleton** — schema + loader + one end-to-end workflow. Verify: ...
