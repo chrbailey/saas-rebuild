@@ -1,0 +1,146 @@
+{
+  "app": "freshbooks",
+  "app_name": "FreshBooks",
+  "vendor": "FreshBooks",
+  "category": "accounting",
+  "export_rights": {
+    "summary": "FreshBooks' privacy policy grants the right to receive a portable copy of Personal Information transferable to another organization, and its GDPR article documents an account-data export right for EU citizens (requests via privacy@freshbooks.com, completed within 30 days). Vendor help docs document per-entity CSV/PDF export of the customer's own account data at any time; after cancellation the account stays accessible until the end of the billing cycle and data is stated to remain preserved for reactivation.",
+    "tos_url": "https://www.freshbooks.com/policies/terms-of-service",
+    "post_termination_window": null
+  },
+  "routes": [
+    {
+      "route_type": "entity-export",
+      "covers": ["clients", "invoices", "expenses", "chart-of-accounts"],
+      "how": "Per-entity Download CSV buttons in the web UI, per the vendor 'How do I export my data?' article: Clients list downloads active and archived clients including secondary contacts as CSV; Invoices list 'Download CSV' downloads all active and archived invoices (invoices can also be exported as PDFs); Expenses export as CSV via the Expense report; Chart of Accounts via More Actions > Export Accounts downloads a CSV including active, archived, and deleted accounts (per selected currency).",
+      "formats": ["csv", "pdf"],
+      "requires": [],
+      "rate_limits": null,
+      "gotchas": [
+        "No single whole-account backup/export is documented in the current FreshBooks help center - export is per entity.",
+        "Chart of Accounts export is per selected currency."
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["clients", "invoices", "expenses", "payments", "time-entries", "items", "estimates", "projects"],
+      "how": "REST JSON API at api.freshbooks.com; accounting resources use paths of the form /accounting/account/{accountId}/invoices/invoices. Auth is OAuth 2.0 (create an app in the FreshBooks developer page for client id/secret, exchange authorization code for access token). Paginate with page/per_page; list responses include a pages object with total counts. Related data (e.g. invoice lines) must be requested explicitly with include[] parameters.",
+      "formats": ["json"],
+      "requires": ["OAuth 2.0 app (client id/secret) from the FreshBooks developer page", "authorization grant by an account user"],
+      "rate_limits": "No published daily cap; requests are rate-limited if too many calls are made in a short period and excess calls return HTTP 429 (exact numeric limits are not published). Pagination is silently capped at per_page=100.",
+      "gotchas": [
+        "per_page values above 100 return exactly 100 results with no error or warning.",
+        "Two identifier types exist (accountId vs businessId); accounting endpoints use accountId.",
+        "Aggressive usage can lead to FreshBooks disabling the app."
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["reports", "invoice-details", "expense-report", "general-ledger", "payroll-reports", "contractor-payments"],
+      "how": "Reports section in the main navigation: open any report, then use 'Export for Excel' to download a CSV, or Print to save as PDF. Vendor docs state any report can be exported as CSV or PDF; Invoice Details and Expense reports serve as detailed line-level exports, and Payroll/Contractor Payment reports export payroll data for accounts using the FreshBooks Payroll add-on.",
+      "formats": ["csv", "pdf"],
+      "requires": ["FreshBooks Payroll add-on for payroll/contractor payment reports"],
+      "rate_limits": null,
+      "gotchas": []
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["expense-receipts"],
+      "how": "Export Expense Receipts feature: download all uploaded receipt images for a chosen time period; the file generates asynchronously and a 'Download here' link delivers a zipped folder. Each file in the zip is named Date-Amount-Category-Merchant-ExpenseID-FileType. Single receipts can be downloaded from an expense's thumbnail preview via the Download link.",
+      "formats": ["zip"],
+      "requires": [],
+      "rate_limits": null,
+      "gotchas": [
+        "Documented only for expense/bill receipt images; no equivalent bulk export is documented for files attached to invoices."
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log"],
+      "how": "Reports > Audit Log report (tracks changes to invoices and expenses, filterable by client, change type, entity type, user, and date range). Top-right options include 'Export to CSV' to download the log and Print to save it as a PDF.",
+      "formats": ["csv", "pdf"],
+      "requires": [],
+      "rate_limits": null,
+      "gotchas": [
+        "Coverage starts only from invoice changes made May 24, 2024 and expense changes made September 11, 2024 onwards; earlier history is not shown.",
+        "Only invoice and expense changes are covered - it is not a full account activity log."
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["chart-of-accounts"],
+      "how": "Chart of Accounts: More Actions > Export Accounts downloads a CSV of all active, archived, and deleted accounts in the selected currency. This is the only configuration artifact with a documented export.",
+      "formats": ["csv"],
+      "requires": [],
+      "rate_limits": null,
+      "gotchas": [
+        "No documented export of invoice templates, customized fields, or automation/workflow settings as restorable artifacts."
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Expense/bill receipt images bulk-export via 'Export Expense Receipts' as a zip (files named Date-Amount-Category-Merchant-ExpenseID-FileType); single receipts download from the expense thumbnail. No documented bulk export for attachments on invoices - verify in-tenant.",
+    "audit_log": "Audit Log report exports via 'Export to CSV' (or Print to PDF); documented coverage is limited to invoice changes from 2024-05-24 and expense changes from 2024-09-11 onward, and only invoice/expense entities. No further retention limit is documented.",
+    "config_artifacts": "Chart of Accounts exports as CSV (More Actions > Export Accounts, including deleted accounts). No documented export of templates, custom fields, or workflow/automation settings as restorable artifacts."
+  },
+  "sources": [
+    {
+      "url": "https://support.freshbooks.com/hc/en-us/articles/360032628152-How-do-I-export-my-data",
+      "title": "How do I export my data? - FreshBooks Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.freshbooks.com/hc/en-us/articles/227478548-How-do-I-export-my-reports",
+      "title": "How do I export my reports? - FreshBooks Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.freshbooks.com/hc/en-us/articles/25756416565901-What-is-the-Audit-Log-report",
+      "title": "What is the Audit Log report? - FreshBooks Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.freshbooks.com/api/start",
+      "title": "FreshBooks API Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.freshbooks.com/api/authentication",
+      "title": "Authentication - FreshBooks API",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.freshbooks.com/api/limits",
+      "title": "Request Limits - FreshBooks API",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.freshbooks.com/api/parameters",
+      "title": "Search, Paging and Includes - FreshBooks API",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.freshbooks.com/policies/privacy",
+      "title": "Privacy Policy - FreshBooks",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.freshbooks.com/policies/terms-of-service",
+      "title": "Terms of Service - FreshBooks",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.freshbooks.com/hc/en-us/articles/360031120891-Is-FreshBooks-GDPR-compliant",
+      "title": "Is FreshBooks GDPR compliant? - FreshBooks Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.freshbooks.com/hc/en-us/articles/115011044847-How-do-I-downgrade-or-cancel-my-account",
+      "title": "How do I downgrade or cancel my account? - FreshBooks Support",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: freshbooks.com and support.freshbooks.com were egress-blocked for direct fetching in this environment, so all claims derive from search-engine summaries of the vendor pages listed in sources (third-party-only claims were discarded). Honest unknowns: no whole-account/one-click full backup export is documented for current FreshBooks (per-entity exports only; the privacy/GDPR route via privacy@freshbooks.com is a personal-data portability request, not a documented tenant backup); no post-termination retrieval window is documented - vendor docs say data remains preserved after cancellation for reactivation, with no stated deadline; API numeric rate limits are deliberately unpublished (429 on excess); no documented API endpoint for downloading invoice PDFs or bulk-downloading attachments was found; time-entry and payment CSV exports beyond the Reports route were not confirmed from vendor docs."
+}
