@@ -1,0 +1,234 @@
+{
+  "app": "sap-business-one",
+  "app_name": "SAP Business One",
+  "vendor": "SAP",
+  "category": "erp-finance",
+  "export_rights": {
+    "summary": "SAP Business One is predominantly licensed on-premise (or partner-hosted): the company database runs on the customer's own Microsoft SQL Server or SAP HANA instance, so the customer holds the data directly and can back it up at will. For SAP-operated cloud services, SAP's Cloud GTC states the customer may export and retrieve Customer Data in a standard format at any time during the subscription term, with a post-termination Retrieval Period of no more than 1 month; partner-hosted SAP Business One Cloud terms are set by the hosting partner.",
+    "tos_url": "https://www.sap.com/docs/download/agreements/general-terms-and-conditions/mix/general-terms-and-conditions-for-cloud-services-and-professional-services-united-states-english-v11-2022.pdf",
+    "post_termination_window": "1 month (SAP Cloud GTC 'Retrieval Period' for SAP-operated cloud services; not documented for partner-hosted SAP Business One Cloud)"
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": [
+        "entire company database (all master data, transactions, journal entries, change logs, user-defined fields/tables, queries, layouts)"
+      ],
+      "how": "Full database backup of the company DB: native MS SQL .bak or SAP HANA backup, or scheduled via Remote Support Platform (RSP) — RSP backs up per configured schedule, writes MSSQL backup files to the network folder set in the Backups tab of the Configuration window (HANA backups to the folder set in Backup Service), and emails on completion. On-premise customers can also back up directly with DBMS tools.",
+      "formats": ["MSSQL .bak", "SAP HANA backup"],
+      "requires": [
+        "DB-server/OS-level access (on-premise) or hosting-partner cooperation (cloud)",
+        "Remote Support Platform installed and configured (for scheduled RSP backups)"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "The backup is a DBMS artifact, not an open format — restoring requires a matching SQL Server/HANA instance and B1 version",
+        "Files in the shared Attachments folder live outside the database and are not captured by a DB backup",
+        "Transaction-log backups in RSP require full database backups to be enabled first"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": [
+        "business partners",
+        "items",
+        "sales and purchasing documents (orders, deliveries, invoices, credit memos)",
+        "journal entries",
+        "user-defined tables/fields",
+        "attachments",
+        "most other business objects"
+      ],
+      "how": "Service Layer REST/OData API: POST /b1s/v1/Login with CompanyDB, UserName, Password returns a B1SESSION cookie (default 30-minute timeout) that must accompany each request; then GET entity collections with OData $select/$filter/$orderby/$expand/$apply and page with $skip/$top. Full resource list in the Service Layer API Reference on help.sap.com.",
+      "formats": ["JSON (OData)"],
+      "requires": [
+        "SAP Business One user license and credentials",
+        "Service Layer component installed/enabled on the server"
+      ],
+      "rate_limits": "No request-rate quota documented; server-side pagination defaults to 20 records per page, adjustable per-request via Prefer: odata.maxpagesize=N or globally via PageSize in b1s.conf",
+      "gotchas": [
+        "Default page size of 20 silently truncates naive GETs — always page with $skip/$top or raise odata.maxpagesize",
+        "As of FP 2405, OData V3 in Service Layer is deprecated; use the OData V4 endpoints",
+        "Session cookie expires after ~30 minutes of inactivity; handle 401 by re-authenticating",
+        "A few special entities do not support all CRUD operations"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": [
+        "all business objects at database level (sales orders, invoices, business partners, items, etc.)"
+      ],
+      "how": "DI API (Data Interface API): COM DLL from the SAP Business One SDK exposing fully functional business objects to read/write/update/remove data; designed for .NET, Visual Basic, and C/C++ clients. Objects Reference published on help.sap.com.",
+      "formats": ["programmatic (COM objects; serialize to any format in your own code)"],
+      "requires": [
+        "SAP Business One SDK / DI API installed on a Windows machine",
+        "SAP Business One user license and credentials"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Windows/COM only — heavier to script than the REST Service Layer",
+        "Reads consume a user session/license while connected"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": [
+        "any on-screen grid, report result, query result, or marketing document list (customers, vendors, items, open documents, aging, etc.)"
+      ],
+      "how": "In the B1 desktop client, open the list/report and use the Export to MS-Excel toolbar button (or File > Export To); tabular data can also be exported to PDF, text, XML, image, or MS Word depending on the window. With the Microsoft 365 integration, the client and Web Client export documents, reports, queries, list views, and search results as Excel/Word files to OneDrive.",
+      "formats": ["XLSX", "PDF", "TXT", "XML", "DOCX"],
+      "requires": [
+        "B1 user with authorization for the window being exported",
+        "Microsoft 365 integration configured (for OneDrive export only)"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Per-window, manual — no bulk 'export everything' from the UI",
+        "Not every window supports every format; export options vary by data type"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": [
+        "any table/field in the company database via ad-hoc queries (arbitrary entities, change-log/history tables, UDTs)"
+      ],
+      "how": "Tools > Queries > Query Generator (or Query Wizard) to build SQL over any system or user-defined table; save and re-run via Query Manager (Tools > Queries > Query Manager); export result grids with Export to MS-Excel. Crystal Reports integration covers formatted report output.",
+      "formats": ["XLSX", "PDF", "on-screen grid"],
+      "requires": ["B1 user with query authorizations"],
+      "rate_limits": null,
+      "gotchas": [
+        "Queries run against the live company DB; very large result sets are limited by client memory, not a documented row cap"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["attachments", "images", "document files"],
+      "how": "Attachments are stored as plain files in the shared network Attachments folder configured under Administration > System Initialization > General Settings > Path tab (e.g. \\\\server\\Attachments); bulk-extract by copying that folder from the file share. Individual attachments are also retrievable programmatically via the Service Layer attachment resources.",
+      "formats": ["original file formats"],
+      "requires": ["read access to the shared attachments folder on the server/file share"],
+      "rate_limits": null,
+      "gotchas": [
+        "Attachment files are NOT inside the company database — a DB backup alone loses them",
+        "The database stores only the path metadata; verify the folder path in General Settings before copying"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["change-log (per-object field history)", "access log (logins/logouts/access attempts)"],
+      "how": "Per-object: open the object's window and choose Tools > Change Log to view recorded changes (documents, master data, chart of accounts, authorizations, etc.). The underlying history is stored in the company database, so it is captured by a full DB backup and can be pulled in bulk with Query Generator queries; no one-click bulk audit export is documented.",
+      "formats": ["on-screen window", "XLSX (via query export)", "included in DB backup"],
+      "requires": ["B1 user with authorization; General Settings authorization to change log settings"],
+      "rate_limits": null,
+      "gotchas": [
+        "Change-log depth is a configurable setting — history older than the configured number of updates per record is not kept",
+        "The Administrator's Guide documents a retention-period setting for audit logs in the database; the default value was not retrievable during this research"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": [
+        "company configuration/settings",
+        "user-defined fields, tables, and objects",
+        "Crystal Reports layouts and reports",
+        "saved queries"
+      ],
+      "how": "Configuration, UDFs/UDTs/UDOs, and saved queries live inside the company database (captured by DB backup). Quick Copy (Administration > System Initialization > Implementation Center > Implementation Tasks > Copy Data Between Companies) copies configuration and customizations between companies as restorable transfers. Report and Layout Manager exports Crystal reports/layouts as .b1p/.b1px package files that can be re-imported.",
+      "formats": [".b1p/.b1px packages (layouts/reports)", "DB backup (everything else)"],
+      "requires": ["administrator-level B1 user"],
+      "rate_limits": null,
+      "gotchas": [
+        "Quick Copy targets another B1 company database, not a standalone open-format artifact",
+        "When copying records between companies, UDFs missing in the target are skipped if 'Copy Records and Ignore Missing UDFs' is chosen"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Stored as plain files in the shared network Attachments folder set under Administration > System Initialization > General Settings > Path; bulk-extract by copying the folder from the file share. Not included in the database backup — must be preserved separately.",
+    "audit_log": "Change log is viewed per-object via Tools > Change Log and stored in the company database (so a full DB backup preserves it); an access log records logins/logouts. Change-log depth is configurable and the Administrator's Guide documents an audit-log retention-period setting, but the default retention value is not stated in the material retrieved — verify in-tenant.",
+    "config_artifacts": "UDFs/UDTs/UDOs, saved queries, and company settings reside in the company database and are preserved by DB backup; Crystal reports/layouts export as .b1p/.b1px packages via Report and Layout Manager; Quick Copy transfers configuration between company databases."
+  },
+  "sources": [
+    {
+      "url": "https://help.sap.com/doc/fc2f5477516c404c8bf9ad1315a17238/10.0/en-US/Working_with_SAP_Business_One_Service_Layer.pdf",
+      "title": "Working with SAP Business One Service Layer (10.0)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/doc/056f69366b5345a386bb8149f1700c19/10.0/en-US/Service%20Layer%20API%20Reference.html",
+      "title": "SAP Business One Service Layer API Reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/SAP_BUSINESS_ONE/a2c93a1c88a24f1faeee3d3f62fbde7a/1c66e99da4864964ac11bb74e49786b8.html",
+      "title": "SAP Business One SDK - Data Interface API",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/r/764e93d1ff7546f29bf6f78c55808e82/1.1/en-US/ad8724e5da504639a1302343ea6a9e68.html",
+      "title": "Setting Up Attachment Folder (SAP Help Portal)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/doc/5e15ee848850430bbc72384a1985a94b/9.1/en-US/How%20to%20Manage%20Attachments%20in%20SAP%20Business%20One.pdf",
+      "title": "How to Manage Attachments in SAP Business One",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/SAP_BUSINESS_ONE/68a2e87fb29941b5bf959a184d9c6727/450942f165e16c32e10000000a114a6b.html",
+      "title": "Query Generator - SAP Business One (SAP Help Portal)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/SAP_BUSINESS_ONE/68a2e87fb29941b5bf959a184d9c6727/451002b7cf465d7ae10000000a11466f.html",
+      "title": "Query Manager - SAP Business One (SAP Help Portal)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/SAP_BUSINESS_ONE/68a2e87fb29941b5bf959a184d9c6727/9f301385d30f4c32924590548c85f164.html",
+      "title": "Change Log Window (SAP Help Portal)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.sap.com/en/offerings-programs/support-small-medium-enterprises/business-one/remote-support.html",
+      "title": "Remote Support Platform for SAP Business One (SAP Support Portal)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/r/8044176f8e59462c915742e294cb05c6/3.2/en-US/4cc212a0682c45e0b2808b34b39892c2.html",
+      "title": "Configuring Backup Strategies - Remote Support Platform 3.2 (SAP Help Portal)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/doc/eae5437ac49240258bcaa19bab619c51/10.0/en-US/How_to_Work_with_SAP_Business_One_Microsoft_365_Integration.pdf",
+      "title": "How to Work with SAP Business One Microsoft 365 Integration",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/SAP_BUSINESS_ONE/68a2e87fb29941b5bf959a184d9c6727/45ffa2d5a23004aae10000000a114a6b.html",
+      "title": "Quick Copy Window (SAP Help Portal)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/doc/80a29650ce8f46048610f3bcc4a3801e/9.1/en-US/How%20to%20Work%20with%20SAP%20Crystal%20Reports%20in%20SAP%20Business%20One.pdf",
+      "title": "How to Work with SAP Crystal Reports in SAP Business One",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/SAP_BUSINESS_ONE/8cd3db2a2ab94882b22503cba89c0063/6a7c996332a44c6e94ab9108adf41a50.html",
+      "title": "Importing SAP Business One .b1p and .b1px Package Files (SAP Help Portal)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/doc/8f1eda89c1674ba1af0270c60c299d1e/10.0_SP_2405/en-US/3c15112f563746838dbc88a178ebfd19.pdf",
+      "title": "SAP Business One Administrator's Guide 10.0 SP 2405",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.sap.com/docs/download/agreements/general-terms-and-conditions/mix/general-terms-and-conditions-for-cloud-services-and-professional-services-united-states-english-v11-2022.pdf",
+      "title": "SAP General Terms and Conditions for Cloud Services and Professional Services (US, v11-2022)",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "SAP Business One is primarily an on-premise/partner-hosted product, so the strongest extraction route is a full database backup the customer can take themselves — unlike pure SaaS, the tenant usually owns the DBMS. Research caveat: help.sap.com, learning.sap.com and community.sap.com were blocked for direct fetch from the research environment; all claims derive from search-indexed content of the vendor pages cited, not full-page reads, and should be re-verified against the live docs/tenant. Unresolved specifics: default audit-log retention value (Administrator's Guide has a retention-period section, value not retrieved); exact Service Layer attachment endpoint names; whether Data Transfer Workbench supports export (it is documented mainly as an import tool, so it was omitted); post-termination terms for partner-hosted B1 Cloud (governed by the partner's contract, not SAP's GTC)."
+}
