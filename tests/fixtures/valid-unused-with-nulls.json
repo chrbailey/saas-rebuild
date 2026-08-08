@@ -11,7 +11,15 @@
     "notes": "empty-state screen with setup wizard"
   },
   "usage": "never",
-  "usage_evidence": "empty state; no commission plan records exist",
+  "evidence": [
+    {
+      "plane": "config-census",
+      "claim": "commission plans module is enabled but zero plan records exist",
+      "source": "Settings > Sales > Commission plans",
+      "observed_at": null,
+      "confidence": "medium"
+    }
+  ],
   "criticality": "none",
   "replaceability": "trivial",
   "verdict": "DROP",

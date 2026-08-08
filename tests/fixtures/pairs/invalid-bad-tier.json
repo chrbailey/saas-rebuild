@@ -1,0 +1,12 @@
+{
+  "pair_type": "design",
+  "input": "Workaround: AR clerk keeps a collections spreadsheet outside the app",
+  "output": "Workflow: collections call prep — load open invoices, rank by age, draft dunning notes",
+  "provenance": {
+    "app": "erp-cat-01",
+    "teardown_id": "td-demo-001",
+    "phase": 5,
+    "created": "2026-08-08"
+  },
+  "sanitization_tier": "public"
+}

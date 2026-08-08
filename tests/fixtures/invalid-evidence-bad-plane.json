@@ -1,0 +1,12 @@
+{
+  "id": "invoices-list",
+  "nav_path": "Billing > Invoices",
+  "name": "Invoice list",
+  "kind": "screen",
+  "evidence": [
+    {
+      "plane": "vibes",
+      "claim": "feels unused"
+    }
+  ]
+}
