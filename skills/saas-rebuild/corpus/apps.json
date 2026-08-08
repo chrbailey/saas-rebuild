@@ -1,0 +1,705 @@
+{
+  "description": "The corpus target list: widely-adopted B2B SaaS applications a team might tear down, ordered roughly by adoption. Each entry aims to have a matching extraction recipe in extraction-recipes/<app>.json.",
+  "apps": [
+    {
+      "rank": 1,
+      "app": "salesforce",
+      "app_name": "Salesforce Sales Cloud",
+      "vendor": "Salesforce",
+      "category": "crm"
+    },
+    {
+      "rank": 2,
+      "app": "hubspot",
+      "app_name": "HubSpot",
+      "vendor": "HubSpot",
+      "category": "crm"
+    },
+    {
+      "rank": 3,
+      "app": "zoho-crm",
+      "app_name": "Zoho CRM",
+      "vendor": "Zoho",
+      "category": "crm"
+    },
+    {
+      "rank": 4,
+      "app": "pipedrive",
+      "app_name": "Pipedrive",
+      "vendor": "Pipedrive",
+      "category": "crm"
+    },
+    {
+      "rank": 5,
+      "app": "dynamics-365-sales",
+      "app_name": "Dynamics 365 Sales",
+      "vendor": "Microsoft",
+      "category": "crm"
+    },
+    {
+      "rank": 6,
+      "app": "freshsales",
+      "app_name": "Freshsales",
+      "vendor": "Freshworks",
+      "category": "crm"
+    },
+    {
+      "rank": 7,
+      "app": "netsuite",
+      "app_name": "NetSuite",
+      "vendor": "Oracle",
+      "category": "erp-finance"
+    },
+    {
+      "rank": 8,
+      "app": "sap-business-one",
+      "app_name": "SAP Business One",
+      "vendor": "SAP",
+      "category": "erp-finance"
+    },
+    {
+      "rank": 9,
+      "app": "dynamics-365-business-central",
+      "app_name": "Dynamics 365 Business Central",
+      "vendor": "Microsoft",
+      "category": "erp-finance"
+    },
+    {
+      "rank": 10,
+      "app": "quickbooks-online",
+      "app_name": "QuickBooks Online",
+      "vendor": "Intuit",
+      "category": "accounting"
+    },
+    {
+      "rank": 11,
+      "app": "xero",
+      "app_name": "Xero",
+      "vendor": "Xero",
+      "category": "accounting"
+    },
+    {
+      "rank": 12,
+      "app": "sage-intacct",
+      "app_name": "Sage Intacct",
+      "vendor": "Sage",
+      "category": "accounting"
+    },
+    {
+      "rank": 13,
+      "app": "freshbooks",
+      "app_name": "FreshBooks",
+      "vendor": "FreshBooks",
+      "category": "accounting"
+    },
+    {
+      "rank": 14,
+      "app": "zoho-books",
+      "app_name": "Zoho Books",
+      "vendor": "Zoho",
+      "category": "accounting"
+    },
+    {
+      "rank": 15,
+      "app": "bill-com",
+      "app_name": "BILL",
+      "vendor": "BILL",
+      "category": "ap-ar-spend"
+    },
+    {
+      "rank": 16,
+      "app": "expensify",
+      "app_name": "Expensify",
+      "vendor": "Expensify",
+      "category": "ap-ar-spend"
+    },
+    {
+      "rank": 17,
+      "app": "sap-concur",
+      "app_name": "SAP Concur",
+      "vendor": "SAP",
+      "category": "ap-ar-spend"
+    },
+    {
+      "rank": 18,
+      "app": "ramp",
+      "app_name": "Ramp",
+      "vendor": "Ramp",
+      "category": "ap-ar-spend"
+    },
+    {
+      "rank": 19,
+      "app": "brex",
+      "app_name": "Brex",
+      "vendor": "Brex",
+      "category": "ap-ar-spend"
+    },
+    {
+      "rank": 20,
+      "app": "stripe",
+      "app_name": "Stripe",
+      "vendor": "Stripe",
+      "category": "payments"
+    },
+    {
+      "rank": 21,
+      "app": "square",
+      "app_name": "Square",
+      "vendor": "Block",
+      "category": "payments"
+    },
+    {
+      "rank": 22,
+      "app": "workday",
+      "app_name": "Workday HCM",
+      "vendor": "Workday",
+      "category": "hr-payroll"
+    },
+    {
+      "rank": 23,
+      "app": "adp-workforce-now",
+      "app_name": "ADP Workforce Now",
+      "vendor": "ADP",
+      "category": "hr-payroll"
+    },
+    {
+      "rank": 24,
+      "app": "gusto",
+      "app_name": "Gusto",
+      "vendor": "Gusto",
+      "category": "hr-payroll"
+    },
+    {
+      "rank": 25,
+      "app": "bamboohr",
+      "app_name": "BambooHR",
+      "vendor": "BambooHR",
+      "category": "hr-payroll"
+    },
+    {
+      "rank": 26,
+      "app": "rippling",
+      "app_name": "Rippling",
+      "vendor": "Rippling",
+      "category": "hr-payroll"
+    },
+    {
+      "rank": 27,
+      "app": "paylocity",
+      "app_name": "Paylocity",
+      "vendor": "Paylocity",
+      "category": "hr-payroll"
+    },
+    {
+      "rank": 28,
+      "app": "paychex-flex",
+      "app_name": "Paychex Flex",
+      "vendor": "Paychex",
+      "category": "hr-payroll"
+    },
+    {
+      "rank": 29,
+      "app": "deel",
+      "app_name": "Deel",
+      "vendor": "Deel",
+      "category": "hr-payroll"
+    },
+    {
+      "rank": 30,
+      "app": "greenhouse",
+      "app_name": "Greenhouse",
+      "vendor": "Greenhouse",
+      "category": "recruiting"
+    },
+    {
+      "rank": 31,
+      "app": "lever",
+      "app_name": "Lever",
+      "vendor": "Employ",
+      "category": "recruiting"
+    },
+    {
+      "rank": 32,
+      "app": "workable",
+      "app_name": "Workable",
+      "vendor": "Workable",
+      "category": "recruiting"
+    },
+    {
+      "rank": 33,
+      "app": "slack",
+      "app_name": "Slack",
+      "vendor": "Salesforce",
+      "category": "communication"
+    },
+    {
+      "rank": 34,
+      "app": "microsoft-teams",
+      "app_name": "Microsoft Teams",
+      "vendor": "Microsoft",
+      "category": "communication"
+    },
+    {
+      "rank": 35,
+      "app": "zoom",
+      "app_name": "Zoom",
+      "vendor": "Zoom",
+      "category": "communication"
+    },
+    {
+      "rank": 36,
+      "app": "google-workspace",
+      "app_name": "Google Workspace",
+      "vendor": "Google",
+      "category": "productivity-suite"
+    },
+    {
+      "rank": 37,
+      "app": "microsoft-365",
+      "app_name": "Microsoft 365",
+      "vendor": "Microsoft",
+      "category": "productivity-suite"
+    },
+    {
+      "rank": 38,
+      "app": "webex",
+      "app_name": "Webex",
+      "vendor": "Cisco",
+      "category": "communication"
+    },
+    {
+      "rank": 39,
+      "app": "ringcentral",
+      "app_name": "RingCentral",
+      "vendor": "RingCentral",
+      "category": "communication"
+    },
+    {
+      "rank": 40,
+      "app": "jira",
+      "app_name": "Jira",
+      "vendor": "Atlassian",
+      "category": "project-management"
+    },
+    {
+      "rank": 41,
+      "app": "confluence",
+      "app_name": "Confluence",
+      "vendor": "Atlassian",
+      "category": "knowledge-management"
+    },
+    {
+      "rank": 42,
+      "app": "asana",
+      "app_name": "Asana",
+      "vendor": "Asana",
+      "category": "project-management"
+    },
+    {
+      "rank": 43,
+      "app": "monday",
+      "app_name": "monday.com",
+      "vendor": "monday.com",
+      "category": "project-management"
+    },
+    {
+      "rank": 44,
+      "app": "trello",
+      "app_name": "Trello",
+      "vendor": "Atlassian",
+      "category": "project-management"
+    },
+    {
+      "rank": 45,
+      "app": "clickup",
+      "app_name": "ClickUp",
+      "vendor": "ClickUp",
+      "category": "project-management"
+    },
+    {
+      "rank": 46,
+      "app": "notion",
+      "app_name": "Notion",
+      "vendor": "Notion",
+      "category": "knowledge-management"
+    },
+    {
+      "rank": 47,
+      "app": "airtable",
+      "app_name": "Airtable",
+      "vendor": "Airtable",
+      "category": "database-nocode"
+    },
+    {
+      "rank": 48,
+      "app": "smartsheet",
+      "app_name": "Smartsheet",
+      "vendor": "Smartsheet",
+      "category": "project-management"
+    },
+    {
+      "rank": 49,
+      "app": "wrike",
+      "app_name": "Wrike",
+      "vendor": "Wrike",
+      "category": "project-management"
+    },
+    {
+      "rank": 50,
+      "app": "linear",
+      "app_name": "Linear",
+      "vendor": "Linear",
+      "category": "project-management"
+    },
+    {
+      "rank": 51,
+      "app": "zendesk",
+      "app_name": "Zendesk",
+      "vendor": "Zendesk",
+      "category": "customer-support"
+    },
+    {
+      "rank": 52,
+      "app": "freshdesk",
+      "app_name": "Freshdesk",
+      "vendor": "Freshworks",
+      "category": "customer-support"
+    },
+    {
+      "rank": 53,
+      "app": "intercom",
+      "app_name": "Intercom",
+      "vendor": "Intercom",
+      "category": "customer-support"
+    },
+    {
+      "rank": 54,
+      "app": "help-scout",
+      "app_name": "Help Scout",
+      "vendor": "Help Scout",
+      "category": "customer-support"
+    },
+    {
+      "rank": 55,
+      "app": "servicenow",
+      "app_name": "ServiceNow",
+      "vendor": "ServiceNow",
+      "category": "itsm"
+    },
+    {
+      "rank": 56,
+      "app": "freshservice",
+      "app_name": "Freshservice",
+      "vendor": "Freshworks",
+      "category": "itsm"
+    },
+    {
+      "rank": 57,
+      "app": "jira-service-management",
+      "app_name": "Jira Service Management",
+      "vendor": "Atlassian",
+      "category": "itsm"
+    },
+    {
+      "rank": 58,
+      "app": "mailchimp",
+      "app_name": "Mailchimp",
+      "vendor": "Intuit",
+      "category": "marketing"
+    },
+    {
+      "rank": 59,
+      "app": "marketo",
+      "app_name": "Adobe Marketo Engage",
+      "vendor": "Adobe",
+      "category": "marketing"
+    },
+    {
+      "rank": 60,
+      "app": "account-engagement",
+      "app_name": "Account Engagement (Pardot)",
+      "vendor": "Salesforce",
+      "category": "marketing"
+    },
+    {
+      "rank": 61,
+      "app": "klaviyo",
+      "app_name": "Klaviyo",
+      "vendor": "Klaviyo",
+      "category": "marketing"
+    },
+    {
+      "rank": 62,
+      "app": "activecampaign",
+      "app_name": "ActiveCampaign",
+      "vendor": "ActiveCampaign",
+      "category": "marketing"
+    },
+    {
+      "rank": 63,
+      "app": "constant-contact",
+      "app_name": "Constant Contact",
+      "vendor": "Constant Contact",
+      "category": "marketing"
+    },
+    {
+      "rank": 64,
+      "app": "braze",
+      "app_name": "Braze",
+      "vendor": "Braze",
+      "category": "marketing"
+    },
+    {
+      "rank": 65,
+      "app": "sendgrid",
+      "app_name": "Twilio SendGrid",
+      "vendor": "Twilio",
+      "category": "marketing"
+    },
+    {
+      "rank": 66,
+      "app": "shopify",
+      "app_name": "Shopify",
+      "vendor": "Shopify",
+      "category": "ecommerce"
+    },
+    {
+      "rank": 67,
+      "app": "bigcommerce",
+      "app_name": "BigCommerce",
+      "vendor": "BigCommerce",
+      "category": "ecommerce"
+    },
+    {
+      "rank": 68,
+      "app": "squarespace",
+      "app_name": "Squarespace",
+      "vendor": "Squarespace",
+      "category": "ecommerce"
+    },
+    {
+      "rank": 69,
+      "app": "wix",
+      "app_name": "Wix",
+      "vendor": "Wix",
+      "category": "ecommerce"
+    },
+    {
+      "rank": 70,
+      "app": "dropbox",
+      "app_name": "Dropbox Business",
+      "vendor": "Dropbox",
+      "category": "file-storage"
+    },
+    {
+      "rank": 71,
+      "app": "box",
+      "app_name": "Box",
+      "vendor": "Box",
+      "category": "file-storage"
+    },
+    {
+      "rank": 72,
+      "app": "docusign",
+      "app_name": "Docusign",
+      "vendor": "Docusign",
+      "category": "esignature"
+    },
+    {
+      "rank": 73,
+      "app": "adobe-acrobat-sign",
+      "app_name": "Adobe Acrobat Sign",
+      "vendor": "Adobe",
+      "category": "esignature"
+    },
+    {
+      "rank": 74,
+      "app": "pandadoc",
+      "app_name": "PandaDoc",
+      "vendor": "PandaDoc",
+      "category": "esignature"
+    },
+    {
+      "rank": 75,
+      "app": "tableau",
+      "app_name": "Tableau Cloud",
+      "vendor": "Salesforce",
+      "category": "analytics-bi"
+    },
+    {
+      "rank": 76,
+      "app": "power-bi",
+      "app_name": "Power BI",
+      "vendor": "Microsoft",
+      "category": "analytics-bi"
+    },
+    {
+      "rank": 77,
+      "app": "looker",
+      "app_name": "Looker",
+      "vendor": "Google",
+      "category": "analytics-bi"
+    },
+    {
+      "rank": 78,
+      "app": "google-analytics",
+      "app_name": "Google Analytics 4",
+      "vendor": "Google",
+      "category": "analytics-bi"
+    },
+    {
+      "rank": 79,
+      "app": "mixpanel",
+      "app_name": "Mixpanel",
+      "vendor": "Mixpanel",
+      "category": "analytics-bi"
+    },
+    {
+      "rank": 80,
+      "app": "amplitude",
+      "app_name": "Amplitude",
+      "vendor": "Amplitude",
+      "category": "analytics-bi"
+    },
+    {
+      "rank": 81,
+      "app": "github",
+      "app_name": "GitHub",
+      "vendor": "GitHub/Microsoft",
+      "category": "dev-tools"
+    },
+    {
+      "rank": 82,
+      "app": "gitlab",
+      "app_name": "GitLab",
+      "vendor": "GitLab",
+      "category": "dev-tools"
+    },
+    {
+      "rank": 83,
+      "app": "bitbucket",
+      "app_name": "Bitbucket",
+      "vendor": "Atlassian",
+      "category": "dev-tools"
+    },
+    {
+      "rank": 84,
+      "app": "figma",
+      "app_name": "Figma",
+      "vendor": "Figma",
+      "category": "design"
+    },
+    {
+      "rank": 85,
+      "app": "canva",
+      "app_name": "Canva",
+      "vendor": "Canva",
+      "category": "design"
+    },
+    {
+      "rank": 86,
+      "app": "calendly",
+      "app_name": "Calendly",
+      "vendor": "Calendly",
+      "category": "scheduling"
+    },
+    {
+      "rank": 87,
+      "app": "surveymonkey",
+      "app_name": "SurveyMonkey",
+      "vendor": "SurveyMonkey",
+      "category": "forms-surveys"
+    },
+    {
+      "rank": 88,
+      "app": "typeform",
+      "app_name": "Typeform",
+      "vendor": "Typeform",
+      "category": "forms-surveys"
+    },
+    {
+      "rank": 89,
+      "app": "qualtrics",
+      "app_name": "Qualtrics",
+      "vendor": "Qualtrics",
+      "category": "forms-surveys"
+    },
+    {
+      "rank": 90,
+      "app": "jotform",
+      "app_name": "Jotform",
+      "vendor": "Jotform",
+      "category": "forms-surveys"
+    },
+    {
+      "rank": 91,
+      "app": "1password",
+      "app_name": "1Password Business",
+      "vendor": "1Password",
+      "category": "security"
+    },
+    {
+      "rank": 92,
+      "app": "docebo",
+      "app_name": "Docebo",
+      "vendor": "Docebo",
+      "category": "lms"
+    },
+    {
+      "rank": 93,
+      "app": "gainsight",
+      "app_name": "Gainsight CS",
+      "vendor": "Gainsight",
+      "category": "customer-success"
+    },
+    {
+      "rank": 94,
+      "app": "procore",
+      "app_name": "Procore",
+      "vendor": "Procore",
+      "category": "construction-field"
+    },
+    {
+      "rank": 95,
+      "app": "servicetitan",
+      "app_name": "ServiceTitan",
+      "vendor": "ServiceTitan",
+      "category": "construction-field"
+    },
+    {
+      "rank": 96,
+      "app": "appfolio",
+      "app_name": "AppFolio Property Manager",
+      "vendor": "AppFolio",
+      "category": "property-management"
+    },
+    {
+      "rank": 97,
+      "app": "yardi-voyager",
+      "app_name": "Yardi Voyager",
+      "vendor": "Yardi",
+      "category": "property-management"
+    },
+    {
+      "rank": 98,
+      "app": "buildium",
+      "app_name": "Buildium",
+      "vendor": "RealPage",
+      "category": "property-management"
+    },
+    {
+      "rank": 99,
+      "app": "clio",
+      "app_name": "Clio Manage",
+      "vendor": "Clio",
+      "category": "legal"
+    },
+    {
+      "rank": 100,
+      "app": "zapier",
+      "app_name": "Zapier",
+      "vendor": "Zapier",
+      "category": "automation"
+    }
+  ]
+}
