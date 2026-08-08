@@ -16,21 +16,52 @@ A Claude Code skill that helps you **tear down a SaaS application you
 administer and plan its replacement as a Claude skill**.
 
 Most teams use a fraction of the software they pay for. This skill runs a
-systematic five-phase pipeline to find out which fraction, and what a leaner
-replacement looks like:
+phased pipeline to find out which fraction, and what a leaner replacement
+looks like:
 
-1. **Scope** — which app, which modules, who uses it.
+1. **Scope and pre-flight** — which app, which modules, who uses it — plus
+   the day-one clock-starters: snapshot volatile logs before retention
+   windows lapse, request contracts from finance, note the post-termination
+   data-retrieval window as the project's hardest deadline.
 2. **Feature inventory** — a breadth-first browser walk of every screen,
    form, report, and setting (via browser automation on *your* authenticated
-   session; the skill never handles credentials).
-3. **Usage evidence** — record counts, empty modules, stale data, exports,
-   and structured user interviews. Used-vs-unused verdicts cite evidence,
-   not vibes.
-4. **Extraction map** — the best route to get each kept entity's data out
-   (API/connector → built-in export → report CSV → scrape as last resort).
-5. **Rebuild plan** — a milestone-based plan to rebuild the kept workflows
-   as a Claude skill: schemas, data corpus, CSV bridges, audit trail,
-   parallel-run, cutover.
+   session; the skill never handles credentials), plus a technical pass over
+   five data planes through the platform's own APIs: configuration census
+   (the delta from vanilla is the requirements list you paid for),
+   transactional archaeology, master-data fill rates, setup census, and
+   static analysis of customization code.
+3. **Usage evidence** — record counts, telemetry, exports, contracts, and
+   structured user interviews. Where the audit log qualifies, process mining
+   turns "how work really flows" into counted evidence: variants,
+   configured-vs-lived conformance, bottleneck waits.
+4. **Used-vs-unused verdicts** — every KEEP / SIMPLIFY / DROP / DEFER
+   verdict carries typed evidence citations (which plane, what claim, what
+   source, per the JSON schema); a verdict without a citation reverts to
+   DEFER. A feature counts as "used" only when structural and runtime
+   evidence join. A dependency graph assembled from the planes derives the
+   risk register and re-challenges KEEPs nothing depends on.
+5. **Extraction map and preservation export** — the best route to get each
+   kept entity's data out (API/connector → built-in export → report CSV →
+   scrape as last resort), and a full-tenant preservation export that runs
+   regardless of verdicts: every entity, attachments, activity history, the
+   audit logs themselves, and configuration as restorable artifacts —
+   verdicts decide what gets rebuilt, never what gets saved.
+6. **Rebuild plan** — milestones derived from the dependency graph
+   (strangler-fig, never big-bang), validated by replaying real historical
+   transactions against the system of record, with the replay preconditions
+   stated and an expected-divergence register for intended improvements.
+
+The teardown is also a labeling process, and the skill harvests the labels:
+every phase appends supervised (input, output) pairs to `pairs.jsonl` —
+screen-to-schema, evidence-to-verdict, transaction-to-output,
+evidence-to-design. The replay corpus makes the rebuild a distillation of
+the legacy system against ground truth, and doubles as the replacement's
+permanent regression suite. Each pair carries a sanitization tier and a
+label authority; raw tenant data never leaves the output directory.
+
+No live tenant? A document-based mode runs the same pipeline against
+engagement archives — change tickets, FRDs, training manuals,
+rescue-project findings.
 
 Outputs land in `~/Dev/teardowns/<app-slug>/` with a resumable state file, so
 a teardown can span multiple sessions (and wait for interview answers).
@@ -44,10 +75,11 @@ a teardown can span multiple sessions (and wait for interview answers).
 /plugin install saas-rebuild
 ```
 
-**Manual:** copy `skills/saas-rebuild/` into `~/.claude/skills/`.
+**Manual:** copy `skills/saas-rebuild/` and/or `skills/export-compliance/`
+into `~/.claude/skills/`.
 
-**Project-level:** copy `skills/saas-rebuild/` into your repo's
-`.claude/skills/` — everyone who clones the repo gets it.
+**Project-level:** copy the same folder(s) into your repo's
+`.claude/skills/` — everyone who clones the repo gets them.
 
 ## Use
 
@@ -57,13 +89,18 @@ Say things like:
 - "What do we actually use in [app]?"
 - "Replace [app] with a skill"
 
-You'll need a browser-automation MCP connected (e.g. Claude in Chrome) for
-the inventory phase, and admin access to the app you're analyzing.
+A browser-automation MCP (e.g. Claude in Chrome) covers the UI-walk phase;
+the deeper extraction phase uses the platform's own metadata API or SQL
+where you have it, and you'll need admin access to the app you're
+analyzing. No live tenant? The document-based mode runs the same pipeline
+against engagement archives instead.
 
 ## Share your teardown — let's replace SaaS collectively
 
-Every teardown produces the same artifact: a feature map with evidence-backed
-KEEP / SIMPLIFY / DROP / DEFER verdicts. Those maps are far more valuable
+Every teardown produces the same artifacts: a feature map with KEEP /
+SIMPLIFY / DROP / DEFER verdicts, each carrying typed evidence citations
+(which data plane, what claim, what source), plus a `pairs.jsonl` training
+corpus in three sanitization tiers. Those maps are far more valuable
 shared than siloed:
 
 - **The used-fraction repeats.** If your team uses 20% of your CRM, odds are
@@ -82,21 +119,28 @@ shared than siloed:
 [Teardown Report issue](../../issues/new?template=teardown-report.yml) with
 the app (or just its category, if you'd rather not name it), feature counts
 by verdict, your top "why unused" reasons, and anything the pipeline missed.
-PRs improving the phases, templates, or schema are very welcome.
+If you captured pairs, say how many landed in the `sanitized-shareable` and
+`synthetic` tiers — convergent pair corpora are how a community replacement
+skill gets its regression suite. PRs improving the phases, templates, or
+schema are very welcome.
 
 **Sanitize before you share.** Your teardown output contains your business
 data — the report you post must not. No record contents, no exports, no
 customer or employee names, no screenshots with real data, no internal URLs.
 Share the *structure* (feature names, verdicts, why-categories, rough record
-counts as ranges). If in doubt, leave it out — a verdict table with no
-numbers is still useful.
+counts as ranges). The pairs schema enforces this as a field:
+`raw-local-only` pairs never leave your output dir; only
+`sanitized-shareable` and `synthetic` tiers travel. If in doubt, leave it
+out — a verdict table with no numbers is still useful.
 
 ## Responsible use
 
 This skill is for analyzing **your own tenant** of software you legitimately
 administer, for migration planning. It will not probe other tenants or other
 users' private data, and it prefers official exports/APIs over scraping.
-Check your vendor agreement before bulk-extracting data.
+Before any bulk extraction the skill walks you through a vendor-agreement
+checklist — export rights, API terms, anti-scraping clauses, and the
+post-termination data-retrieval window — and says when to involve counsel.
 
 ---
 
@@ -154,7 +198,7 @@ Zero dependencies — standard-library Python 3.11+, no network calls outside
 
 ```bash
 cd skills/export-compliance/tools
-python3 -m xscreen.cli selftest                      # 187 tests, ~2 seconds
+python3 -m xscreen.cli selftest                      # 274 tests, ~3 seconds
 python3 -m xscreen.cli --home ~/xs refresh           # pull the official lists
 python3 -m xscreen.cli --home ~/xs screen parties.csv
 python3 -m xscreen.cli --home ~/xs explain "Acme Trading Ltd"

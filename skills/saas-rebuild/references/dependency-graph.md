@@ -31,7 +31,8 @@ edge (same plane names as the evidence enum in
   summary per script converts directly to `triggers`, `reads`, `writes`
 - **integration-inventory** → `exports-to` edges from API logs, iPaaS flow
   definitions, and scheduled file drops
-- **report definitions** (saved searches, report builder) → report→entity
+- **report definitions** (saved searches, report builder; mined during the
+  config census, so these edges record plane `config-census`) → report→entity
   `reads` and `joins-on` edges
 
 One honest rule, stated up front: **an absent edge means absent evidence,
@@ -63,7 +64,7 @@ Write `graph.json` in the teardown output dir alongside `teardown.json`:
 ```
 
 A pure-Python adjacency dict is enough for every computation below:
-`adj = {n: [] for n in nodes}; for e in edges: adj[e["from"]].append(e)`.
+`adj = {n["id"]: [] for n in nodes}; for e in edges: adj[e["from"]].append(e)`.
 Use networkx **if already available** — never install it, nothing here may
 require it. Every algorithm below fits in a dozen lines of stdlib Python.
 
@@ -78,7 +79,11 @@ list: two planes agreeing on one edge is stronger evidence, not a duplicate.
 Weighted in-degree over edges pointing at each entity: `writes` = 3,
 `joins-on` = 2, `reads` = 1 (a written entity is upstream state; a read one
 may be mere reference data). PageRank on the reversed graph if networkx
-exists; say which you used.
+exists; say which you used. The 3/2/1 weights are a default, not a
+finding: before the schema order ships, rerun the ranking with at least
+one alternative weighting (e.g. 2/1/1) — entities stable across
+weightings are load-bearing, entities that reshuffle are ties; say which
+in the artifact.
 
 Feeds: the top entities by score get their JSON schemas designed **first**
 in Phase 5 — they are the walking skeleton's data model. An entity that
@@ -89,7 +94,13 @@ depends on data nobody claims to use — usually an integration).
 
 Nodes whose removal disconnects the undirected view of the graph — the
 pre-identified landmines. "Breaking an unknown integration is the classic
-rebuild failure" is an articulation point nobody computed. DFS sketch:
+rebuild failure" is an articulation point nobody computed. But the AP
+list is only as complete as the edge set: a missing edge can hide a real
+articulation point, so the list identifies risks — it never clears a
+node. Any bridge chosen to sever an island (result 3) crosses only
+*discovered* edges; before committing a milestone boundary, re-interrogate
+the boundary nodes against the integration inventory for undiscovered
+file drops. DFS sketch:
 
 ```python
 def articulation_points(adj):  # adj: undirected {node: set(neighbors)}

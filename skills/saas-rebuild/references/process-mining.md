@@ -16,11 +16,14 @@ telemetry does NOT — no case id, no process.
 
 Bail out honestly when:
 
-- **Retention under ~60 days.** You'll see fragments of cases, not
-  cases. Fall back to the SQL directly-follows query over transactional
-  tables (created/modified dates per document chain), or don't claim
-  process evidence at all. Never present a fragment window as "the
-  process."
+- **Window shorter than ~3x the median case duration** (estimate median
+  duration from created/closed dates in the transactional tables before
+  mining). An absolute day count is meaningless: 60 days is ample for a
+  2-day ticket flow and fragments a 6-month sales cycle. When the window
+  fails the test, fall back to the SQL directly-follows query over
+  transactional tables (created/modified dates per document chain), or
+  don't claim process evidence at all. Never present a fragment window
+  as "the process."
 - **No case-linkable object id**, and none derivable by joining the log
   to a transaction table. Same fallback. An actor+timestamp log without
   a case notion is telemetry, not an event log.
@@ -105,10 +108,13 @@ pm4py.save_vis_petri_net(net, im, fm, "model.png")
 ### 1. Variant analysis → SIMPLIFY evidence
 
 A variant is a distinct activity sequence; count cases per variant, then
-compute top-k coverage. Heuristic: **if the top 5 variants cover under
-~60% of cases in a process the org calls "standard," that is quantified
-proof the app doesn't fit the work** — a SIMPLIFY candidate with a number
-attached, and the strongest single line you can put in usage-analysis.md.
+compute top-k coverage. Heuristic: if the top 5 variants cover under
+~60% of cases in a process the org calls "standard," treat that as a
+**strong SIMPLIFY flag, not proof** — the threshold is a field rule of
+thumb, not a literature constant, and top-k coverage falls mechanically
+with trace length and rises with small samples. Report the full
+variant-coverage curve (k vs. % of cases) next to the number, at the
+granularity sanity-checked above, and let the curve carry the argument.
 Caveat: high variant counts are also produced by too-fine activity naming
 (re-check granularity) and by genuinely project-shaped work where every
 case legitimately differs. One interview question ("should these all
@@ -136,7 +142,8 @@ checking, or by hand for small state machines). Two asymmetric findings:
 
 For each directly-follows edge, compute the **median** waiting time
 between the two activities (median, not mean — a few stuck cases dominate
-the mean). Rank edges by median wait times case count. The longest waits
+the mean). Rank edges by `median_wait x case_count` — queue-hours at
+stake, not either factor alone. The longest waits
 are what the rebuilt skill should automate first: that is where work sits
 in queues, and it turns Phase 5 workflow prioritization from opinion into
 a ranked list with hours attached.
@@ -173,8 +180,8 @@ one-sentence claim; and the source — the exact query or log window plus
 case count, so the finding is re-runnable. Example:
 
 ```json
-{"plane": "telemetry", "claim": "Top-5 variants cover 41% of 2,310
-  human-lane orders in the 90-day window; standard flow claim fails.",
+{"plane": "telemetry",
+ "claim": "Top-5 variants cover 41% of human-lane orders (n=2,310)",
  "source": "audit_log 2026-05-01..2026-07-30, human lane, DFG query v2"}
 ```
 

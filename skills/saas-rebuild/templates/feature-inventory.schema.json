@@ -2,11 +2,31 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "SaaS teardown feature entry",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "id",
     "nav_path",
     "name",
     "kind"
+  ],
+  "allOf": [
+    {
+      "if": { "required": ["verdict"] },
+      "then": {
+        "required": ["evidence"],
+        "properties": { "evidence": { "minItems": 1 } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "usage": { "not": { "const": "unknown" } } },
+        "required": ["usage"]
+      },
+      "then": {
+        "required": ["evidence"],
+        "properties": { "evidence": { "minItems": 1 } }
+      }
+    }
   ],
   "properties": {
     "id": {
@@ -45,6 +65,7 @@
     "observed_signals": {
       "type": "object",
       "description": "usage evidence seen in the UI, captured during the walk",
+      "additionalProperties": false,
       "properties": {
         "record_count": {
           "type": [
@@ -85,12 +106,14 @@
     },
     "evidence": {
       "type": "array",
-      "description": "typed citations backing usage and verdict; one item per independent signal",
+      "description": "typed citations backing usage and verdict; one item per independent signal — a verdict or a non-unknown usage requires at least one",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "plane",
-          "claim"
+          "claim",
+          "source"
         ],
         "properties": {
           "plane": {
@@ -108,7 +131,7 @@
               "contract",
               "document"
             ],
-            "description": "which evidence stream produced the signal"
+            "description": "which evidence stream produced the signal; see SKILL.md Phase 3 for the plane-to-class mapping the join rule uses"
           },
           "claim": {
             "type": "string",
@@ -116,13 +139,14 @@
           },
           "source": {
             "type": "string",
-            "description": "where it was seen: table/report/log/doc, no record contents"
+            "description": "where it was seen, precisely enough to re-run: table/report/log window/doc, no record contents"
           },
           "observed_at": {
             "type": [
               "string",
               "null"
             ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}",
             "description": "ISO date the signal was observed; null if not recorded"
           },
           "confidence": {
@@ -132,6 +156,13 @@
               "low"
             ],
             "description": "how directly the signal supports the claim"
+          },
+          "derived_from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "id or source of another citation this one is derived from; two citations sharing a derivation chain count as ONE signal for corroboration"
           }
         }
       }

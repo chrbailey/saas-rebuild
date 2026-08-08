@@ -42,6 +42,6 @@ def test_skill_md_state_file_example(skill_md_text):
     assert match, "SKILL.md no longer contains the Phase 0 teardown.json example"
     state = json.loads(match.group(1))
     assert set(state) == {
-        "app", "url", "started", "phase",
+        "app", "url", "started", "phase", "preflight",
         "features", "evidence", "extraction", "decisions",
     }

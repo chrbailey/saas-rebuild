@@ -1,8 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Teardown supervised pair (one line of pairs.jsonl)",
-  "description": "The teardown pipeline is a labeling process: the legacy system labels replay transactions, analysts label verdicts, the UI walk labels screen-to-schema extraction. Every phase therefore emits supervised (input, output) pairs — one JSON object per line of pairs.jsonl — which later serve as fine-tuning data, eval suites, and regression harnesses for the replacement skill.",
+  "description": "The teardown pipeline is a labeling process: the legacy system labels replay transactions, analysts label verdicts, the UI walk labels screen-to-schema extraction. Every phase therefore emits supervised (input, output) pairs — one JSON object per line of pairs.jsonl — which later serve as fine-tuning data, eval suites, and regression harnesses for the replacement skill. Only pairs whose label_authority is system-of-record or observed-ui are ground truth; analyst-labeled pairs are the pipeline's own opinions.",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "pair_type",
     "input",
@@ -38,6 +39,15 @@
       "type": "string",
       "description": "why this output is correct; one paragraph max"
     },
+    "label_authority": {
+      "enum": [
+        "system-of-record",
+        "observed-ui",
+        "analyst",
+        "validated-design"
+      ],
+      "description": "who labeled the output side. analyst-labeled pairs are opinions, not ground truth: use for behavior cloning and audit, never as eval gold. design pairs start as analyst and are promoted to validated-design only after the workflow passes parallel-run"
+    },
     "evidence": {
       "type": "array",
       "description": "typed citations backing the pair; mirrors the citation shape in feature-inventory.schema.json (duplicated in $defs so this schema stays self-contained)",
@@ -48,6 +58,7 @@
     "provenance": {
       "type": "object",
       "description": "where the pair came from, enough to trace it back to its teardown",
+      "additionalProperties": false,
       "required": [
         "app",
         "teardown_id",
@@ -71,6 +82,7 @@
         },
         "created": {
           "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}",
           "description": "ISO date the pair was written"
         }
       }
@@ -81,16 +93,18 @@
         "sanitized-shareable",
         "synthetic"
       ],
-      "description": "raw-local-only: contains tenant data, never leaves the output dir. sanitized-shareable: structure only, names coded, figures rounded. synthetic: statistically regenerated, safe to publish. Rule: only sanitized-shareable and synthetic tiers may leave ~/Dev/teardowns/."
+      "description": "raw-local-only: contains tenant data, never leaves the output dir. sanitized-shareable: structure only, names coded, figures rounded. synthetic: statistically regenerated, safe to publish. Rule: only sanitized-shareable and synthetic tiers may leave ~/Dev/teardowns/, and tier assignment gets an independent critic check first."
     }
   },
   "$defs": {
     "citation": {
       "type": "object",
       "description": "one typed evidence citation; same shape as the feature schema's evidence items",
+      "additionalProperties": false,
       "required": [
         "plane",
-        "claim"
+        "claim",
+        "source"
       ],
       "properties": {
         "plane": {
@@ -108,7 +122,7 @@
             "contract",
             "document"
           ],
-          "description": "which evidence stream produced the signal"
+          "description": "which evidence stream produced the signal; see SKILL.md Phase 3 for the plane-to-class mapping the join rule uses"
         },
         "claim": {
           "type": "string",
@@ -116,13 +130,14 @@
         },
         "source": {
           "type": "string",
-          "description": "where it was seen: table/report/log/doc, no record contents"
+          "description": "where it was seen, precisely enough to re-run: table/report/log window/doc, no record contents"
         },
         "observed_at": {
           "type": [
             "string",
             "null"
           ],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}",
           "description": "ISO date the signal was observed; null if not recorded"
         },
         "confidence": {
@@ -132,6 +147,13 @@
             "low"
           ],
           "description": "how directly the signal supports the claim"
+        },
+        "derived_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "id or source of another citation this one is derived from; two citations sharing a derivation chain count as ONE signal for corroboration"
         }
       }
     }

@@ -13,6 +13,7 @@
     "why": "Configured module with zero records since tenant creation."
   },
   "rationale": "Structure evidence exists but no runtime evidence joins it; per the Phase 3 join rule this is configured-never-enabled.",
+  "label_authority": "analyst",
   "evidence": [
     {
       "plane": "config-census",
