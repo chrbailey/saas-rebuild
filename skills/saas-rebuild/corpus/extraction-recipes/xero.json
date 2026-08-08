@@ -1,0 +1,166 @@
+{
+  "app": "xero",
+  "app_name": "Xero",
+  "vendor": "Xero",
+  "category": "accounting",
+  "export_rights": {
+    "summary": "Customers can export their data from within Xero at any time during an active subscription; Xero explicitly recommends exporting the chart of accounts, contacts, invoices, bills and fixed asset list (plus the Account Transactions, Receivable Invoice Detail and Payable Invoice Detail reports) before cancelling, because on termination the organisation is archived and the data is no longer directly available to the subscriber.",
+    "tos_url": "https://www.xero.com/us/legal/terms/",
+    "post_termination_window": "No self-serve export window after termination: per Xero's terms, on termination the subscription is archived and the data is no longer available to the subscriber; Xero retains it for a period consistent with its data retention policy, during which reactivating (re-paying) the subscription restores access. Xero's cancellation help notes a one-month cancellation notice period and recommends exporting before it ends."
+  },
+  "routes": [
+    {
+      "route_type": "api",
+      "covers": [
+        "contacts",
+        "invoices",
+        "bills",
+        "credit-notes",
+        "payments",
+        "bank-transactions",
+        "manual-journals",
+        "general-ledger-journals",
+        "items",
+        "purchase-orders",
+        "attachments"
+      ],
+      "how": "Xero Accounting API at https://api.xero.com/api.xro/2.0/ (GET /Invoices, /Contacts, /Journals, /BankTransactions, etc.), OAuth 2.0 (auth-code, PKCE supported; refresh tokens last 60 days and expire if unused for 60 days); responses are paged; per-entity attachments via GET /api.xro/2.0/{Endpoint}/{Guid}/Attachments and per-file content endpoints",
+      "formats": ["JSON", "XML"],
+      "requires": [
+        "OAuth 2.0 app registered on developer.xero.com and connected (consented) to the tenant"
+      ],
+      "rate_limits": "Per tenant: 60 calls/minute, 5,000 calls/day (resets midnight UTC), 5 concurrent calls; app-wide: 10,000 calls/minute; 429 returned on breach",
+      "gotchas": [
+        "5,000 calls/day per tenant makes a large full extraction a multi-day job unless batched with paging",
+        "refresh tokens expire after 60 days of non-use, so long-running extraction tooling must keep rotating them"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": [
+        "contacts",
+        "invoices",
+        "bills",
+        "chart-of-accounts",
+        "fixed-assets"
+      ],
+      "how": "Per-area Export buttons in the web UI: Contacts > All contacts (or a contact group) > Export for a CSV of contacts; Business/Sales > Invoices > Export for a CSV of invoices; Accounting > Advanced > Chart of accounts > Export. Xero's export overview lists chart of accounts, contacts, invoices, bills and fixed assets as the recommended pre-cancellation exports.",
+      "formats": ["CSV"],
+      "requires": ["user with access to the relevant areas (e.g. Adviser/Standard role)"],
+      "rate_limits": null,
+      "gotchas": [
+        "Xero documents that there is no single feature to export the whole organisation at once - each area must be exported separately"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": [
+        "account-transactions",
+        "receivable-invoice-detail",
+        "payable-invoice-detail",
+        "general-ledger",
+        "financial-statements"
+      ],
+      "how": "Accounting > Reports > open a report (e.g. Account Transactions across all accounts with a custom date range) > Export button on the report > choose PDF, Excel or Google Sheets. Xero recommends the Account Transactions report as the route to a full transaction listing and the Receivable/Payable Invoice Detail reports for invoice and bill line detail.",
+      "formats": ["PDF", "XLSX", "Google Sheets", "CSV"],
+      "requires": ["role with report access (Adviser/Standard)"],
+      "rate_limits": null,
+      "gotchas": [
+        "reports are date-range scoped, so a complete history requires setting the range back to the organisation's start date"
+      ]
+    },
+    {
+      "route_type": "account-export",
+      "covers": ["general-ledger", "journals"],
+      "how": "Accounting > Advanced > Export accounting data: pick the target product/tax authority and a date range; produces general-ledger data formatted for external tax/audit packages (in the Canadian edition the path is Reporting > Reporting settings > Export accounting data). This is the closest thing Xero documents to a bulk accounting export; it is aimed at moving GL data into other products, not a full tenant backup.",
+      "formats": ["XLSX", "CSV", "MYE", "TXT", "PDF"],
+      "requires": ["Adviser-level access to Accounting > Advanced"],
+      "rate_limits": null,
+      "gotchas": [
+        "output is shaped for the selected downstream product (e.g. Caseware is documented as the only format including a Journal ID), not a neutral schema"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["attachments", "file-library-files"],
+      "how": "No UI bulk download of attached files exists (Xero has acknowledged this on its product-ideas portal and points to third-party apps). Programmatic route: Files API at https://api.xero.com/files.xro/1.0/ (paged Files/Folders/Associations endpoints) plus the Accounting API per-entity Attachments endpoints (GET /api.xro/2.0/{Endpoint}/{Guid}/Attachments, then fetch each attachment's content by filename), all under OAuth 2.0.",
+      "formats": ["original file formats"],
+      "requires": ["OAuth 2.0 app with files.read / accounting scopes"],
+      "rate_limits": "shares the per-tenant Accounting/Files API limits (60/min, 5,000/day)",
+      "gotchas": [
+        "attachments must be enumerated entity-by-entity, one GET per entity plus one per file, which burns the 5,000/day budget quickly on attachment-heavy tenants"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["chart-of-accounts"],
+      "how": "Accounting > Advanced > Chart of accounts > Export produces a CSV that Xero's own import tooling (including the Conversion Toolbox) accepts, making it a restorable artifact for rebuilding the ledger structure elsewhere.",
+      "formats": ["CSV"],
+      "requires": ["Adviser-level access"],
+      "rate_limits": null,
+      "gotchas": [
+        "no documented export exists for tracking categories, custom report layouts, or invoice branding themes as restorable artifacts"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "No native UI bulk export of attached files or the file library; Xero acknowledges the gap on its product-ideas portal. Bulk retrieval requires the Files API plus per-entity Accounting API Attachments endpoints, enumerated entity by entity.",
+    "audit_log": null,
+    "config_artifacts": "Chart of accounts exports to a re-importable CSV (Accounting > Advanced > Chart of accounts > Export). No vendor-documented restorable export was found for tracking categories, custom report layouts, branding themes, or other settings."
+  },
+  "sources": [
+    {
+      "url": "https://central.xero.com/s/article/Export-data-out-of-Xero-US",
+      "title": "About exporting data out of Xero - Xero Central",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.xero.com/documentation/guides/oauth2/limits/",
+      "title": "OAuth 2.0 API limits - Xero Developer",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.xero.com/faq/limits",
+      "title": "Limits FAQs - Xero Developer",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.xero.com/documentation/api/accounting/attachments",
+      "title": "Accounting API Attachments - Xero Developer",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.xero.com/us/legal/terms/",
+      "title": "Terms of use | Xero US",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://central.xero.com/0/article/Cancel-a-subscription-US",
+      "title": "Cancel a subscription - Xero Central",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://central.xero.com/0/article/Export-or-print-your-chart-of-accounts",
+      "title": "Export or print your chart of accounts - Xero Central",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://central.xero.com/0/article/Export-contacts-out-of-Xero",
+      "title": "Export contacts out of Xero - Xero Central",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://central.xero.com/0/article/Assurance-dashboard-explanation",
+      "title": "The Assurance dashboard explained - Xero Central",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://productideas.xero.com/forums/967121-users-setup/suggestions/44960626-files-bulk-export-print-attached-files",
+      "title": "Files - Bulk export/print attached files - Xero Product Ideas",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Honest unknowns: (1) Audit trail - Xero's Assurance dashboard and per-transaction History & notes show organisation activity by user, but no vendor-documented bulk export of the audit trail or a documented retention period was found; verify in-tenant. (2) Post-termination retention - third-party sources claim archived-organisation data stays reactivatable for ~7 years, but that figure was not confirmed on a Xero-owned page, so only the terms' 'archived, retained per data retention policy, reactivation restores access' language is asserted. (3) Uncertified-app tenant caps and exact Files API scopes were not verified. Research caveat: the network egress proxy blocked direct fetches of central.xero.com and developer.xero.com, so all claims derive from vendor-page content surfaced through web search of those official pages; nav paths and limits should be re-verified against the live tenant/docs before entering an evidence base. Regional editions (US/UK/AU/CA) vary slightly in menu naming (e.g. Business vs Sales menu, Export accounting data location)."
+}
