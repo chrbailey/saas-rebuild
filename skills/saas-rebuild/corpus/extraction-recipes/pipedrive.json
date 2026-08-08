@@ -1,0 +1,189 @@
+{
+  "app": "pipedrive",
+  "app_name": "Pipedrive",
+  "vendor": "Pipedrive",
+  "category": "crm",
+  "export_rights": {
+    "summary": "Global admins (and regular users granted export permission) can export account data per data type from the UI and via the public API. The DPA states that return/deletion of personal data on termination is achieved via the client initiating export through the UI or Pipedrive support; Pipedrive's EU Data Act page additionally grants clients the right to export their exportable data to switch providers or to on-premises infrastructure.",
+    "tos_url": "https://www.pipedrive.com/en/terms-of-service",
+    "post_termination_window": "No explicit retrieval window documented; ToS states the account and all Client Data are permanently deleted within 180 days of termination (within 1 month if the client requests earlier deletion), so export must be self-initiated before deletion"
+  },
+  "routes": [
+    {
+      "route_type": "entity-export",
+      "covers": [
+        "deals",
+        "people",
+        "organizations",
+        "activities",
+        "notes",
+        "products"
+      ],
+      "how": "Account menu (top right) > Tools and apps > Export data; select data type, choose Excel or CSV, click Export; file appears under Generated exports (download via cloud icon in the Available until column). Alternatively, from any list view use '...' > Export filter results to export the displayed fields, or open a single deal and use '...' > Export as XLSX.",
+      "formats": ["xlsx", "csv"],
+      "requires": [
+        "global admin (Export data tab); regular users need export permission enabled and only see data visible to them"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "No single whole-account export button — each data type is exported separately",
+        "Activities, notes and files linked to deals/contacts must be exported separately; files and emails are not embedded in entity exports",
+        "Generated export files expire: available for download for 28 days",
+        "Exports are scoped by the exporting user's visibility groups/item visibility"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": [
+        "deals",
+        "people",
+        "organizations",
+        "activities",
+        "notes",
+        "products",
+        "leads",
+        "users",
+        "files-metadata",
+        "pipelines",
+        "stages",
+        "custom-field-definitions",
+        "filters"
+      ],
+      "how": "Public REST API v1/v2 at api.pipedrive.com; auth via personal api_token (sent as x-api-token header; grants the owning user's permissions, never expires unless regenerated) or OAuth 2.0 Authorization Code flow with Bearer access tokens (~1h expiry, refresh tokens). Paginate list endpoints (offset or cursor); v2 endpoints are cheaper in rate-limit tokens.",
+      "formats": ["json"],
+      "requires": ["api_token of an appropriately permissioned user, or an OAuth app grant"],
+      "rate_limits": "Token-based daily budget shared account-wide: 30,000 base tokens x plan multiplier x number of seats; each endpoint has a token cost (v2 endpoints cost up to half of v1). Separate burst rate limits also apply. Max page size 500 items (100 default; files endpoint max 100 per page).",
+      "gotchas": [
+        "Daily token budget is shared by all users and integrations on the account — large extractions can starve other integrations",
+        "api_token is per-user and inherits that user's visibility restrictions"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["attachments", "files"],
+      "how": "API: GET /v1/files to enumerate all file records (paginated, max 100 per page), then download each file individually via the file-download endpoint / the download URL returned in file metadata (standard HTTP GET with auth). No documented bulk file download in the admin UI.",
+      "formats": ["original file formats"],
+      "requires": ["api_token or OAuth token with access to the files"],
+      "rate_limits": "Counts against the shared daily API token budget; 100 items per page max on the files listing",
+      "gotchas": [
+        "One HTTP request per file — large file stores mean many requests against the rate-limit budget",
+        "Entity exports (Export data tab) do not include the files themselves"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["insights-reports", "dashboards", "goals-data"],
+      "how": "Insights: open a report or goal, scroll to the table view and export as XLSX/CSV; open a report and click Export for the current chart view (PDF/PNG); open a dashboard and use '...' > PDF export or PNG export (includes all visible reports in on-screen order).",
+      "formats": ["xlsx", "csv", "pdf", "png"],
+      "requires": ["access to the Insights reports/dashboards being exported"],
+      "rate_limits": null,
+      "gotchas": [
+        "Chart/dashboard exports are images/PDF snapshots, not restorable report definitions"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log", "security-events"],
+      "how": "Security dashboard > Audit log: filter by user, security event type and time frame, then use the '...' button to export the filtered results to a spreadsheet.",
+      "formats": ["spreadsheet"],
+      "requires": ["admin access to the security dashboard", "top-tier (Ultimate) plan for audit log, active devices and device history features"],
+      "rate_limits": null,
+      "gotchas": [
+        "Documented retention is only the past two months of security-related changes — export early and repeatedly during a teardown",
+        "Log covers security-related changes, not a full record-level change history"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": [
+        "custom-field-definitions",
+        "pipelines",
+        "stages",
+        "filters"
+      ],
+      "how": "No UI export of configuration is documented. Via the REST API, read the definition objects as JSON: DealFields (and the equivalent person/organization field endpoints), Pipelines, Stages and Filters reference endpoints documented at developers.pipedrive.com/docs/api/v1.",
+      "formats": ["json"],
+      "requires": ["api_token or OAuth token"],
+      "rate_limits": "Shares the account-wide daily API token budget",
+      "gotchas": [
+        "JSON definitions are documentation/rebuild artifacts, not importable restore packages",
+        "No documented export for Workflow Automations or Insights report definitions"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Not included in entity exports and no documented bulk download in the UI; enumerate via API GET /v1/files (max 100/page) and download each file individually via its download endpoint/URL",
+    "audit_log": "Security dashboard audit log (Ultimate plan) holds the past two months of security-related changes; filtered results export to a spreadsheet via the '...' button — retention beyond two months is not documented",
+    "config_artifacts": "No documented UI export of customizations; custom field definitions, pipelines, stages and filters are readable as JSON via the API reference endpoints. Export of Workflow Automations and Insights report definitions is not documented"
+  },
+  "sources": [
+    {
+      "url": "https://support.pipedrive.com/en/article/exporting-data-from-pipedrive",
+      "title": "Exporting data from Pipedrive - Knowledge Base | Pipedrive",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.pipedrive.com/en/article/exporting-data-from-insights",
+      "title": "Exporting data from Insights - Knowledge Base | Pipedrive",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.pipedrive.com/en/article/security-dashboard",
+      "title": "Security dashboard - Knowledge Base | Pipedrive",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developers.pipedrive.com/changelog/post/breaking-changes-token-based-rate-limits-for-api-requests",
+      "title": "Breaking changes: Token-Based Rate Limits for API requests - Pipedrive Developers Changelog",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://pipedrive.readme.io/docs/core-api-concepts-authentication",
+      "title": "Authentication - Getting started - Pipedrive Developers",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developers.pipedrive.com/tutorials/pagination-pipedrive-api",
+      "title": "Pipedrive API Tutorials: Using Pagination",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developers.pipedrive.com/docs/api/v1/Files",
+      "title": "Pipedrive API v1 Reference: Files",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developers.pipedrive.com/docs/api/v1/Pipelines",
+      "title": "Pipedrive API v1 Reference: Pipelines",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developers.pipedrive.com/docs/api/v1/DealFields",
+      "title": "Pipedrive API v1 Reference: DealFields",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developers.pipedrive.com/docs/api/v1/Filters",
+      "title": "Pipedrive API v1 Reference: Filters",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.pipedrive.com/en/terms-of-service",
+      "title": "Terms of Service | Pipedrive",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.pipedrive.com/en/privacy/dpa",
+      "title": "Pipedrive Data Processing Addendum | Pipedrive",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.pipedrive.com/en/legal/eu-data-act",
+      "title": "EU Data Act | Pipedrive",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: direct fetches of pipedrive.com/support.pipedrive.com/developers.pipedrive.com were blocked by the research environment's egress proxy, so all claims come from search-engine summaries of the cited vendor pages rather than full-page reads — treat details (exact nav labels, the 28-day export availability, two-month audit retention, Ultimate-plan gating, 30,000-token rate formula) as needing in-tenant confirmation. Honest unknowns: no whole-account/backup export exists per docs; email message bulk export is not documented (community threads ask for workarounds); Workflow Automations and Insights report definitions have no documented export; plan multipliers in the API token-budget formula were not captured; exact spreadsheet format of the audit-log export is not specified in the summaries consulted. The 180-day figure in export_rights is a deletion deadline from the ToS, not a guaranteed retrieval window."
+}

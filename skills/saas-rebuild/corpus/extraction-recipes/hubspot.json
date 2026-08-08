@@ -1,0 +1,149 @@
+{
+  "app": "hubspot",
+  "app_name": "HubSpot",
+  "vendor": "HubSpot",
+  "category": "crm",
+  "export_rights": {
+    "summary": "Customers self-serve export their data during the subscription term via the UI and API export tools documented in the knowledge base. Per the Customer Terms of Service ('Retrieval of Customer Data'), on written request within 30 days after termination or expiration HubSpot provides temporary access to the Subscription Service (a re-activation fee may apply) or copies of all Customer Data in its possession; 30 days after termination HubSpot has no obligation to maintain the data and may delete it. Product Specific Terms advise Free/Smart CRM users to retrieve data before termination — no post-termination access is provided for free services.",
+    "tos_url": "https://legal.hubspot.com/terms-of-service",
+    "post_termination_window": "30 days (written request required; temporary re-access may incur a re-activation fee; no window documented for Free/Smart CRM)"
+  },
+  "routes": [
+    {
+      "route_type": "entity-export",
+      "covers": ["contacts", "companies", "deals", "tickets", "custom-object-records", "associations"],
+      "how": "CRM > Contacts / Companies / Deals / etc. In list view click Export (top right of the table), or in board view click Board options > Export view. Choose file format, choose properties in current view or all properties, optionally expand 'Include associated records' (companies, deals, tickets, activities). HubSpot processes the export in the background and emails a download link to the requesting user.",
+      "formats": ["csv", "xls", "xlsx"],
+      "rate_limits": null,
+      "gotchas": [
+        "Exports capture current property values and associations, not the full activity timeline or property history",
+        "Download link is delivered by email rather than downloading immediately"
+      ]
+    },
+    {
+      "route_type": "bulk-api",
+      "covers": ["crm-records", "views", "lists"],
+      "how": "CRM Exports API: POST https://api.hubapi.com/crm/v3/exports/export/async with an export definition (object type, properties, filters/view or list), then poll the export status and download the produced file. Auth: private app access token (Bearer) or OAuth 2.0.",
+      "formats": ["csv", "xlsx", "xls"],
+      "requires": ["Private app access token or OAuth app"],
+      "rate_limits": "Up to 30 exports within a rolling 24-hour window, one export at a time; CSV/XLSX outputs over 1,000,000 rows (XLS over 65,535 rows) are delivered split inside a ZIP archive",
+      "gotchas": ["Large exports arrive as split files in a ZIP — plan reassembly downstream"]
+    },
+    {
+      "route_type": "api",
+      "covers": ["contacts", "companies", "deals", "tickets", "custom-objects", "engagements"],
+      "how": "CRM v3 REST APIs: GET https://api.hubapi.com/crm/v3/objects/{objectType} with paging for full-table pulls, plus the CRM Search API for filtered pulls. Auth: private app access token (Bearer) or OAuth 2.0.",
+      "formats": ["json"],
+      "requires": ["Private app access token or OAuth app with the relevant CRM scopes"],
+      "rate_limits": "Per vendor usage guidelines: per-app burst limits by tier (approx. 100 requests/10s Free-Starter, 190/10s Professional-Enterprise) plus account-level daily caps by tier (roughly 250k-1M requests/day; an API Limit Increase add-on raises both); the Search API has a separate, lower per-second limit",
+      "gotchas": ["Daily cap is shared across all apps in the account while burst limits are per app — a bulk migration can starve production integrations"]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["reports", "dashboards"],
+      "how": "Reports dashboard: hover over a report, click Actions > Export, choose file format; HubSpot emails a download link when the export is processed.",
+      "formats": ["csv", "xls", "xlsx"],
+      "rate_limits": null,
+      "gotchas": ["Automated/recurring dashboard email delivery is image-based per community threads — spreadsheet output requires manual per-report export"]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["files", "attachments", "images", "documents"],
+      "how": "UI: download files from the Files tool (per the 'Export your content and data' KB, files are among the exportable assets). API: GET https://api.hubapi.com/files/v3/files to list files, GET /files/v3/files/{fileId} for metadata including a URL, and GET /files/v3/files/{fileId}/signed-url to obtain a download URL for private files. Auth: private app access token (Bearer).",
+      "formats": ["original-file-formats"],
+      "requires": ["API token with file scopes for private files"],
+      "rate_limits": null,
+      "gotchas": [
+        "Private files 404 on their plain URL — use the signed-url endpoint with the correct scopes",
+        "CRM record attachments are Files objects referenced from engagements (e.g. notes); no documented one-click bulk export of all record attachments — resolve engagement file IDs then download via the Files API"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log", "account-activity-history", "login-history"],
+      "how": "Enterprise: super admins open Settings > Account Management > Audit Logs, set filters, click Export; a CSV download link is emailed. All accounts: the 'View and export account activity history' KB documents exporting account activity history. Developer docs also list a (legacy) account audit-logs API endpoint.",
+      "formats": ["csv"],
+      "requires": ["Super admin", "Enterprise subscription for the centralized audit log"],
+      "rate_limits": null,
+      "gotchas": ["In-app log retention is limited (third-party sources cite ~90 days; a vendor-stated retention figure was not confirmed in the pages consulted) — export on a schedule to preserve history"]
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["workflow-inventory", "workflow-images"],
+      "how": "Automations > Workflows: export a spreadsheet listing all workflows (name, active status, enrollment counts, goal conversion, create/modify dates and users, workflow type), and export images of individual workflows.",
+      "rate_limits": null,
+      "gotchas": [
+        "Not a restorable artifact — the spreadsheet is inventory metadata only; workflow logic/actions, history, performance data and emails used in workflows are not included",
+        "No documented mechanism to export workflow definitions for re-import"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["website-pages", "landing-pages", "blog-posts", "templates", "knowledge-base-articles", "marketing-email-performance", "ad-performance"],
+      "how": "Per the 'Export your content and data' hub and 'Export web content and data' KB: export HTML files of website pages, blog posts and template files from the CMS tools; export knowledge base article data (title, language, URL, etc.) as CSV; export marketing email performance and ad performance data from their respective tools' export options.",
+      "formats": ["html", "csv", "xlsx"],
+      "rate_limits": null,
+      "gotchas": ["HubL templates and CMS assets exported as HTML are not directly portable to other platforms without rework"]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Files tool download in the UI; programmatically list via GET /files/v3/files and fetch private-file download URLs via GET /files/v3/files/{fileId}/signed-url. No single documented bulk export of all CRM record attachments — attachments must be resolved from engagements to file IDs and downloaded individually via the Files API.",
+    "audit_log": "Enterprise centralized audit log exports to CSV via an emailed link (Settings > Account Management > Audit Logs, super admin only); account activity history is separately exportable per the KB. A vendor-documented retention period was not confirmed from the pages consulted (third-party sources cite ~90 days in-app) — verify in tenant.",
+    "config_artifacts": "No restorable configuration export documented. Workflows export only as an inventory spreadsheet plus per-workflow images (not re-importable); property/field definitions and report definitions had no documented export-as-restorable-artifact route in the pages consulted — capture them via API reads or screenshots during teardown."
+  },
+  "sources": [
+    {
+      "url": "https://knowledge.hubspot.com/account-management/export-your-content-and-data",
+      "title": "Export your content and data (HubSpot Knowledge Base)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://knowledge.hubspot.com/import-and-export/export-records",
+      "title": "Export records (HubSpot Knowledge Base)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developers.hubspot.com/docs/api-reference/crm-exports-v3/guide",
+      "title": "Exports API (HubSpot developer docs)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developers.hubspot.com/docs/developer-tooling/platform/usage-guidelines",
+      "title": "API usage guidelines and limits (HubSpot developer docs)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developers.hubspot.com/docs/api-reference/files-files-v3/guide",
+      "title": "Files API (HubSpot developer docs)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://knowledge.hubspot.com/account-management/view-and-export-account-activity-history",
+      "title": "View and export account activity history (HubSpot Knowledge Base)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://knowledge.hubspot.com/workflows/organize-your-workflows",
+      "title": "Organize and manage your workflows (HubSpot Knowledge Base)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://knowledge.hubspot.com/website-and-landing-pages/export-web-content-and-data",
+      "title": "Export web content and data (HubSpot Knowledge Base)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://legal.hubspot.com/terms-of-service",
+      "title": "HubSpot Customer Terms of Service",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://legal.hubspot.com/product-specific-terms",
+      "title": "HubSpot Product Specific Terms",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: hubspot.com domains (knowledge.hubspot.com, developers.hubspot.com, legal.hubspot.com) were blocked by this environment's egress proxy, so vendor pages could not be fetched directly; all claims derive from search-engine result content quoting/summarizing the vendor pages listed in sources. Numeric limits (rate limits, 30-exports/24h cap, ZIP-split thresholds, ~90-day audit retention) should be re-verified against the live docs and tenant before entering an evidence base. HubSpot has NO single whole-account export or backup — the 'Export your content and data' KB page is a catalog of per-asset export routes, so a full teardown is an enumeration exercise across CRM records, files, content, and logs. Property history export, list exports, and form-submission exports are believed to exist but were not confirmed from a consulted source and are therefore omitted from routes."
+}
