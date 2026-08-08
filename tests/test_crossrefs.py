@@ -3,13 +3,28 @@ schema's enums, and the issue template."""
 
 import re
 
+import yaml
+
 from conftest import REPO_ROOT, SKILL_DIR
 
-# Enums whose values SKILL.md enumerates in prose and must keep matching
-# the schema. `criticality` is deliberately absent: the prose defines it
-# by a question ("does a business process break without it?"), not by
-# listing its values.
-PROSE_ENUMERATED = ["kind", "usage", "verdict", "replaceability", "unused_reason"]
+# Fields whose values SKILL.md enumerates as a "a | b | c" list. These are
+# parsed out of the prose and compared to the schema as sets, both
+# directions, so a value added or removed on either side fails.
+PIPE_ENUMERATED = {
+    "kind": r"kind \(([a-z]+(?: \| [a-z]+)+)\)",
+    "usage": r"`usage`: ([a-z-]+(?: \| [a-z-]+)+)",
+    "verdict": r"`verdict`: ([A-Z]+(?: \| [A-Z]+)+)",
+}
+
+# Fields whose values the prose mentions individually rather than as one
+# list; checked schema-to-prose only, with word boundaries so e.g. "hard"
+# cannot be satisfied by "hard-won". `criticality` is deliberately absent:
+# the prose defines it by a question, not by listing its values.
+WORD_PRESENT = ["replaceability", "unused_reason"]
+
+
+def schema_values(feature_schema, field):
+    return {v for v in feature_schema["properties"][field]["enum"] if v is not None}
 
 
 def test_referenced_paths_exist(skill_md_text):
@@ -19,18 +34,42 @@ def test_referenced_paths_exist(skill_md_text):
     assert not missing, f"SKILL.md references files that don't exist: {missing}"
 
 
-def test_prose_enums_match_schema(feature_schema, skill_md_text):
-    for field in PROSE_ENUMERATED:
-        values = [v for v in feature_schema["properties"][field]["enum"] if v is not None]
-        missing = [v for v in values if v not in skill_md_text]
+def test_pipe_enumerations_match_schema_exactly(feature_schema, skill_md_text):
+    # Collapse the line wrapping so enumerations that span lines parse.
+    text = re.sub(r"\s+", " ", skill_md_text)
+    for field, pattern in PIPE_ENUMERATED.items():
+        match = re.search(pattern, text)
+        assert match, f"SKILL.md no longer enumerates {field} as a pipe-separated list"
+        prose = {token.strip() for token in match.group(1).split("|")}
+        assert prose == schema_values(feature_schema, field), (
+            f"{field} enumeration drift — prose: {sorted(prose)}, "
+            f"schema: {sorted(schema_values(feature_schema, field))}"
+        )
+
+
+def test_word_enumerated_values_appear_in_prose(feature_schema, skill_md_text):
+    for field in WORD_PRESENT:
+        missing = [
+            v for v in schema_values(feature_schema, field)
+            if not re.search(rf"(?<![\w-]){re.escape(v)}(?![\w-])", skill_md_text)
+        ]
         assert not missing, f"schema {field} values not mentioned in SKILL.md: {missing}"
 
 
-def test_issue_template_tracks_verdict_enum(feature_schema):
-    template = (REPO_ROOT / ".github" / "ISSUE_TEMPLATE" / "teardown-report.yml").read_text()
-    verdicts = feature_schema["properties"]["verdict"]["enum"]
-    missing = [v for v in verdicts if v not in template]
-    assert not missing, f"verdicts absent from teardown-report.yml: {missing}"
+def test_issue_template_verdicts_match_schema_exactly(feature_schema):
+    template = yaml.safe_load(
+        (REPO_ROOT / ".github" / "ISSUE_TEMPLATE" / "teardown-report.yml").read_text()
+    )
+    verdicts_field = next(
+        (item for item in template["body"] if item.get("id") == "verdicts"), None
+    )
+    assert verdicts_field, "teardown-report.yml no longer has a 'verdicts' field"
+    placeholder = verdicts_field["attributes"]["placeholder"]
+    in_template = set(re.findall(r"([A-Z]+):", placeholder))
+    assert in_template == schema_values(feature_schema, "verdict"), (
+        f"verdict drift — template: {sorted(in_template)}, "
+        f"schema: {sorted(schema_values(feature_schema, 'verdict'))}"
+    )
 
 
 def test_readme_references_existing_issue_template():
