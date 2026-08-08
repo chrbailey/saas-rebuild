@@ -1,0 +1,91 @@
+{
+  "app": "paylocity",
+  "app_name": "Paylocity",
+  "vendor": "Paylocity",
+  "category": "hr-payroll",
+  "export_rights": {
+    "summary": "No Paylocity terms of service, DPA, or export-policy page could be consulted (all paylocity.com web properties were unreachable from the research environment), so no contractual statement of customer export rights or post-termination retrieval window is documented here. The vendor-published Web Services API specification establishes that a customer (or its authorized integration) can programmatically retrieve employee, payroll, and pay-statement data 'currently available in Web Pay' using Paylocity-provisioned API credentials.",
+    "tos_url": null,
+    "post_termination_window": null
+  },
+  "routes": [
+    {
+      "route_type": "api",
+      "covers": [
+        "employees",
+        "employee-demographics",
+        "earnings",
+        "local-taxes",
+        "pay-statement-summaries",
+        "pay-statement-details"
+      ],
+      "how": "Paylocity Web Services API v2 (base https://api.paylocity.com/api). Auth: OAuth 2.0 client-credentials — POST https://api.paylocity.com/IdentityServer/connect/token with Basic auth (client-id:client-secret base64), Content-Type application/x-www-form-urlencoded, body grant_type=client_credentials&scope=WebLinkAPI; returns a bearer token (expires_in 3600). Then GET /v2/companies/{companyId}/employees/ (paged: pagesize default 25, pagenumber 0-based, total count in X-Pcty-Total-Count response header), GET /v2/companies/{companyId}/employees/{employeeId}, .../employees/{employeeId}/earnings, .../employees/{employeeId}/localTaxes, .../employees/{employeeId}/paystatement/summary/{year}[/{checkDate}] and .../paystatement/details/{year}[/{checkDate}]. Sandbox token endpoint: https://apisandbox.paylocity.com/IdentityServer/connect/token.",
+      "formats": ["json"],
+      "requires": [
+        "API client credentials provisioned by Paylocity: submit the Paylocity Web Services Access Request form (docs.paylocity.com) to webservices@paylocity.com; Paylocity sets the scope (request types and allowed company numbers)",
+        "Client secret expires every 365 days and must be renewed (renewal code emailed 10 and 5 days before expiry, or via POST /v2/credentials/secrets)"
+      ],
+      "rate_limits": "No numeric limits published in the API spec; Paylocity states it 'reserves the right to impose rate limits on the number of calls made to our APIs' and may change API features/functionality at any time with or without notice.",
+      "gotchas": [
+        "Read surface is per-employee: earnings, local-tax, and pay-statement GETs require iterating employee IDs obtained from the paged Get All Employees call",
+        "No endpoints for documents/attachments, time-and-labor punches, or audit logs exist in the published v2 spec",
+        "Pay-statement endpoints return JSON data, not PDF check stubs",
+        "API returns only data 'currently available in Web Pay'; historical data availability is not specified",
+        "v1 endpoints remain supported but receive no new functionality; deductions data is documented only under the v1 API",
+        "Optional RSA/AES request-payload encryption is part of the setup (Paylocity-issued public key); clients can opt out during initial setup"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": [
+        "company-codes",
+        "custom-field-definitions"
+      ],
+      "how": "Same Web Services API v2 and token flow as the primary route: GET https://api.paylocity.com/api/v2/companies/{companyId}/codes/{codeResource} returns all company codes for the selected code resource; GET /v2/companies/{companyId}/customfields/{category} returns custom fields for the category. Read-only JSON reference data, not a restorable configuration package.",
+      "formats": ["json"],
+      "requires": [
+        "Same Paylocity-provisioned WebLinkAPI client credentials as the primary API route"
+      ],
+      "rate_limits": "Same unspecified reserved-right rate limiting as the primary API route.",
+      "gotchas": [
+        "Valid values for {codeResource} and {category} are not enumerated in the mirrored spec text consulted — confirm against current vendor docs before relying on coverage",
+        "No documented export of workflows, report definitions, security roles, or other tenant configuration as restorable artifacts"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": null,
+    "audit_log": null,
+    "config_artifacts": "Partial and read-only: company code tables (GET /v2/companies/{companyId}/codes/{codeResource}) and custom field definitions (GET /v2/companies/{companyId}/customfields/{category}) are retrievable as JSON via the Web Services API. No documented export of workflows, report definitions, or other customizations as restorable artifacts."
+  },
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/Veridax/privapi/master/APIs/paylocity.com/2/swagger.yaml",
+      "title": "Paylocity Web Services API v2 Swagger spec — mirror of the vendor-published spec (x-origin: https://api.paylocity.com/api/v2/openapi)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/DataFire/Integrations/master/integrations/generated/paylocity/openapi.json",
+      "title": "Paylocity API OpenAPI mirror (DataFire) — full vendor overview text: OAuth2 client-credentials auth, token endpoints, WebLinkAPI scope, secret rotation, payload encryption, rate-limit statement, endpoint list",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/APIs-guru/openapi-directory/blob/main/APIs/paylocity.com/2/openapi.yaml",
+      "title": "APIs.guru openapi-directory entry for Paylocity API v2 (mirror of vendor-published spec; consulted via GitHub code search)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/NangoHQ/nango/master/docs/api-integrations/paylocity-nextgen/connect.mdx",
+      "title": "Nango connector guide (third-party): obtaining Paylocity API client credentials via the Web Services Access Request form; NextGen gateway hosts dc1prodgwext/dc1demogwext.paylocity.com",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/prismatic-io/embedded-workflow-builder-docs/blob/main/docs/connectors/paylocity.md",
+      "title": "Prismatic Paylocity connector doc (third-party): Web Services Access Request form and credential provisioning (consulted via GitHub code search)",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research-environment caveats: the WebSearch budget was exhausted before this recipe was researched, and the network egress proxy blocked every Paylocity web property (www/docs/developer/help/api hosts) plus general web hosts, so nothing could be fetched from Paylocity directly. All API claims derive from GitHub mirrors of the vendor-published OpenAPI spec (self-declared origin https://api.paylocity.com/api/v2/openapi); the mirrors are dated (Swagger 2.0 era), so the current API surface on developer.paylocity.com is likely larger and should be re-checked from an unrestricted network. Consequences of the blockade, not of the product: no route is recorded for admin-UI/report-writer exports (Paylocity's reporting and Data Insights features could not be documented from any citable source), for attachment/document bulk export, or for audit-log export — these are honest unknowns, not confirmed absences. No terms/DPA statement of export rights or post-termination window could be consulted. Third-party connector docs (Nango) additionally describe a newer 'NextGen' API surface behind gateway hosts dc1prodgwext.paylocity.com (prod) / dc1demogwext.paylocity.com (test) and note that API setup may carry a cost and is permissioned per the access-request form — unverified against vendor documentation."
+}

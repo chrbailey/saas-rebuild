@@ -1,0 +1,191 @@
+{
+  "app": "bill-com",
+  "app_name": "BILL (Bill.com) Accounts Payable & Receivable",
+  "vendor": "BILL",
+  "category": "ap-ar-spend",
+  "export_rights": {
+    "summary": "BILL's Data Processing Addendum states that on termination or expiry of the agreement the customer has thirty (30) calendar days to request a download of their transaction history by contacting BILL Customer Support; after that window BILL deletes or de-identifies Personal Data except ordinary-course backups and legally required retention.",
+    "tos_url": "https://www.bill.com/privacy/data-processing-addendum",
+    "post_termination_window": "30 calendar days to request a transaction-history download via BILL Customer Support (per DPA)"
+  },
+  "routes": [
+    {
+      "route_type": "entity-export",
+      "covers": ["vendors", "customers", "bills", "invoices", "ap-payments", "ar-payments"],
+      "how": "Web app: Settings > Import & export. Select the entity and Export All (default filters) or Export with filters; the finished file appears in the export list for download. Settings > Import & export > Custom File Integration lists the complete set of exportable entities and lets you schedule recurring exports (e.g. weekly).",
+      "formats": ["csv"],
+      "requires": [
+        "user role with 'Sync with Accounting System' permission",
+        "permission to manage each record/transaction type being exported"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Exports are per-entity CSV files, not a single whole-account archive",
+        "Docs do not state that document attachments are included in these CSV exports"
+      ]
+    },
+    {
+      "route_type": "bulk-api",
+      "covers": ["vendors", "customers", "bills", "invoices", "ap-payments", "ar-payments"],
+      "how": "GET /v3/exports lists exported record files produced by the exports configured/scheduled under Settings > Import & export > Custom File Integration; GET /v3/exports/{exportId}/download-link returns the download URL for a file. Endpoints announced 2026-05-12 on the BILL API changelog. Same session auth as the v3 API.",
+      "formats": ["csv"],
+      "requires": ["BILL developer key", "API sign-in credentials for the organization"],
+      "rate_limits": "Shares the v3 API limits: 20,000 requests per developer key per hour (error BDC_1144 when exceeded)",
+      "gotchas": [
+        "Downloads only files produced by the export configuration in the web app; entities not enabled there will not appear"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["bills", "invoices", "payments", "vendors", "customers", "documents", "audit-trail", "funding-accounts"],
+      "how": "BILL v3 REST API at developer.bill.com. Auth: POST /v3/login with username, password, organizationId, and devKey returns a sessionId used on all subsequent calls; sessions expire after 35 minutes of inactivity (48 hours idle for sync tokens). Standard REST GET endpoints per entity; GET list-of-documents responses include a downloadLink per document; GET /v3/reports/audit-trail/vendor/{vendorId} returns vendor change history. An OpenAPI/Markdown index is published at developer.bill.com/llms.txt.",
+      "formats": ["json"],
+      "requires": ["BILL developer key (free sign-up)", "organization user credentials"],
+      "rate_limits": "20,000 requests per developer key per hour (BDC_1144 on breach); POST /v3/login limited to 200 per developer key per hour; concurrency limit of 3 requests per developer key per organization; SMS-sending endpoints limited to 5/minute",
+      "gotchas": [
+        "Session-based auth (login endpoint), not simple static bearer tokens for the AP/AR API",
+        "Login rate limit (200/hour/devKey) constrains naive per-request re-login patterns"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["bills", "ap-payments", "ar-payments", "invoices", "vendor-transaction-tabs", "customer-transaction-tabs"],
+      "how": "Per-page grid exports in the web UI: e.g. on the Bills page or Payments Out page, or on a vendor's Bills/Payments tabs or a customer's Invoices/Payments tabs, select the download icon and choose 'Export .CSV' or 'Export to Excel'. Column headers to include/exclude are selectable before export; file lands in the browser Downloads as 'export'/'export-X'.",
+      "formats": ["csv", "xlsx"],
+      "requires": ["permissions to view/manage the record type on the page"],
+      "rate_limits": null,
+      "gotchas": [
+        "Exports reflect the current page's filters and selected columns, so an unfiltered pass is needed for completeness"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["reports", "customizable-export-report-profiles"],
+      "how": "BILL Help Center documents an 'Export reports' area and (for the American Express Vendor Pay edition) 'Export Profiles' — customizable export reports whose output downloads as spreadsheet files.",
+      "formats": ["csv", "xlsx"],
+      "requires": ["role with report/export permissions"],
+      "rate_limits": null,
+      "gotchas": [
+        "Detailed report-builder capabilities were only partially visible in consulted docs; verify field coverage in-tenant"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["spend-expense-transactions", "card-transactions"],
+      "how": "BILL Spend & Expense (formerly Divvy) web app: filter the transactions view, choose displayed columns, and export the filtered data. Programmatic access via the Spend & Expense API (e.g. /v3/spend/transactions) using an S&E apiToken header.",
+      "formats": ["csv", "xlsx", "ofx", "qbo"],
+      "requires": ["Spend & Expense web access (export not available in mobile app)", "S&E API token for API access"],
+      "rate_limits": "Spend & Expense API: 60 calls per token per minute",
+      "gotchas": ["Transaction export is not available from the mobile app"]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["bill-documents", "cashed-check-images", "attachments"],
+      "how": "Records request: an account Administrator requests a backup copy of processed bill documents and cashed-check images, delivered as a digital download via Box or on DVD. Documented cost $50 per BILL account per copy (Box digital download reduced to $25 'for a limited time'); orders typically process within 14 business days.",
+      "formats": ["document-files-via-box-or-dvd"],
+      "requires": ["Administrator role on the account", "paid records-request fee billed to the account"],
+      "rate_limits": null,
+      "gotchas": [
+        "Paid, vendor-fulfilled process with ~14 business day turnaround — not self-service",
+        "Documented contents are bill documents and cashed-check images; structured data is not stated to be included"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-trail"],
+      "how": "Audit trails are viewable in the web UI (Settings > Company Profile > Company Information > Audit Trail, or per-object via Details > Audit Trail) showing who made each create/edit and when, including sync/API/system actors. Programmatically, GET /v3/reports/audit-trail/vendor/{vendorId} returns per-vendor change records.",
+      "formats": ["json"],
+      "requires": ["BILL developer key and API session for the API route"],
+      "rate_limits": "Shares v3 API limits (20,000/devKey/hour)",
+      "gotchas": [
+        "No whole-account audit-log bulk export was found in consulted docs — the documented API audit-trail endpoint is per-vendor",
+        "Audit-trail retention period is not documented"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Per-document downloadLink values via the v3 API document-list endpoints (upload limit 25MB/file suggests scale of stored files); the only documented bulk route is the paid Administrator records request delivering bill documents and cashed-check images via Box or DVD (~14 business days, $50/account, Box promo $25).",
+    "audit_log": "Viewable in UI (Settings > Company Profile > Audit Trail and per-object Audit Trail); API exposes GET /v3/reports/audit-trail/vendor/{vendorId}. No documented whole-account audit export and no documented retention period — verify in-tenant.",
+    "config_artifacts": null
+  },
+  "sources": [
+    {
+      "url": "https://help.bill.com/direct/s/article/115005320063",
+      "title": "Export records and transactions using .csv files — BILL Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://vendorpayhelp.bill.com/hc/en-us/articles/360007254891-Export-records-and-transactions-using-CSV-files",
+      "title": "Export records and transactions using .CSV files — American Express Vendor Pay (BILL) Help",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.bill.com/direct/s/article/360029776152",
+      "title": "Customize and export the Bills page — BILL Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.bill.com/direct/s/article/360031099291",
+      "title": "Export the Customer Invoices and Payments tabs — BILL Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://vendorpayhelp.bill.com/hc/en-us/articles/360007254851-Export-Profiles-Customizable-export-reports",
+      "title": "Export Profiles: Customizable export reports — American Express Vendor Pay (BILL) Help",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.bill.com/hc/en-us/articles/115005911803-Bill-com-records-on-DVD-or-digital-download",
+      "title": "Bill.com records on DVD or digital download — BILL Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.bill.com/direct/s/article/115005897923",
+      "title": "Audit trails — BILL Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.bill.com/direct/s/article/2769978",
+      "title": "Filter and export transaction data in BILL Spend & Expense — BILL Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.bill.com/docs/api-rate-limits",
+      "title": "API rate limits — BILL API Platform",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.bill.com/reference/api-reference-overview",
+      "title": "BILL v3 API Reference Overview — BILL API Platform",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.bill.com/docs/bill-keys-tokens",
+      "title": "BILL keys & tokens — BILL API Platform",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.bill.com/changelog/2026-05-12-new-endpoints-export-operations",
+      "title": "New API endpoints for the BILL export operation — BILL API changelog",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.bill.com/docs/getting-audit-trail-details",
+      "title": "Get audit trail details — BILL API Platform",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.bill.com/docs/documents-attachments",
+      "title": "Attachments & Documents — BILL API Platform",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.bill.com/privacy/data-processing-addendum",
+      "title": "Data Processing Addendum — BILL",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research constraint: all *.bill.com domains (help.bill.com, developer.bill.com, vendorpayhelp.bill.com, www.bill.com) were blocked by the research environment's egress proxy, so vendor pages could not be fetched directly; every claim here comes from vendor-doc excerpts surfaced through web search of those official pages. Treat nav paths and numbers as needing in-tenant confirmation. Honest unknowns: no whole-account one-click backup/export exists in the docs consulted (closest are per-entity CSV exports plus the paid Box/DVD document records request); no export of configuration artifacts (approval policies, custom fields, user roles, workflows) as restorable files was found; audit-trail retention and any UI audit export are undocumented; Spend & Expense statements are separately downloadable per the help center but details were not confirmed. The schema requires date-formatted 'retrieved'/'last_reviewed' values, so the tasking's literal 'undefined' placeholder was replaced with the research date 2026-08-08."
+}

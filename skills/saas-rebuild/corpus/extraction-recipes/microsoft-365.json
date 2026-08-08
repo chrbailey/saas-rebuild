@@ -1,0 +1,186 @@
+{
+  "app": "microsoft-365",
+  "app_name": "Microsoft 365",
+  "vendor": "Microsoft",
+  "category": "productivity-suite",
+  "export_rights": {
+    "summary": "Microsoft's Trust Center states 'You own your data' and that Microsoft uses customer data only to provide the agreed services. After a subscription ends, data remains extractable through a documented wind-down: full access during a 30-day Expired stage, admin-only access during a 90-day Disabled stage, then deletion — 'no later than 180 days after cancellation'.",
+    "tos_url": "https://www.microsoft.com/en-us/trust-center/privacy/data-management",
+    "post_termination_window": "30 days Expired (all users retain access) + 90 days Disabled (admins only can still access and export); Trust Center describes a 90-day limited-function account after termination, after which data including cached/backup copies is deleted within an additional 90 days. Data is deleted no later than 180 days after cancellation."
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": ["mailboxes", "email", "sharepoint-documents", "onedrive-files", "teams-messages", "document-libraries"],
+      "how": "Microsoft Purview eDiscovery: create a case/search scoped to mailboxes, Teams, SharePoint sites, OneDrive accounts and document libraries; Searches tab > select completed search > Export; monitor in Process manager and download from the Exports tab (per-file Download button, plus summary reports).",
+      "formats": ["PST", "MSG", "native files", "HTML conversation transcripts", "CSV summary reports"],
+      "requires": ["eDiscovery Manager or eDiscovery Administrator role group (assigned in Purview portal under Settings > Roles and Scopes > Role groups); Global/Compliance Administrators cannot access eDiscovery unless explicitly added"],
+      "rate_limits": null,
+      "gotchas": [
+        "Partially indexed (unindexed) items are excluded unless you pick the 'indexed plus partially indexed' or 'partially indexed only' export option",
+        "SharePoint/OneDrive document versions default to latest; exporting recent 10/100 or all versions is an explicit option",
+        "Teams/Viva Engage contextual messages capture at most 12 hours of related conversation",
+        "Cloud attachments from linked repositories are collected only if the option is selected"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["email", "calendars", "contacts", "onedrive-files", "sharepoint-files", "teams-chat-messages", "teams-channel-messages", "users", "groups"],
+      "how": "Microsoft Graph REST API (https://graph.microsoft.com/v1.0), OAuth 2.0 via Entra ID app registration with delegated or application permissions. Examples: GET /users/{id}/chats/getAllMessages for all of a user's chat messages (filterable by date range); GET /drives/{drive-id}/items/{item-id}/content for file content.",
+      "formats": ["JSON", "native file binaries"],
+      "requires": ["Entra ID app registration; admin consent for application permissions; Teams export APIs (getAllMessages family) required a metered-API billing configuration before August 25, 2025 — since then they are no longer metered"],
+      "rate_limits": "Global limit 130,000 requests per 10 seconds across all services; Outlook service limits are 10,000 API requests per 10-minute period, 4 concurrent requests, and 150 MB upload per 5 minutes (v1.0 and beta); other workloads have their own service-specific limits.",
+      "gotchas": [
+        "driveItem /content returns 302 with a preauthenticated download URL that can expire within minutes — use it immediately",
+        "Per-workload throttling varies and Microsoft documents the limits as subject to change"
+      ]
+    },
+    {
+      "route_type": "bulk-api",
+      "covers": ["email-datasets", "teams-datasets", "sharepoint-datasets", "entra-id-datasets", "groups-datasets", "viva-insights-datasets"],
+      "how": "Microsoft Graph Data Connect: bulk, dataset-level extraction of Microsoft 365 data (basic/cleaned/curated datasets) delivered to an Azure Storage resource and consumable via Microsoft Fabric, Azure Synapse, or Azure Data Factory; tenant-admin consent requests are approved in the Microsoft 365 admin center or PowerShell.",
+      "formats": ["dataset extracts to Azure Storage"],
+      "requires": ["Azure subscription (consumption billed through Azure)", "tenant admin consent to data requests"],
+      "rate_limits": null,
+      "gotchas": ["Designed for analytics at scale (petabytes), not ad-hoc export; requires standing Azure infrastructure"]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["users", "user-attributes", "assigned-licenses"],
+      "how": "Microsoft Entra admin center: Users > All users > Download users — produces a CSV of user profile properties (27 core attributes such as userPrincipalName, displayName, mail, jobTitle; a preview adds 27 more including Assigned licenses, Employee ID, Last interactive sign-in date).",
+      "formats": ["CSV"],
+      "requires": ["Both admin and standard users can download user lists per the doc"],
+      "rate_limits": null,
+      "gotchas": ["The download reflects any filters applied to the current view — clear filters to get the full directory"]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["usage-reports", "email-activity", "onedrive-activity", "sharepoint-activity", "teams-activity", "copilot-usage"],
+      "how": "Microsoft 365 admin center > Reports > Usage; open a service's detail report via 'View more'; export the report to Excel, to Power BI, or pull the same data via the Microsoft Graph reports API. Reports cover the last 7, 30, 90, and 180 days.",
+      "formats": ["Excel/CSV", "Power BI", "JSON via Graph reports API"],
+      "requires": ["Global Administrator, Exchange Administrator, Reports Reader, or Usage Summary Reports Reader role"],
+      "rate_limits": null,
+      "gotchas": ["Report data lands within 24-72 hours, sometimes several days — not real-time"]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log"],
+      "how": "Search-UnifiedAuditLog in Exchange Online PowerShell (StartDate/EndDate required) searches the unified audit log across Exchange Online, SharePoint, OneDrive, Entra ID, Teams, Power BI and other services; pipe to CSV. For programmatic/ongoing download Microsoft recommends the Office 365 Management Activity API instead.",
+      "formats": ["PowerShell objects/CSV", "JSON via Management Activity API"],
+      "requires": ["Exchange Online PowerShell with appropriate audit permissions"],
+      "rate_limits": "Default 100 records; ResultSize max 5,000; SessionCommand ReturnLargeSet returns up to 50,000 results (unsorted, paginated); ReturnNextPreviewPage max 5,000 sorted records.",
+      "gotchas": [
+        "Retention limits what is exportable: the default Audit (Standard→E5 default policy) retains Exchange/SharePoint/OneDrive/Entra audit records for one year, but only 90 days for non-E5 users and guests; retention beyond 90 days needs E5 or an E5 Compliance / eDiscovery and Audit add-on; up to 10 years needs the 10-year audit retention add-on; max 50 audit retention policies",
+        "Cmdlet returns no results in the 21Vianet (China) environment"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["onedrive-files", "sharepoint-files", "attachments"],
+      "how": "Per-file bulk download via Graph: GET /drives/{drive-id}/items/{item-id}/content (also /me/drive/... and /users/{userId}/drive/...) returns 302 to a preauthenticated download URL; supports Range headers for partial downloads. Minimum permission Files.Read; script over drive item enumerations for bulk pulls.",
+      "formats": ["native file binaries"],
+      "requires": ["Entra ID app or delegated token with Files.Read (minimum)"],
+      "rate_limits": null,
+      "gotchas": ["Preauthenticated download URLs expire within minutes", "Browser (CORS) contexts must use the @microsoft.graph.downloadUrl property rather than calling /content directly"]
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["exchange-transport-rules", "dlp-migration-rule-collections"],
+      "how": "Exchange Online PowerShell: $file = Export-TransportRuleCollection; [System.IO.File]::WriteAllBytes('C:\\path\\Rules.xml', $file.FileData). Cloud service supports -Format RuleCollectionXML, InternalXML, or DlpMigrationRuleCollection. Output is a re-importable XML rule collection.",
+      "formats": ["XML"],
+      "requires": ["Exchange Online PowerShell with transport-rules permissions"],
+      "rate_limits": null,
+      "gotchas": ["Post-2013 export format is not importable into Exchange Server 2010"]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Mailbox content including messages exports via Purview eDiscovery as PST/MSG, with an explicit option to collect cloud attachments from linked repositories; OneDrive/SharePoint files bulk-extract via Graph driveItem /content downloads. No single-click tenant-wide file dump outside eDiscovery/Graph appears in the consulted docs.",
+    "audit_log": "Export via Search-UnifiedAuditLog (ResultSize max 5,000; up to 50,000 with SessionCommand ReturnLargeSet) or the Management Activity API. Documented retention: default policy keeps Exchange/SharePoint/OneDrive/Entra audit records 1 year (E5); 90 days for non-E5 users; Audit Premium add-on extends to 10 years.",
+    "config_artifacts": "Exchange transport rules export as a restorable XML collection via Export-TransportRuleCollection. The consulted docs document no whole-tenant configuration export; most other configuration (Entra, SharePoint, Teams policies) is readable via Graph/PowerShell but was not confirmed as a packaged restorable artifact."
+  },
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/microsoft-365-docs/public/microsoft-365/commerce/subscriptions/what-if-my-subscription-expires.md",
+      "title": "What happens to my data and access when my Microsoft 365 for business subscription ends? (source of learn.microsoft.com/en-us/microsoft-365/commerce/subscriptions/what-if-my-subscription-expires)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.microsoft.com/en-us/trust-center/privacy/data-management",
+      "title": "Microsoft Trust Center — Data management at Microsoft",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.microsoft.com/licensing/docs/view/Microsoft-Products-and-Services-Data-Protection-Addendum-DPA",
+      "title": "Microsoft Products and Services Data Protection Addendum (DPA) — version listing page (document text not retrieved)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/learn/main/learn-pr/wwl-sci/purview-ediscovery-search/includes/export-results.md",
+      "title": "Export and download eDiscovery results — Microsoft Learn training module 'Search and export data with Microsoft Purview eDiscovery'",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/learn/main/learn-pr/wwl-sci/purview-ediscovery-search/includes/ediscovery-prerequisites.md",
+      "title": "eDiscovery prerequisites (roles and licensing) — Microsoft Learn training module",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/concepts/throttling-limits.md",
+      "title": "Microsoft Graph service-specific throttling limits (source of learn.microsoft.com/en-us/graph/throttling-limits)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/includes/throttling-outlook.md",
+      "title": "Outlook service throttling limits include (10,000 requests/10 min, 4 concurrent, 150 MB upload/5 min)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/api/chats-getallmessages.md",
+      "title": "chats: getAllMessages — Microsoft Graph v1.0 (source of learn.microsoft.com/en-us/graph/api/chats-getallmessages)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/concepts/metered-api-faq.md",
+      "title": "Metered Microsoft Graph APIs FAQ — Teams export APIs no longer metered as of August 25, 2025",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/concepts/data-connect-concept-overview.md",
+      "title": "Microsoft Graph Data Connect overview (source of learn.microsoft.com/en-us/graph/data-connect-concept-overview)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/api/driveitem-get-content.md",
+      "title": "Download driveItem content — Microsoft Graph v1.0",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/learn/main/learn-pr/wwl-sci/investigate-threats-using-audit-in-microsoft-365-defender-microsoft-purview-premium/includes/4-manage-audit-log-retention-policies.md",
+      "title": "Manage audit log retention policies — Microsoft Learn training (Purview Audit Premium)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/office-docs-powershell/main/exchange/exchange-ps/ExchangePowerShell/Search-UnifiedAuditLog.md",
+      "title": "Search-UnifiedAuditLog — Exchange Online PowerShell cmdlet reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/office-docs-powershell/main/exchange/exchange-ps/ExchangePowerShell/Export-TransportRuleCollection.md",
+      "title": "Export-TransportRuleCollection — Exchange PowerShell cmdlet reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/microsoft-365-docs/public/microsoft-365/admin/activity-reports/activity-reports.md",
+      "title": "Microsoft 365 usage reports in the admin center (source of learn.microsoft.com/en-us/microsoft-365/admin/activity-reports/activity-reports)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/entra-docs/main/docs/identity/users/users-bulk-download.md",
+      "title": "Bulk download a list of users — Microsoft Entra admin center",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "learn.microsoft.com, docs.microsoft.com, and support.microsoft.com were blocked by this environment's egress proxy, so docs were consulted via Microsoft's own public documentation source repositories on GitHub (MicrosoftDocs/* and microsoftgraph/*, which generate learn.microsoft.com) plus microsoft.com pages; cited raw.githubusercontent.com URLs are the exact files read. Honest unknowns: (1) the DPA document text itself was not retrievable (only its version-listing page), so contractual export language beyond the Trust Center summary is unconfirmed; (2) no eDiscovery export size caps or the classic Content Search 2-GB/PST-split behavior could be confirmed from reachable docs and are therefore omitted; (3) the end-user Outlook 'export to PST' flow lives on support.microsoft.com (blocked) and is omitted; (4) SharePoint/OneDrive and Teams per-workload Graph throttling numbers beyond the global 130,000 req/10s and Outlook figures were in include files not individually fetched; (5) whether the Entra user CSV download has a row cap is not stated in the consulted doc. eDiscovery role requirement is notable: Global Admin alone cannot run the tenant-wide content export."
+}

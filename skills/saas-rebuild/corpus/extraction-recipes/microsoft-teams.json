@@ -1,0 +1,211 @@
+{
+  "app": "microsoft-teams",
+  "app_name": "Microsoft Teams",
+  "vendor": "Microsoft",
+  "category": "communication",
+  "export_rights": {
+    "summary": "Per the Microsoft Products and Services Data Protection Addendum (DPA), 'at all times during the term of Customer's subscription ... Customer will have the ability to access, extract and delete Customer Data stored in each Online Service'. After expiration or termination, Microsoft retains Customer Data in a limited-function account for 90 days so the customer may extract it; after that period Microsoft deletes it.",
+    "tos_url": "https://www.microsoft.com/licensing/docs/view/Microsoft-Products-and-Services-Data-Protection-Addendum-DPA",
+    "post_termination_window": "90 days after subscription expiration or termination (limited-function account for data extraction, per DPA 'Data Retention and Deletion')"
+  },
+  "routes": [
+    {
+      "route_type": "api",
+      "covers": [
+        "chat-messages (1:1, group, meeting chats)",
+        "channel-messages (including replies and private/shared channels)",
+        "message-metadata (sender, timestamps, reactions, mentions, attachment references, deleted-message tombstones, system events)"
+      ],
+      "how": "Microsoft Graph Teams export APIs: GET https://graph.microsoft.com/v1.0/users/{id|upn}/chats/getAllMessages (all chats a user participates in) and GET https://graph.microsoft.com/v1.0/teams/{team-id}/channels/getAllMessages (all channels of a team). OAuth 2.0 bearer token with application-only permissions (delegated is not supported): Chat.Read.All for chats, ChannelMessage.Read.All for channels. Supports $top and $filter on lastModifiedDateTime for date-range windowing plus filters on sender identity and messageType; paginate via @odata.nextLink. Iterate over all users (chats) and all teams (channels) to cover the tenant.",
+      "formats": ["json"],
+      "requires": [
+        "Microsoft Entra app registration with admin-consented application permissions Chat.Read.All (chats) and ChannelMessage.Read.All (channels)",
+        "Per Graph docs: as of August 25, 2025 these formerly metered Teams export APIs are no longer metered and no billing configuration is required; the model query parameter is ignored"
+      ],
+      "rate_limits": "Graph Teams service limits: getAllMessages (chats and channels) 200 rps per app per tenant, 1000 rps per app across all tenants; getAllRetainedMessages same limits",
+      "gotchas": [
+        "Message bodies reference attachments and inline images rather than embedding file bytes: file attachments appear as chatMessageAttachment objects with contentType 'reference' and a contentUrl link; inline images must be fetched separately via the message's hostedContents endpoints",
+        "Global (worldwide) Graph endpoint only per the docs' national-cloud support note on these APIs",
+        "Response is JSON per message page, not a packaged archive; you must build the corpus yourself (users x chats, teams x channels)",
+        "These APIs were historically Microsoft 'protected APIs'; the current access-approval process could not be confirmed from the documentation reachable during this research — verify whether an access request is still required before relying on this route"
+      ]
+    },
+    {
+      "route_type": "account-export",
+      "covers": [
+        "chat-messages",
+        "channel-messages",
+        "mailboxes and cloud attachments in scope of a compliance search",
+        "html-transcripts of Teams conversations"
+      ],
+      "how": "Microsoft Purview eDiscovery export (Graph Security API; same capability the Purview portal exposes interactively): create an eDiscovery case and search, then POST https://graph.microsoft.com/v1.0/security/cases/ediscoveryCases/{caseId}/searches/{searchId}/exportResult with exportFormat pst|msg and additionalOptions such as teamsAndYammerConversations, cloudAttachments, htmlTranscripts. Returns 202 with a Location header for the ediscoverySearchExportOperation; poll it, then download the export package.",
+      "formats": ["pst", "msg", "html"],
+      "requires": [
+        "eDiscovery RBAC roles (Graph doc gates these APIs behind Purview eDiscovery role groups; exact role names not confirmed from reachable docs)",
+        "Per the Graph doc: tenants with Standard licenses (for example E3) must enable Microsoft Purview pay-as-you-go billing to use eDiscovery APIs"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Export is asynchronous; results must be collected from the completed export operation",
+        "PST/MSG output reflects the Exchange substrate storage of Teams messages; use the htmlTranscripts additionalOption for human-readable conversation transcripts",
+        "eml exportFormat is deprecated (kept in v1.0 for backward compatibility only)"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": [
+        "files shared in channels and chats (stored in SharePoint/OneDrive drives)",
+        "inline images and hosted content in messages"
+      ],
+      "how": "Files: Microsoft Graph driveItem download - GET /drives/{drive-id}/items/{item-id}/content (also /groups/{group-id}/drive/items/{item-id}/content for team sites and /me/drive/items/{item-id}/content), which returns a pre-authenticated download URL via 302. Message attachments of contentType 'reference' carry the file's contentUrl. Inline images: GET the message's hostedContents collection, then fetch each chatMessageHostedContent's content bytes.",
+      "formats": ["original file formats (binary download)"],
+      "requires": [
+        "Graph permissions for drive content (see driveItem get-content permissions table); hosted-content reads use the same message-read permissions as the export APIs"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Message export (getAllMessages) alone does not preserve files - attachments are links; a separate drive/hostedContent download pass is required",
+        "Only driveItem objects with the file property can be downloaded"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": [
+        "audit-log (Teams operational/admin activity: recordType filters include microsoftTeams, microsoftTeamsAdmin, microsoftTeamsDevice, microsoftTeamsAnalytics)"
+      ],
+      "how": "Microsoft Purview Audit Search Graph API: POST https://graph.microsoft.com/v1.0/security/auditLog/queries with filterStartDateTime/filterEndDateTime, recordTypeFilters (e.g. microsoftTeams), serviceFilter, userPrincipalNameFilters; then GET /security/auditLog/queries/{auditLogQueryId}/records to page through auditLogRecord objects.",
+      "formats": ["json"],
+      "requires": [
+        "AuditLogsQuery permissions classified at Microsoft 365 service level (see the API's permissions table); audit logging enabled in the tenant"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Query execution is asynchronous - poll query status (notStarted/running/succeeded) before listing records",
+        "Audit retention period (e.g. 180 days vs 1 year by license tier) could not be confirmed from documentation reachable during this research - verify in-tenant"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": [
+        "usage-reports (per-user Teams activity: messages posted, meetings, calls, last activity date)"
+      ],
+      "how": "Microsoft Graph reports API: GET https://graph.microsoft.com/v1.0/reports/getTeamsUserActivityUserDetail(period='D7'|'D30'|'D90'|'D180') or (date=YYYY-MM-DD, past 30 days only). Response is a 302 redirect to a pre-authenticated CSV download URL (valid a few minutes, no Authorization header needed). Sibling reportroot-getTeams* endpoints cover team activity and device usage.",
+      "formats": ["csv"],
+      "requires": [
+        "Graph reports permissions (see the API's permissions table)"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Metadata/usage only - no message content",
+        "date parameter is limited to the past 30 days; period aggregation caps at D180",
+        "Meetings Organized Count may not equal the sum of its breakdown columns because unclassified meetings are excluded from the CSV"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": [
+        "teams-policies (messaging, meeting, calling and other Cs* policy configuration)"
+      ],
+      "how": "Teams PowerShell (MicrosoftTeams module): read each policy family with its documented Get- cmdlet (e.g. Get-CsTeamsMessagingPolicy returns all messaging policies, or -Identity for one) and serialize the returned objects (e.g. ConvertTo-Json) as your configuration snapshot. Repeat across the Get-CsTeams* cmdlet families.",
+      "formats": ["powershell objects (serialize to JSON/CSV yourself)"],
+      "requires": [
+        "MicrosoftTeams PowerShell module and a Teams admin role able to read policy configuration"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "This is a read-and-serialize procedure, not a vendor-packaged export/import artifact - no documented one-shot tenant-configuration export or restore package was found",
+        "Coverage depends on enumerating every relevant Get-CsTeams* cmdlet; there is no single cmdlet that dumps all Teams configuration"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Files shared in Teams live in SharePoint/OneDrive drives and are bulk-extracted via Graph driveItem content downloads (GET /drives/{drive-id}/items/{item-id}/content, 302 to a pre-authenticated URL); message JSON only carries attachment references (contentType 'reference' + contentUrl). Inline images require a separate pass over each message's hostedContents. eDiscovery export can include cloudAttachments in the same package as messages.",
+    "audit_log": "Exportable via the Purview Audit Search Graph API (POST /security/auditLog/queries with Teams recordTypeFilters, then GET .../records). Documented retention period was not confirmable from sources reachable during this research (learn.microsoft.com was blocked; the Purview docs repo is not public) - verify retention tier in-tenant before relying on it.",
+    "config_artifacts": "No documented restorable configuration package for Teams was found. Policy configuration is readable via documented Teams PowerShell Get-CsTeams* cmdlets and can be serialized, but re-creation on a target would be manual/scripted (New-/Set- cmdlets), not an import of a vendor artifact."
+  },
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/api/chats-getallmessages.md",
+      "title": "chats: getAllMessages (Microsoft Graph v1.0 API reference, documentation source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/api/channel-getallmessages.md",
+      "title": "channel: getAllMessages (Microsoft Graph v1.0 API reference, documentation source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/includes/permissions/chats-getallmessages-permissions.md",
+      "title": "chats getAllMessages permissions table (application-only Chat.Read.All)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/includes/permissions/channel-getallmessages-permissions.md",
+      "title": "channel getAllMessages permissions table (application-only ChannelMessage.Read.All)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/includes/throttling-teams.md",
+      "title": "Microsoft Teams service limits (Graph throttling documentation include)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/concepts/teams-licenses.md",
+      "title": "Payment models and licensing requirements for Microsoft Teams APIs (metering ended August 25, 2025)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/api/security-ediscoverysearch-exportresult.md",
+      "title": "ediscoverySearch: exportResult (Microsoft Graph v1.0 API reference, documentation source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/api/security-auditcoreroot-post-auditlogqueries.md",
+      "title": "Create auditLogQuery (Purview Audit Search API, Microsoft Graph v1.0)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/api/security-auditlogquery-list-records.md",
+      "title": "List auditLogRecords (Purview Audit Search API, Microsoft Graph v1.0)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/api/reportroot-getteamsuseractivityuserdetail.md",
+      "title": "reportRoot: getTeamsUserActivityUserDetail (CSV usage report, Microsoft Graph v1.0)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/api/driveitem-get-content.md",
+      "title": "Download driveItem content (Microsoft Graph v1.0 API reference)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/api/chatmessage-list-hostedcontents.md",
+      "title": "List hostedContents (chatMessageHostedContent, Microsoft Graph v1.0)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/microsoftgraph/microsoft-graph-docs-contrib/main/api-reference/v1.0/resources/chatmessageattachment.md",
+      "title": "chatMessageAttachment resource type (contentType 'reference' + contentUrl semantics)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/office-docs-powershell/main/teams/teams-ps/MicrosoftTeams/Get-CsTeamsMessagingPolicy.md",
+      "title": "Get-CsTeamsMessagingPolicy (MicrosoftTeams PowerShell module reference, documentation source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.microsoft.com/licensing/docs/view/Microsoft-Products-and-Services-Data-Protection-Addendum-DPA",
+      "title": "Microsoft Products and Services Data Protection Addendum (DPA) - document listing page",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.microsoft.com/licensing/docs/documents/download/MicrosoftProductandServicesDPA(WW)(English)(May2026)(CR).docx",
+      "title": "Microsoft Products and Services DPA (WW, English, May 2026) - 'Data Retention and Deletion' section",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research constraint: learn.microsoft.com and support.microsoft.com were unreachable from the research environment (network egress policy), so vendor documentation was consulted at its public source-of-truth GitHub repositories (microsoftgraph/microsoft-graph-docs-contrib and MicrosoftDocs/office-docs-powershell - the exact files that render as learn.microsoft.com pages) plus microsoft.com licensing pages. Consequences and honest unknowns: (1) Purview portal documentation (compliance/eDiscovery/audit UI nav paths, audit-log retention tiers, eDiscovery premium licensing detail) is not in a public repo, so portal click-paths and audit retention are deliberately omitted or flagged unverified; the eDiscovery and audit routes here are documented via their Graph APIs. (2) The Teams admin-center doc 'Export content with the Microsoft Teams export APIs' (/microsoftteams/export-teams-content) is referenced by the Graph docs consulted but its repo is not public; getAllMessages claims come from the Graph API references directly. (3) Whether the export APIs still require a Microsoft protected-API access request could not be confirmed. (4) beta getAllRetainedMessages endpoints (retention-policy-retained messages) exist with the same throttling limits but were not detailed as a route because only the beta reference was found. (5) Meeting recordings/transcripts have Graph APIs (callrecording-get/calltranscript-get, some requiring Copilot licensing per teams-licenses.md) but were not researched deeply enough to state as a route. (6) There is no whole-tenant one-click Teams backup; the practical whole-corpus route is the Graph export APIs (messages) + drive downloads (files), or Purview eDiscovery for a packaged compliance export. Schema note: the tasking requested retrieved/last_reviewed = 'undefined', but the schema's date pattern forbids that literal, so the actual retrieval date (2026-08-08) is recorded."
+}
