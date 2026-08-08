@@ -1,0 +1,11 @@
+ref,name,country,address,role,destination_country,eccn,item_description,end_use
+C-001,Northwind Heavy Machinery JSC,Russia,"12 Zavodskaya St, Moscow",end-user,RU,3A001,Signal generators,Industrial test lab
+C-002,Boreal Optics Mfg Co,China,"3 Lens Rd, Chengdu",end-user,CN,EAR99,Optical mounts,Camera assembly
+C-003,Harborlight Marine Services Ltd,Singapore,"5 Keppel Way",freight forwarder,SG,,Spare pumps,Onward shipment to buyer
+C-004,Vasily Ivanovic Petrov,Russia,"Moscow",end-user,RU,EAR99,Laptop,Office use
+C-005,Cascade Avionics Supply Inc,United States,"400 Runway Dr, Wichita KS",customer,US,7A994,Avionics parts,Aircraft maintenance
+C-006,Sunny Day Bakery LLC,Canada,"18 Maple Ave, Toronto",customer,CA,EAR99,Mixing bowls,Commercial kitchen
+C-007,Zenith Precision Instruments Limited,Hong Kong,"88 Innovation Rd",end-user,HK,3B001,Wafer inspection tool,Semiconductor manufacturing research
+C-008,Meridian Parts Export GmbH,Germany,"Industriestrasse 4, Hamburg",customer,DE,EAR99,Fasteners,General industrial
+C-009,Coastal Trading FZE,United Arab Emirates,"Jebel Ali Free Zone, Dubai",intermediary,AE,EAR99,Electronic components,Customer declined to provide end use
+C-010,Sevastopol Port Logistics,Ukraine,"Ulitsa Lenina 4, Sevastopol, Crimea",customer,UA,EAR99,Forklift parts,Port operations
