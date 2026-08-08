@@ -1,10 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chrbailey/saas-rebuild/schemas/extraction-recipe-v0.7.json",
   "title": "Per-app extraction recipe (one file of corpus/extraction-recipes/)",
-  "description": "What a tenant administrator of this app can extract, and exactly how — researched from vendor documentation before any teardown starts, so Phase 0 pre-flight and Phase 4/4b begin from a route map instead of a blank page. A recipe is a hypothesis until verified: doc-derived-unverified recipes must be checked against the live tenant before their claims enter an evidence base. Routes and endpoints an author could not confirm from a citable source are omitted, never invented.",
+  "description": "A document-derived route map for an authorized tenant teardown. A recipe is a hypothesis until verified: doc-derived-unverified recipes must be checked against current documentation, entitlements, region, and the live tenant before their claims enter an evidence base. The v0.7 sources array is a recipe-level bibliography, not machine-enforced claim-to-source lineage.",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "schema_version",
     "app",
     "app_name",
     "vendor",
@@ -17,6 +19,9 @@
     "last_reviewed"
   ],
   "properties": {
+    "schema_version": {
+      "const": "0.7.0"
+    },
     "app": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]*$",
@@ -43,6 +48,7 @@
         },
         "tos_url": {
           "type": ["string", "null"],
+          "format": "uri",
           "description": "URL of the terms/DPA/export-policy page consulted"
         },
         "post_termination_window": {
@@ -133,15 +139,19 @@
         "additionalProperties": false,
         "required": ["url", "title", "retrieved"],
         "properties": {
-          "url": { "type": "string" },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
           "title": { "type": "string" },
           "retrieved": {
             "type": "string",
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}"
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           }
         }
       },
-      "description": "every claim above traces to at least one of these vendor-doc citations"
+      "description": "Recipe-level bibliography. Presence proves neither source availability nor claim support; reviewers must verify both."
     },
     "verification": {
       "enum": [
@@ -153,7 +163,7 @@
     },
     "last_reviewed": {
       "type": "string",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}"
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
     },
     "notes": {
       "type": "string",

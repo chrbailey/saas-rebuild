@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "app": "stripe",
   "app_name": "Stripe",
   "vendor": "Stripe",

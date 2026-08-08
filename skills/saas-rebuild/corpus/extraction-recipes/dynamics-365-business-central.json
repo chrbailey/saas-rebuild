@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "app": "dynamics-365-business-central",
   "app_name": "Dynamics 365 Business Central",
   "vendor": "Microsoft",

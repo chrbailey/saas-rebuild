@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "id": "invoices-list",
   "nav_path": "Billing > Invoices",
   "name": "Invoice list",

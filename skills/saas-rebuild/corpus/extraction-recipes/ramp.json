@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "app": "ramp",
   "app_name": "Ramp",
   "vendor": "Ramp",

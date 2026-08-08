@@ -1,207 +1,226 @@
-# Dependency Graph — deriving the rebuild instead of guessing it
+# Dependency graph — observation, projection, and rebuild sequencing
 
-Phase 1b already collected every node and edge; this file assembles them into
-a directed typed graph and computes five results from it, so rebuild
-milestones, the risk register, and the minimal KEEP set are *derived with
-evidence trails*, not guessed. Build the graph after Phase 1b; use it during
-Phase 3 verdicts and Phase 5 sequencing.
+The teardown graph has two distinct semantics:
 
-## Node and edge taxonomy
+1. the **interaction graph** records evidence about the tenant as observed;
+2. the **build-dependency projection** orients prerequisites for the proposed
+   target architecture.
 
-Five node types: **feature**, **entity**, **script** (automation/workflow),
-**integration**, **report**. Reuse feature ids from `teardown.json`; entity
-ids are the data_entities strings, kebab-cased.
+Never topologically sort the raw interaction graph. A `reads` edge and a
+`writes` edge both point from an actor to an entity, but their data-flow and
+build-prerequisite interpretations differ. Treating them as one generic
+dependency direction can produce a plausible, reversed migration plan.
 
-Five edge types, all directed:
+Write the interaction graph to `graph.json` and validate it against
+`templates/dependency-graph.schema.json`. Derive the projection reproducibly
+and record its algorithm version and sensitivity parameters.
 
-- `reads` — X consumes data from entity Y
-- `writes` — X creates/updates records in entity Y
-- `triggers` — X fires script/automation Y (record save, schedule, webhook)
-- `joins-on` — report/search X joins entity Y (one edge per joined entity)
-- `exports-to` — X ships data to integration Y (API, iPaaS flow, file drop)
+## Interaction-graph contract
 
-Each Phase 1b plane supplies specific edge types — record the plane on every
-edge (same plane names as the evidence enum in
-`templates/feature-inventory.schema.json`):
+Six node types:
 
-- **config-census** → feature→entity edges (forms bind fields to entities;
-  workflows declare their record types) and entity→entity via custom-field
-  references
-- **code-analysis** → script edges: the trigger+entities+external-calls
-  summary per script converts directly to `triggers`, `reads`, `writes`
-- **integration-inventory** → `exports-to` edges from API logs, iPaaS flow
-  definitions, and scheduled file drops
-- **report definitions** (saved searches, report builder; mined during the
-  config census, so these edges record plane `config-census`) → report→entity
-  `reads` and `joins-on` edges
+- `feature` — a user-visible or administrable capability;
+- `business-process` — a named outcome such as order-to-cash;
+- `entity` — durable or reference data;
+- `script` — automation or workflow code;
+- `integration` — an external boundary;
+- `report` — a query or rendered information product.
 
-One honest rule, stated up front: **an absent edge means absent evidence,
-not independence.** Undocumented integrations are the classic silent edge —
-file drops and shared-drive CSVs never show in API logs. Any integration
-node with zero discovered edges gets flagged `edges-unverified` and carried
-into the risk register. Never prune it; a bare integration node is a finding,
-not noise.
+Six directed edge types. Direction is part of the contract:
 
-## Construction
+| Edge | Direction | Meaning |
+|---|---|---|
+| `reads` | actor → entity | Actor consumes entity state |
+| `writes` | actor → entity | Actor creates or changes entity state |
+| `triggers` | source → handler | Source event invokes a script or automation |
+| `joins-on` | report → entity | Report joins the entity |
+| `exports-to` | producer → integration | Producer sends data across a boundary |
+| `supports` | capability → business process | Capability contributes to a named process |
 
-Write `graph.json` in the teardown output dir alongside `teardown.json`:
+Every edge carries `runtime_status`:
+
+- `observed` — runtime evidence shows the interaction occurred;
+- `structural-only` — configuration or code declares it, but runtime execution
+  has not been established;
+- `unknown` — evidence is ambiguous or the relevant window is inadequate.
+
+Every edge also lists stable `evidence_ids` that resolve to citations in the
+feature inventory or teardown evidence base. Duplicate observations of the
+same underlying source are connected by `derived_from`; do not count them as
+independent corroboration.
+
+Example:
 
 ```json
-{"nodes": [
-   {"id": "invoice", "type": "entity", "label": "Invoice"},
-   {"id": "aging-report", "type": "report", "label": "AR Aging"},
-   {"id": "late-fee-script", "type": "script", "label": "Late fee calc"},
-   {"id": "qbo-sync", "type": "integration", "label": "QuickBooks sync"}],
- "edges": [
-   {"from": "aging-report", "to": "invoice", "type": "reads",
-    "evidence_plane": "config-census"},
-   {"from": "invoice", "to": "late-fee-script", "type": "triggers",
-    "evidence_plane": "code-analysis"},
-   {"from": "late-fee-script", "to": "invoice", "type": "writes",
-    "evidence_plane": "code-analysis"},
-   {"from": "late-fee-script", "to": "qbo-sync", "type": "exports-to",
-    "evidence_plane": "integration-inventory"}]}
+{
+  "schema_version": "0.7.0",
+  "nodes": [
+    {"id":"invoice","type":"entity","label":"Invoice"},
+    {"id":"aging-report","type":"report","label":"AR aging","verdict":"KEEP"},
+    {"id":"late-fee-script","type":"script","label":"Late-fee calculation","verdict":"SIMPLIFY"},
+    {"id":"qbo-sync","type":"integration","label":"Accounting sync","edges_unverified":false},
+    {"id":"collect-cash","type":"business-process","label":"Collect cash","critical":true}
+  ],
+  "edges": [
+    {"from":"aging-report","to":"invoice","type":"reads","runtime_status":"observed","evidence_ids":["ev-report-run"]},
+    {"from":"late-fee-script","to":"invoice","type":"writes","runtime_status":"observed","evidence_ids":["ev-script-log"]},
+    {"from":"late-fee-script","to":"qbo-sync","type":"exports-to","runtime_status":"structural-only","evidence_ids":["ev-flow-config"]},
+    {"from":"aging-report","to":"collect-cash","type":"supports","runtime_status":"observed","evidence_ids":["ev-collector-interview"]}
+  ],
+  "derived": {
+    "generated_at":"2026-01-01T00:00:00Z",
+    "algorithm_version":"interaction-projection-1",
+    "sensitivity_parameters":{"structural_edges_included":true}
+  }
+}
 ```
 
-A pure-Python adjacency dict is enough for every computation below:
-`adj = {n["id"]: [] for n in nodes}; for e in edges: adj[e["from"]].append(e)`.
-Use networkx **if already available** — never install it, nothing here may
-require it. Every algorithm below fits in a dozen lines of stdlib Python.
+An absent edge means absent evidence, not independence. File drops, shared-drive
+CSVs, browser extensions, email rules, and personal automation may never appear
+in API logs. Mark a known integration with no verified incident edges as
+`edges_unverified: true` and carry it into the risk register.
 
-Expect a few hundred nodes on a mid-size tenant — everything below is
-instant at that scale. When deduping edges, merge evidence planes into a
-list: two planes agreeing on one edge is stronger evidence, not a duplicate.
+## Evidence acquisition by plane
 
-## The five derived results
+- `config-census`: feature/form bindings, declared workflow record types,
+  entity references, report definitions;
+- `code-analysis`: triggers, entity reads/writes, external calls;
+- `integration-inventory`: API calls, iPaaS definitions, webhooks, schedules,
+  file drops;
+- `telemetry` and `transactional`: runtime promotion from `structural-only` to
+  `observed` for the covered window;
+- `interview`, `contract`, and `document`: business-process framing and
+  candidate `supports` edges, preferably corroborated by runtime evidence.
 
-### 1. Load-bearing entities → Phase 5 schema order
+Spot-check edge direction against the source artifact during construction.
+Schema validity cannot detect a semantically reversed edge.
 
-Weighted in-degree over edges pointing at each entity: `writes` = 3,
-`joins-on` = 2, `reads` = 1 (a written entity is upstream state; a read one
-may be mere reference data). PageRank on the reversed graph if networkx
-exists; say which you used. The 3/2/1 weights are a default, not a
-finding: before the schema order ships, rerun the ranking with at least
-one alternative weighting (e.g. 2/1/1) — entities stable across
-weightings are load-bearing, entities that reshuffle are ties; say which
-in the artifact.
+## Interaction-to-dependency projection
 
-Feeds: the top entities by score get their JSON schemas designed **first**
-in Phase 5 — they are the walking skeleton's data model. An entity that
-scores high but carries no KEEP feature is itself a finding (something
-depends on data nobody claims to use — usually an integration).
+Define a new directed graph (D), where `A → B` means “A's target contract or
+implementation is a prerequisite for B.” Apply an explicit rule table; do not
+infer orientation from the raw arrow alone.
 
-### 2. Articulation points → risk register
+| Interaction edge | Default prerequisite edge | Rationale |
+|---|---|---|
+| actor `reads` entity | entity → actor | Reader needs the entity contract |
+| actor `writes` entity | entity → actor | Writer needs storage and write contract |
+| report `joins-on` entity | entity → report | Query depends on entity schema |
+| source `triggers` handler | source → handler | Handler depends on source event contract |
+| producer `exports-to` integration | producer → integration | Adapter depends on producer output contract |
+| capability `supports` process | capability → process | Process acceptance depends on capability |
 
-Nodes whose removal disconnects the undirected view of the graph — the
-pre-identified landmines. "Breaking an unknown integration is the classic
-rebuild failure" is an articulation point nobody computed. But the AP
-list is only as complete as the edge set: a missing edge can hide a real
-articulation point, so the list identifies risks — it never clears a
-node. Any bridge chosen to sever an island (result 3) crosses only
-*discovered* edges; before committing a milestone boundary, re-interrogate
-the boundary nodes against the integration inventory for undiscovered
-file drops. DFS sketch:
+These are defaults, not universal laws. A target may introduce a canonical
+event schema, anti-corruption layer, or bridge that changes prerequisites.
+Record every override as a teardown decision with evidence and rationale.
 
-```python
-def articulation_points(adj):  # adj: undirected {node: set(neighbors)}
-    disc, low, ap, t = {}, {}, set(), [0]
-    def dfs(u, parent):
-        disc[u] = low[u] = t[0]; t[0] += 1; children = 0
-        for v in adj[u]:
-            if v not in disc:
-                children += 1; dfs(v, u)
-                low[u] = min(low[u], low[v])
-                if parent is not None and low[v] >= disc[u]: ap.add(u)
-            elif v != parent: low[u] = min(low[u], disc[v])
-        if parent is None and children > 1: ap.add(u)
-    for n in adj:
-        if n not in disc: dfs(n, None)
-    return ap
-```
+Include `structural-only` edges conservatively for risk analysis. For cutover
+ordering, calculate both (a) observed-only and (b) observed plus structural
+projections. A plan whose ordering changes materially between them is
+evidence-sensitive and needs dependency discovery before commitment.
 
-Feeds: **every articulation point gets an explicit bridge-or-replace line in
-the risk register — never silence.** Either the rebuild replaces it inside a
-milestone, or a bridge (CSV/API shim) holds the two sides together during
-transition. "We'll deal with it later" is not one of the two options.
+Condense strongly connected components in the **projected graph**, then
+topologically sort its condensation DAG. A cycle says those target contracts
+are mutually dependent under the present design; it may indicate one milestone
+or a missing interface, not an automatic command to ship every source node
+together.
 
-### 3. Capability islands → strangler-fig milestones
+## Derived analyses
 
-Connected components of the subgraph induced by KEEP/SIMPLIFY nodes (plus
-the entities they touch). These components ARE the strangler-fig milestones:
-each island can be rebuilt, parallel-run, and cut over independently because
-nothing kept crosses its boundary.
+### 1. Load-bearing entities
 
-The check that matters: **if the whole KEEP set is one giant component,
-don't invent milestone boundaries by feel** — look for cut edges (bridges)
-where a CSV bridge can sever the component into phases. A single `reads`
-edge between two clusters is a nightly CSV export; a `writes` edge is a
-harder, two-way bridge. No severable edge at all means those capabilities
-genuinely ship together — say so in the plan rather than pretending.
+Rank entities by incoming interaction demand: `writes` weight 3, `joins-on` 2,
+and `reads` 1 as a documented default. Rerun at least one alternative such as
+2/1/1 and report rank stability. Centrality is a prioritization heuristic, not
+criticality proof. Dead reports and generated scripts can otherwise make an
+unused entity appear central.
 
-Feeds: Phase 5 milestone list, one milestone per island (or per severed
-sub-island), bridges named per cut edge.
+Use stable high-ranked entities to order schema and storage design. Challenge a
+high-ranked entity with no retained consumer: it may expose an unknown
+integration, a stale artifact, or bad evidence.
 
-### 4. Rebuild order → milestone sequencing
+### 2. Articulation and cut risk
 
-Topological sort of the condensed component DAG. Condense cycles first
-(strongly connected components — Tarjan, or networkx `condensation`): **a
-cycle means those pieces ship in one milestone** — there is no order inside
-mutual dependence, and pretending otherwise yields a milestone that can't
-pass its own verification step. Then topo-sort: upstream components rebuild
-before their dependents.
+Compute articulation points and bridges on the undirected interaction view to
+find discovered single points of connectivity. Treat them only as risk
+candidates: missing edges can hide a real articulation point, and an incidental
+structural edge can create a false one.
 
-Feeds: the order of the Phase 5 milestone list. Ties broken by island
-score — highest load-bearing entity first.
+Every proposed migration boundary gets a boundary interrogation: inspect API
+logs, schedules, service accounts, webhooks, file drops, shared folders, and
+owner interviews. Name the target bridge or replacement and its rollback.
 
-### 5. Minimal KEEP cover → verdict challenge
+### 3. Capability islands
 
-Set-cover framing: the smallest feature set whose union of entity/process
-coverage still supports every critical business process (criticality
-`critical` from Phase 3). Greedy approximation — repeatedly take the feature
-covering the most uncovered processes — is fine; exact set cover is NP-hard
-and greedy lands within a feature or two here. Say it's greedy in the
-artifact.
+Connected components of retained capabilities and the entities they touch are
+candidate strangler milestones. They are not proven independent merely because
+the discovered graph is disconnected. Require:
 
-Feeds: **every KEEP outside the cover gets re-challenged**: "what breaks if
-this goes?" No critical process and no edge into the cover → the honest
-verdict is SIMPLIFY or DROP, graph cited as evidence. The cover doesn't
-overturn verdicts by itself — it names which ones must re-defend themselves.
+- no unresolved `edges_unverified` node on the boundary;
+- a defined interface for every crossing edge;
+- observable parallel-run acceptance;
+- a rollback path.
 
-## Joining verdicts onto the graph
+If the retained graph is one giant component, examine cut edges and interface
+seams. A read-only reference edge may admit a snapshot bridge; shared writes
+usually require a stronger consistency design.
 
-After Phase 3, color every node with its verdict. The findings live in the
-mismatches, not the agreements:
+### 4. Rebuild order
 
-- **DROP node that a kept articulation point (or any KEEP path) depends
-  on**: not droppable *yet*. The verdict stands — the **sequencing**
-  changes: DEFER the removal to the milestone where its dependents' bridge
-  lands, and record the dependency edge as the reason. Silent early removal
-  here is how rebuilds break integrations nobody knew existed.
-- **KEEP island no critical process touches**: a KEEP to re-challenge (see
-  result 5). Often it's a departmental habit, not a requirement.
-- **DEFER node upstream of milestone-1 nodes**: the deferral blocks the
-  first milestone; either pull it forward or bridge around it, explicitly.
+Sequence the condensed projected dependency graph, not the raw graph. For each
+milestone, emit:
 
-Update `teardown.json` decisions with any verdict or sequencing change,
-citing the graph edge(s) that forced it.
+- prerequisites and interface versions;
+- included target components;
+- boundary bridges;
+- acceptance cases and rollback;
+- observed-only vs conservative ordering difference.
 
-## Critic checks (run before any ranking or verdict change ships)
+Ties may be broken by value, risk, preservation deadlines, or stable entity
+rank, but the criterion must be recorded.
 
-1. **Edge direction errors invert every centrality conclusion.** A `reads`
-   edge recorded backwards turns a reference table into a load-bearing hub.
-   Spot-check five edges against their source plane — open the actual form
-   definition, script summary, or flow config — before trusting any ranking.
-2. **Report-derived edges overcount.** Every saved report declares entity
-   reads, including the dozens nobody has opened in years. Weight report
-   edges by the report's own usage evidence (last-run telemetry, recipient
-   interviews) or the top of the load-bearing ranking fills with entities
-   that only dead reports touch.
-3. **The graph is config-time truth.** It shows what *could* flow, not what
-   does. Same STRUCTURE+RUNTIME join rule as Phase 3: before any verdict
-   changes on graph evidence, join the edge with runtime evidence
-   (transactions, execution logs, telemetry). A structural edge alone
-   defends sequencing decisions (don't break what might be live); it never
-   alone promotes a feature to "used."
+### 5. Critical-process coverage
 
-Retract in place if a check fails, keep the retraction visible, and rerun
-the derived results — a handful of corrected edges can reorder milestones.
+Business processes are graph nodes, not prose labels. A direct or validated
+path of `supports` edges maps capabilities to processes. First specify the
+acceptance predicate for each critical process; many processes require an
+**AND-set** of capabilities, so ordinary set cover can be unsound.
+
+Use greedy set cover only as a challenge heuristic where one-capability
+coverage is genuinely substitutable. Otherwise solve the small constrained
+selection problem explicitly or enumerate candidate bundles. Every KEEP
+capability outside all minimal accepted bundles is re-challenged; the graph
+does not overturn its verdict by itself.
+
+## Verdict joins
+
+After Phase 3, join verdicts onto nodes and inspect mismatches:
+
+- a DROP node required by a retained projected path keeps its product verdict,
+  but removal is deferred until a bridge or replacement lands;
+- a KEEP island with no validated path to a critical process must defend its
+  value with other evidence;
+- a DEFER prerequisite blocks its dependent milestone unless an explicit bridge
+  isolates it;
+- a structural-only edge may constrain safe sequencing without promoting its
+  feature to “used.”
+
+Record verdict and sequencing changes in `teardown.json.decisions`, citing the
+forcing evidence IDs.
+
+## Critic checks
+
+Before publishing derived results:
+
+1. Spot-check at least five raw edges and every proposed boundary edge against
+   its source.
+2. Collapse citation derivation chains before counting corroboration.
+3. Down-weight or remove report edges whose own runtime status is unknown.
+4. Compute observed-only and conservative sensitivity runs.
+5. Verify every critical process has an explicit acceptance predicate.
+6. Re-interrogate integration boundary nodes for unlogged transports.
+7. Recompute every derived result after any edge correction and retain the
+   superseded result as an auditable retraction.
+
+The graph is a model of discovered evidence, not the tenant itself. Its value is
+that assumptions, uncertainty, and projection rules are inspectable.

@@ -1,0 +1,4 @@
+customer_id,name,status
+C-001,SYNTHETIC_ORG_001,active
+C-002,SYNTHETIC_ORG_002,active
+C-003,SYNTHETIC_ORG_003,inactive

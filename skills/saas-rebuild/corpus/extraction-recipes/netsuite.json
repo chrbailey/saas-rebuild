@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "app": "netsuite",
   "app_name": "NetSuite",
   "vendor": "Oracle",

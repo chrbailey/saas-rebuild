@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "app": "microsoft-teams",
   "app_name": "Microsoft Teams",
   "vendor": "Microsoft",

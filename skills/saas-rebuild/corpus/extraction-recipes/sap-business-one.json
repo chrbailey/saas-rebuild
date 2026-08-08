@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "app": "sap-business-one",
   "app_name": "SAP Business One",
   "vendor": "SAP",

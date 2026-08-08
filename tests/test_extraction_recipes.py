@@ -1,15 +1,17 @@
-"""The extraction-recipe corpus: every recipe validates against the
-recipe schema, matches its filename and an apps.json entry, and carries
-real citations. Coverage is reported by the corpus itself (apps.json is
-the target list); these tests guard correctness of what exists, not
-completeness of what doesn't yet."""
+"""Structural checks for the extraction-recipe research corpus.
 
+These tests establish contract shape and bibliography integrity. They do not
+establish that a URL is live, that its content supports a claim, or that a
+route works in a particular tenant.
+"""
+
+from datetime import date
 import json
 
 import jsonschema
 import pytest
 
-from conftest import SKILL_DIR
+from conftest import REPO_ROOT, SKILL_DIR
 
 RECIPE_SCHEMA_PATH = SKILL_DIR / "templates" / "extraction-recipe.schema.json"
 CORPUS_DIR = SKILL_DIR / "corpus"
@@ -31,9 +33,26 @@ def apps_index():
 
 def test_apps_index_shape(apps_index):
     assert len(apps_index) == 100
+    assert {entry["rank"] for entry in apps_index.values()} == set(range(1, 101))
     for slug, entry in apps_index.items():
         assert set(entry) == {"rank", "app", "app_name", "vendor", "category"}
         assert entry["app"] == slug
+        assert entry["app_name"].strip()
+        assert entry["vendor"].strip()
+        assert entry["category"].strip()
+
+
+def test_recipe_corpus_is_nonempty():
+    assert RECIPES, "the research backlog is not recipe coverage"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [REPO_ROOT / "README.md", CORPUS_DIR / "README.md"],
+    ids=["repository-readme", "corpus-readme"],
+)
+def test_documented_recipe_count_matches_corpus(path):
+    assert f"v0.7, {len(RECIPES)}" in path.read_text()
 
 
 def test_recipe_schema_itself_is_valid(recipe_schema):
@@ -54,7 +73,20 @@ def test_recipe_matches_filename_and_index(apps_index, path):
 
 
 @pytest.mark.parametrize("path", RECIPES, ids=lambda p: p.stem)
-def test_recipe_sources_are_http_urls(path):
+def test_recipe_bibliography_integrity(path):
     recipe = json.loads(path.read_text())
+    urls = [source["url"] for source in recipe["sources"]]
+    assert len(urls) == len(set(urls)), f"{path.name}: duplicate bibliography URL"
+    tos_url = recipe["export_rights"]["tos_url"]
+    if tos_url is not None:
+        assert tos_url in urls, f"{path.name}: terms URL missing from bibliography"
     for s in recipe["sources"]:
-        assert s["url"].startswith("http"), f"{path.name}: non-URL source {s['url']!r}"
+        assert s["url"].startswith("https://"), (
+            f"{path.name}: non-HTTPS source {s['url']!r}"
+        )
+        assert s["title"].strip()
+        retrieved = date.fromisoformat(s["retrieved"])
+        assert retrieved <= date.today(), f"{path.name}: future retrieval date"
+
+    reviewed = date.fromisoformat(recipe["last_reviewed"])
+    assert reviewed <= date.today(), f"{path.name}: future review date"

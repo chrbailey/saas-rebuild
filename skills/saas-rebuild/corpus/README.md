@@ -1,42 +1,43 @@
 # Extraction-recipe corpus
 
-Nearly every SaaS contract grants the customer the right to export their
-own data. Almost nobody exercises it — not because extraction is hard,
-but because nobody knows the exact routes for their exact app until the
-renewal is due or the subscription is ending. This corpus front-loads
-that knowledge.
+This corpus reduces the blank-page cost of authorized SaaS extraction. It is
+a set of documented route hypotheses to verify, not a connector library and
+not tenant evidence.
 
-`apps.json` is the target list: 100 widely-adopted B2B SaaS applications
-across ~30 categories, ordered roughly by adoption. For each,
-`extraction-recipes/<app>.json` documents, per
+`apps.json` is a curated research backlog of 100 B2B SaaS applications across
+roughly 30 categories. Its `rank` is prioritization metadata, not a measured
+market-adoption result. At v0.7, 29 entries have recipes. For each implemented
+entry, `extraction-recipes/<app>.json` records, per
 `../templates/extraction-recipe.schema.json`:
 
-- **export_rights** — what the vendor's own terms say the customer may
-  export, and the post-termination data-retrieval window (the hardest
-  deadline in any migration).
-- **routes** — extraction routes in descending preference order
-  (account export → entity export → report builder → API → bulk API →
-  audit-log/config export → scrape as last resort), each with the
-  concrete steps or endpoint, required roles/SKUs, rate limits, and
-  gotchas.
-- **preservation_notes** — the three answers Phase 4b needs per app:
-  how attachments bulk-export, how the audit log exports and how long
-  it's retained, and how configuration exports as restorable artifacts.
-- **sources** — every claim traces to a vendor-doc citation with URL and
-  retrieval date. `null` anywhere means "the docs don't say" — verify
-  in-tenant. Nothing here is invented; what couldn't be cited was
-  omitted.
+- **export_rights** — what the consulted terms or documentation say the
+  customer may export, plus any documented post-termination retrieval window;
+- **routes** — candidate extraction routes in preference order, including
+  steps or endpoints, roles/SKUs, rate limits, and gotchas;
+- **preservation_notes** — documented routes or gaps for attachments, audit
+  logs, and restorable configuration artifacts;
+- **sources** — a recipe-level bibliography with URL and retrieval date.
+  Primary vendor documentation is preferred, but a few negative or gap claims
+  use vendor-community or independent secondary material and must be treated
+  accordingly. `null` means the consulted material did not establish an
+  answer; it does not prove that the capability is absent.
 
 **Trust the `verification` field, not the prose.** Every recipe starts
-`doc-derived-unverified`: researched from vendor documentation, never
-exercised against a live tenant. Treat those as hypotheses that seed
-Phase 0 pre-flight and the Phase 4/4b route maps — then verify against
-your tenant. When a real teardown confirms (or corrects) a recipe, send
-the fix back as a PR and promote it: `community-verified` when a shared
-teardown report confirms the main routes, `tenant-verified` when someone
-has run them end-to-end. Vendor docs drift; `last_reviewed` tells you
-how stale a recipe might be.
+`doc-derived-unverified`: researched from documents and never exercised
+against a live tenant. Treat it as a starting hypothesis for Phase 0 preflight
+and the Phase 4/4b route maps, then verify it against current documentation,
+entitlements, region, and the authorized tenant.
 
-Validation: `tests/test_extraction_recipes.py` checks every recipe
-against the schema, its filename, the target list, and its citations on
-every CI run.
+Promote to `community-verified` only when reviewable shared evidence confirms
+the main routes, and to `tenant-verified` only after the routes were exercised
+end-to-end in at least one authorized tenant. Neither status establishes that
+another tenant, region, SKU, or future vendor version behaves the same. Submit
+corrections with the evidence that motivated them. `last_reviewed` signals how
+stale the documentary research might be.
+
+`tests/test_extraction_recipes.py` checks every recipe against its schema, its
+filename, the target list, and bibliography URL/date/uniqueness constraints.
+It does **not** fetch URLs, prove that a source supports a sentence, or
+establish tenant completeness. The v0.7 bibliography is recipe-level rather
+than claim-addressable; that is a declared assurance limitation, not hidden
+provenance.

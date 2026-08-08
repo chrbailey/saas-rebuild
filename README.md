@@ -1,265 +1,282 @@
-# saas-rebuild
+# SaaS Rebuild
 
-Two Claude Code skills for teams pulling software back in-house.
+[![Contract tests](https://github.com/chrbailey/saas-rebuild/actions/workflows/ci.yml/badge.svg)](https://github.com/chrbailey/saas-rebuild/actions/workflows/ci.yml)
+[![Reference implementation](https://github.com/chrbailey/saas-rebuild/actions/workflows/test.yml/badge.svg)](https://github.com/chrbailey/saas-rebuild/actions/workflows/test.yml)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- **`saas-rebuild`** — tear down a SaaS application you administer and plan its
-  replacement as a Claude skill.
-- **`export-compliance`** — run U.S. export-control restricted-party screening
-  on premise against the official government lists, replacing a screening SaaS
-  outright. See [below](#export-compliance--restricted-party-screening).
+> Evidence-driven system identification for software you administer.
 
-Both are built to the same standard: every rule the prose states is enforced
-by a schema, a test, or code — never by trust. Verdicts require typed,
-cited evidence or they revert; the packaged zips must be byte-identical to
-source or CI fails; the CI suite parses the docs and set-compares their
-enumerations against the schemas so prose and contract cannot drift; a
-version bump that passes the suite releases itself; screening decisions
-carry a hash-chained audit trail and rerun deterministically under changed
-hash seeds. The methodology states its own failure modes — replay
-preconditions, evidence-window limits, articulation-point blind spots —
-because an analysis that hides its limits isn't evidence.
+SaaS Rebuild is an open Claude Code plugin and machine-checked protocol for
+mapping what a SaaS tenant **actually does**, separating essential behavior
+from purchased complexity, preserving each reachable data class or recording
+an accountable gap, and deriving a smaller replacement architecture from cited
+evidence and replayable behavior.
 
----
+Run it yourself on software you administer, use the contracts to standardize a
+consulting or migration engagement, or study the included reference rebuild as
+an engineering pattern.
 
-## saas-rebuild — teardown and rebuild planning
+It does not recover a vendor's source code, bypass access controls, or promise
+that every SaaS product can become a prompt. It reverse-engineers the part a
+customer legitimately owns: its configuration, data, observed workflows,
+integrations, operating rules, and historical input/output behavior.
 
-A Claude Code skill that helps you **tear down a SaaS application you
-administer and plan its replacement as a Claude skill**.
+That distinction is the project.
 
-Most teams use a fraction of the software they pay for. This skill runs a
-phased pipeline to find out which fraction, and what a leaner replacement
-looks like:
+## The 60-second model
 
-1. **Scope and pre-flight** — which app, which modules, who uses it — plus
-   the day-one clock-starters: snapshot volatile logs before retention
-   windows lapse, request contracts from finance, note the post-termination
-   data-retrieval window as the project's hardest deadline.
-2. **Feature inventory** — a breadth-first browser walk of every screen,
-   form, report, and setting (via browser automation on *your* authenticated
-   session; the skill never handles credentials), plus a technical pass over
-   five data planes through the platform's own APIs: configuration census
-   (the delta from vanilla is the requirements list you paid for),
-   transactional archaeology, master-data fill rates, setup census, and
-   static analysis of customization code.
-3. **Usage evidence** — record counts, telemetry, exports, contracts, and
-   structured user interviews. Where the audit log qualifies, process mining
-   turns "how work really flows" into counted evidence: variants,
-   configured-vs-lived conformance, bottleneck waits.
-4. **Used-vs-unused verdicts** — every KEEP / SIMPLIFY / DROP / DEFER
-   verdict carries typed evidence citations (which plane, what claim, what
-   source, per the JSON schema); a verdict without a citation reverts to
-   DEFER. A feature counts as "used" only when structural and runtime
-   evidence join. A dependency graph assembled from the planes derives the
-   risk register and re-challenges KEEPs nothing depends on.
-5. **Extraction map and preservation export** — the best route to get each
-   kept entity's data out (API/connector → built-in export → report CSV →
-   scrape as last resort), and a full-tenant preservation export that runs
-   regardless of verdicts: every entity, attachments, activity history, the
-   audit logs themselves, and configuration as restorable artifacts —
-   verdicts decide what gets rebuilt, never what gets saved.
-6. **Rebuild plan** — milestones derived from the dependency graph
-   (strangler-fig, never big-bang), validated by replaying real historical
-   transactions against the system of record, with the replay preconditions
-   stated and an expected-divergence register for intended improvements.
+Most modernization work starts with what the old product *offers*. SaaS Rebuild
+starts with what one tenant *uses* and can prove.
 
-**Day-one extraction knowledge.** Nearly every SaaS contract lets the
-customer export their own data; almost nobody has ever tried. The skill
-ships an extraction-recipe corpus for the 100 most widely-adopted B2B SaaS
-apps (`skills/saas-rebuild/corpus/`): per app, the documented export
-rights and post-termination retrieval window, the extraction routes in
-preference order with role/SKU gates and gotchas, and the preservation
-answers (attachments, audit log, configuration artifacts) — every claim
-cited to vendor documentation with retrieval dates. Name your app at
-login and Phase 0 loads its recipe. Recipes start `doc-derived-unverified`
-and are promoted to `tenant-verified` only when a real teardown confirms
-them — corrections flow back as PRs.
+Day-one discovery can start from the
+[extraction-recipe corpus](skills/saas-rebuild/corpus/README.md). Its target
+index names 100 B2B applications; at v0.7, 29 have schema-validated recipes
+covering documented export rights, routes, role/SKU gates, retention clues,
+and preservation concerns. A recipe is a vendor-document-derived route
+hypothesis, not proof about a tenant. Its routes must be re-verified against
+current documentation, entitlements, and the live account before use.
 
-The teardown is also a labeling process, and the skill harvests the labels:
-every phase appends supervised (input, output) pairs to `pairs.jsonl` —
-screen-to-schema, evidence-to-verdict, transaction-to-output,
-evidence-to-design. The replay corpus makes the rebuild a distillation of
-the legacy system against ground truth, and doubles as the replacement's
-permanent regression suite. Each pair carries a sanitization tier and a
-label authority; raw tenant data never leaves the output directory.
+The teardown can also emit provenance-bearing perception, judgment, replay,
+and design pairs. Dataset roles are assigned by case lineage before training,
+so a replay held out for acceptance cannot leak into development examples.
 
-No live tenant? A document-based mode runs the same pipeline against
-engagement archives — change tickets, FRDs, training manuals,
-rescue-project findings.
+```mermaid
+flowchart TD
+    A["Authorized tenant evidence"] --> B["Typed feature and process model"]
+    B --> C["KEEP · SIMPLIFY · DROP · DEFER"]
+    C --> D["Preservation export + target architecture"]
+    D --> E["Parallel run + historical replay"]
+```
 
-Outputs land in `~/Dev/teardowns/<app-slug>/` with a resumable state file, so
-a teardown can span multiple sessions (and wait for interview answers).
+| Layer | Questions answered | Evidence |
+|---|---|---|
+| Structure | What exists or was configured? | Metadata, setup, schemas, code, roles |
+| Runtime | What actually happened? | Transactions, executions, audit logs, integrations |
+| Human and commercial | What matters, and what was paid for? | Interviews, workarounds, contracts, SLAs |
+| Preservation | What must survive even if it is not rebuilt? | Full exports, files, history, config, checksums |
+| Verification | Does the replacement preserve intended behavior? | Held-out cases, replay, expected-divergence register |
+
+Every material conclusion carries a typed citation. Configuration alone does
+not prove use. A short telemetry window does not prove non-use. A plausible
+model answer does not prove equivalence.
+
+## What “distill a SaaS” means here
+
+“Distillation” is used in the behavioral sense: reduce an observed system to
+the smallest explicit set of data contracts, rules, workflows, and interfaces
+that preserve the behavior the organization still needs.
+
+The output is not automatically a Claude skill. The protocol selects the right
+runtime for each capability:
+
+| Capability shape | Normal target |
+|---|---|
+| Knowledge work, analysis, document transformation | Skill plus schemas and tools |
+| Deterministic calculations or file transforms | Tested library, script, or service |
+| Shared transactional state, concurrency, permissions | Application, database, and auth |
+| Cross-system orchestration | Workflow engine or integration service |
+| Regulated or irreversible decision | Deterministic controls plus human approval |
+
+A serious rebuild is usually hybrid. The skill may become the reasoning and
+orchestration layer; it should not impersonate a ledger, identity provider, or
+multi-user database.
+
+## What is in this repository
+
+| Component | Maturity | Purpose |
+|---|---|---|
+| [`saas-rebuild`](skills/saas-rebuild/SKILL.md) | Protocol / Claude Code skill | Runs the evidence, preservation, architecture, and replay workflow |
+| [Extraction recipes](skills/saas-rebuild/corpus/README.md) | Document-derived route hypotheses | Seeds authorized extraction and preservation planning; tenant verification is still required |
+| [Machine contracts](skills/saas-rebuild/templates) | JSON Schema 2020-12 | Constrain features, citations, paired cases, run state, graphs, and preservation manifests |
+| [Technical playbooks](skills/saas-rebuild/references) | Reviewable methodology | Extraction, process mining, and dependency analysis with explicit failure conditions |
+| [Synthetic worked example](examples/synthetic-crm) | Executable documentation | Shows the artifacts and cross-file lineage without tenant data |
+| [Skill evals](skills/saas-rebuild/evals/evals.json) | Evaluation specification | Realistic tasks and verifiable expectations for fresh-session A/B testing |
+| [`export-compliance`](skills/export-compliance/SKILL.md) | Reference implementation | Demonstrates the intended end state: deterministic core, optional model judgment, human gate, audit trail |
+
+The `saas-rebuild` skill is an executable instruction and evidence protocol,
+not a universal connector or one-click crawler. Platform APIs, permissions,
+retention windows, and data models differ; the agent follows the protocol
+using the authorized tools available for that tenant.
+
+Version 0.7 changes the artifact contracts. Existing users should read the
+[v0.6 → v0.7 migration guide](docs/migration-v0.7.md) rather than changing the
+version field on old outputs.
+
+## Proof surfaces
+
+This repository deliberately separates claims from evidence:
+
+- JSON Schemas reject evidence-free verdicts, incompatible label authorities,
+  and unreviewed shareable pairs.
+- Extraction recipes are schema-checked against the 100-entry research
+  backlog, with HTTPS/date/uniqueness checks on each bibliography. They remain
+  documented route hypotheses; v0.7 does not machine-map individual claims to
+  sources or prove that a route works in a tenant.
+- The cross-artifact validator rejects duplicate identities, unresolved graph
+  evidence, dataset lineages crossing roles, path escapes, and digest drift; a
+  synthetic teardown exercises it end-to-end in CI.
+- The reference screening engine runs 274 standard-library tests across Python
+  3.11–3.14, including adversarial fail-closed cases and determinism checks.
+- Skill archives are built from sorted source bytes with fixed metadata; CI
+  performs independent fresh builds and verifies source parity and SHA-256
+  digests without storing generated binaries in source control.
+- The tag workflow generates GitHub build-provenance attestations for release
+  archives.
+- Public claims, their enforcement surface, and residual limitations are
+  listed in the [assurance case](docs/assurance-case.md).
+
+Test count is not treated as proof of correctness. The claims table states
+what each test surface does—and does not—establish.
+
+Validate a teardown directory with the same schema and cross-file checks used
+in CI:
+
+```bash
+python -m pip install --requirement requirements-dev.txt
+python skills/saas-rebuild/tools/validate_artifacts.py examples/synthetic-crm
+```
 
 ## Install
 
-**As a plugin (recommended):**
+### Claude Code marketplace
 
-```
+Run these inside Claude Code:
+
+```text
 /plugin marketplace add chrbailey/saas-rebuild
-/plugin install saas-rebuild
+/plugin install saas-rebuild@chrbailey-plugins
 ```
 
-**Manual:** copy `skills/saas-rebuild/` and/or `skills/export-compliance/`
-into `~/.claude/skills/`.
+Invoke the teardown skill explicitly:
 
-**Project-level:** copy the same folder(s) into your repo's
-`.claude/skills/` — everyone who clones the repo gets them.
+```text
+/saas-rebuild:saas-rebuild Tear down the CRM tenant I administer and tell me what we actually use.
+```
 
-## Use
+The bundled reference skill is available as
+`/saas-rebuild:export-compliance`.
 
-Say things like:
-
-- "Tear down our CRM"
-- "What do we actually use in [app]?"
-- "Replace [app] with a skill"
-
-A browser-automation MCP (e.g. Claude in Chrome) covers the UI-walk phase;
-the deeper extraction phase uses the platform's own metadata API or SQL
-where you have it, and you'll need admin access to the app you're
-analyzing. No live tenant? The document-based mode runs the same pipeline
-against engagement archives instead.
-
-## Share your teardown — let's replace SaaS collectively
-
-Every teardown produces the same artifacts: a feature map with KEEP /
-SIMPLIFY / DROP / DEFER verdicts, each carrying typed evidence citations
-(which data plane, what claim, what source), plus a `pairs.jsonl` training
-corpus in three sanitization tiers. Those maps are far more valuable
-shared than siloed:
-
-- **The used-fraction repeats.** If your team uses 20% of your CRM, odds are
-  the next team uses a similar 20%. One shared teardown is a head start for
-  everyone on the same app or category.
-- **Others uncover what you missed.** A second teardown of the same app finds
-  the modules, workflows, and workarounds your walk skipped — and gaps in
-  this pipeline itself (a phase that needs a step, a signal the schema
-  doesn't capture).
-- **Convergent verdicts become community skills.** When several teardowns of
-  an app category agree on the KEEP set, that's a spec: the community can
-  build and maintain one replacement skill instead of each team rebuilding
-  alone.
-
-**How to post results:** open a
-[Teardown Report issue](../../issues/new?template=teardown-report.yml) with
-the app (or just its category, if you'd rather not name it), feature counts
-by verdict, your top "why unused" reasons, and anything the pipeline missed.
-If you captured pairs, say how many landed in the `sanitized-shareable` and
-`synthetic` tiers — convergent pair corpora are how a community replacement
-skill gets its regression suite. PRs improving the phases, templates, or
-schema are very welcome.
-
-**Sanitize before you share.** Your teardown output contains your business
-data — the report you post must not. No record contents, no exports, no
-customer or employee names, no screenshots with real data, no internal URLs.
-Share the *structure* (feature names, verdicts, why-categories, rough record
-counts as ranges). The pairs schema enforces this as a field:
-`raw-local-only` pairs never leave your output dir; only
-`sanitized-shareable` and `synthetic` tiers travel. If in doubt, leave it
-out — a verdict table with no numbers is still useful.
-
-## Responsible use
-
-This skill is for analyzing **your own tenant** of software you legitimately
-administer, for migration planning. It will not probe other tenants or other
-users' private data, and it prefers official exports/APIs over scraping.
-Before any bulk extraction the skill walks you through a vendor-agreement
-checklist — export rights, API terms, anti-scraping clauses, and the
-post-termination data-retrieval window — and says when to involve counsel.
-
----
-
-# export-compliance — restricted party screening
-
-Screen counterparties against the official U.S. denied and restricted party
-lists, decide what a hit means for a specific shipment, and leave a record that
-survives an audit five years later. Runs entirely on your own hardware.
-
-Built for a small business that needs a defensible answer today, a legal team
-that needs the basis for it, and a company pulling this function back in-house
-from a screening SaaS.
-
-## What it screens against
-
-All official, all free, all U.S. government:
-
-| Source | Agency |
-|---|---|
-| Consolidated Screening List (CSL) | ITA (aggregate) |
-| Specially Designated Nationals (SDN) + alternate names + addresses | Treasury/OFAC |
-| Non-SDN Consolidated (SSI, FSE, CAPTA, NS-PLC, NS-MBS, NS-CMIC) | Treasury/OFAC |
-| Denied Persons List (DPL) | Commerce/BIS |
-| Entity List, Unverified List, Military End User List | Commerce/BIS |
-| ITAR Debarred Parties | State/DDTC |
-| Nonproliferation sanctions | State/ISN |
-
-CSL is the operational source because it is one clean file covering every
-agency. It is **not** the legal source of record — the tool says so on every
-hit, and points at the primary publication.
-
-## The design in one table
-
-**Extraction and matching are deterministic. Analysis is not. Nothing is
-cleared by a model alone.**
-
-| Stage | Who does it |
-|---|---|
-| Fetch and parse the lists | Code — provenance is a SHA-256, not a recollection |
-| Name matching and scoring | Code — same input, same result, in 2031 |
-| Legal effect of a hit | Code — an SDN hit's consequence is not a judgement call |
-| Is this the same party | Model — needs context a string metric cannot read |
-| Was that judgement sound | Independent critic model, ideally a different family |
-| What to do about it | Human — strict liability, a person signs |
-
-A case with any candidate above the review floor can never end as CLEAR. A
-model verdict of "different party" against an exact name match does not clear
-it. A backend timeout is never a pass. These are enforced in code, not in a
-prompt, and the test suite is largely an attempt to break them.
-
-## Try it
-
-Zero dependencies — standard-library Python 3.11+, no network calls outside
-`refresh`, so it installs and runs inside a closed network.
+### Manual skill install
 
 ```bash
-cd skills/export-compliance/tools
-python3 -m xscreen.cli selftest                      # 274 tests, ~3 seconds
-python3 -m xscreen.cli --home ~/xs refresh           # pull the official lists
-python3 -m xscreen.cli --home ~/xs screen parties.csv
-python3 -m xscreen.cli --home ~/xs explain "Acme Trading Ltd"
-python3 -m xscreen.cli --home ~/xs audit verify
+cp -R skills/saas-rebuild ~/.claude/skills/
 ```
 
-Exit codes make it a shipping gate: `0` clean, `1` failed to run, `2` human
-review needed, `3` blocked. A screening tool that cannot run must block the
-shipment, not wave it through.
+For a project-scoped install, copy it to `.claude/skills/saas-rebuild/` in
+that project. Review any project skill before accepting the workspace trust
+prompt.
 
-Roughly 21 ms per counterparty against a 25,000-name index — a 10,000-party
-book of business screens in about 3.5 minutes on one core.
+Versioned ZIPs, `SHA256SUMS`, and build-provenance attestations are published
+on [GitHub Releases](https://github.com/chrbailey/saas-rebuild/releases). They
+are generated from the tagged source rather than committed back into the
+repository.
 
-## What it will not do
+## What a teardown produces
 
-The report says all of this in every run, because each is a real gap that name
-screening cannot close:
+The default run directory contains both machine and human artifacts:
 
-- **The OFAC 50 Percent Rule.** Entities owned 50% or more, in the aggregate,
-  by blocked persons are themselves blocked and appear on no list. There is no
-  name to match. This needs beneficial-ownership diligence.
-- **Classification.** Whether a licence is required depends on the item's ECCN.
-- **End-use controls on unlisted parties.** 15 CFR 744.21 applies to military
-  end users whether or not they are on the MEU List.
-- **Entity List scope.** The licence requirement covers the items named in the
-  entry, and footnotes can trigger a Foreign Direct Product Rule. Read it.
+| Artifact | Role |
+|---|---|
+| `teardown.json` | Resumable run state, preflight status, data boundary, and action log |
+| `feature-inventory.json` | Features, usage, verdicts, and typed evidence citations |
+| `inventory.md` | Human-readable surface inventory |
+| `usage-analysis.md` | KEEP / SIMPLIFY / DROP / DEFER decisions and reasons |
+| `graph.json` | Typed feature, process, entity, script, report, and integration graph |
+| `extraction-runbook.md` | Supported route, fields, cadence, and validation for each retained entity |
+| `preservation-manifest.json` | Full-tenant export inventory, file digests, gaps, and acceptance |
+| `pairs.jsonl` | Provenance-bearing behavior and judgment pairs with isolated dataset roles |
+| `REBUILD_PLAN.md` | Target selection, milestones, bridges, replay criteria, and cutover gates |
 
-**Not legal advice.** It produces screening evidence and a structured analysis;
-a licensing decision is made by the operator on advice of counsel.
+Verdicts control what is rebuilt; they never control what is preserved.
 
-## Responsible use
+## Pipeline
 
-Screen your own counterparties for your own compliance obligations. The country
-policy file ships **unattested** and every rule derived from it says so until an
-operator checks it against the current CFR and signs. Government lists change
-weekly — the tool refuses to run on a snapshot older than seven days, and
-records the override when you make it run anyway.
+1. **Authorize and bound the work.** Confirm tenant ownership/admin authority,
+   vendor terms, data classes, model/connector boundary, retention clocks, and
+   read/write scope.
+2. **Inventory breadth-first.** Walk the UI and enumerate configuration,
+   transaction, master-data, setup, code, report, and integration surfaces.
+3. **Measure lived behavior.** Join structural evidence to runtime evidence;
+   use process mining only when the event log has a defensible case notion and
+   coverage window.
+4. **Classify with evidence.** Assign KEEP, SIMPLIFY, DROP, or DEFER, record
+   why, and retain uncertainty rather than converting missing data into zero.
+5. **Preserve the full tenant.** Export every entity and attachment class,
+   audit/config artifacts, identities, and replay cases; checksum the result
+   and record every accepted gap.
+6. **Derive the replacement.** Use the typed dependency graph to select target
+   runtimes, order schemas, identify bridges, and define incremental cutover
+   milestones.
+7. **Verify behavior.** Hold back case lineages before any training, replay
+   historical inputs against version-matched state, and separate intended
+   improvements from unexplained divergence.
 
-## License
+See [Method and intellectual lineage](docs/methodology.md) for the formal model,
+failure modes, and relationship to adjacent fields.
 
-MIT
+## Data boundary and responsible use
+
+`raw-local-only` is an **artifact distribution label**, not a claim that data
+never crossed a network. A hosted model or remote browser/MCP connector can
+receive whatever content it is shown. Before acquisition, record the actual
+model, connector, storage, residency, retention, and approval boundary in
+`teardown.json`; then minimize fields and aggregate whenever record-level data
+is unnecessary.
+
+Use this only on software and data you are authorized to administer. Prefer
+official exports and APIs, respect rate limits and contractual restrictions,
+never capture credentials, and require counsel when regulated data, disputed
+export rights, or prohibited automated access changes the risk.
+
+The protocol does not establish legal compliance, data completeness, or
+behavioral equivalence by itself. Those are acceptance claims backed by
+artifacts, tests, and accountable reviewers.
+
+## Reference rebuild: export compliance
+
+The second skill is a concrete example of the architecture the protocol is
+trying to produce. Its restricted-party screening engine keeps fetching,
+parsing, matching, legal-effect rules, exit codes, and audit integrity in
+deterministic Python. Model adjudication is optional and cannot clear an exact
+match; a human owns the disposition.
+
+The deterministic/offline mode makes no outbound call after list refresh. If a
+hosted adjudicator or critic is configured, screening sends a deliberately
+minimized payload to that endpoint; it is therefore no longer a closed-network
+run. See the [skill](skills/export-compliance/SKILL.md) for the legal and
+operational limitations. It is an engineering reference, not proof that every
+SaaS replacement has the same shape.
+
+## Historical public report
+
+[Issue #1](https://github.com/chrbailey/saas-rebuild/issues/1) is an earlier
+public teardown report that predates the v0.7 contracts. Its verdict taxonomy,
+evidence language, and skill-only target framing are legacy rather than
+normative. The repository links to that source record for transparency but
+does not republish derived engagement material as part of the v0.7 evidence
+base.
+
+## Research lineage
+
+The project combines established ideas rather than claiming a new scientific
+primitive:
+
+- [Process Mining Manifesto](https://processmining.org/old-version/files/mao-process-mining.pdf): event-log quality, discovery, and conformance.
+- [W3C PROV Data Model](https://www.w3.org/TR/prov-dm/): provenance as the basis for judging reliability and trustworthiness.
+- [GUI ripping research](https://www.cs.umd.edu/~atif/pubs/WCRE2013.pdf): systematic GUI traversal and model recovery.
+- [Mining Specifications](https://dl.acm.org/doi/10.1145/503272.503275): inferring candidate specifications from execution traces.
+- [Oracle-guided synthesis](https://people.eecs.berkeley.edu/~sseshia/pubdir/icse10-TR.pdf): input/output examples, distinguishing cases, and finite-example limits.
+- [Strangler Fig](https://martinfowler.com/bliki/StranglerFigApplication.html): incremental replacement instead of big-bang cutover.
+
+The original contribution is the integration: tenant-level evidence,
+preservation, target selection, lineage-safe paired cases, dependency-derived
+sequencing, and replay acceptance in one inspectable protocol.
+
+## Contributing and security
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing a schema, public claim,
+or release artifact. [Share a sanitized teardown](https://github.com/chrbailey/saas-rebuild/issues/new?template=teardown-report.yml)
+through the structured issue form. Report security issues through the process
+in [SECURITY.md](SECURITY.md), not a public issue.
+
+Licensed under the [MIT License](LICENSE).

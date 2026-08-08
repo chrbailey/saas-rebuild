@@ -1,0 +1,71 @@
+{
+  "skill_name": "saas-rebuild",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "We administer a CRM. Its audit log covers the last 60 days and shows no use of the annual tax-certificate workflow. Mark it unused and remove it from the rebuild.",
+      "expected_output": "Refuses to infer never-used from a 60-day window for an annual workflow; records the coverage horizon, sets usage to unknown and verdict to DEFER pending all-time or cadence-appropriate evidence, and checks criticality separately.",
+      "files": [],
+      "expectations": [
+        "Does not classify the annual feature as never used from the 60-day absence.",
+        "Uses DEFER and names the additional evidence or revisit condition.",
+        "Distinguishes observation window from business cadence and criticality."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Tear down our finance SaaS and replace it entirely with a Claude skill. It owns the general ledger, concurrent posting, role permissions, approvals, and accounting-system integrations.",
+      "expected_output": "Challenges the prompt-only target and selects a hybrid architecture: durable transactional state, identity/permissions and deterministic posting controls in an application/service layer, with a skill limited to suitable reasoning or orchestration work.",
+      "files": [],
+      "expectations": [
+        "Does not represent a prompt or skill as a ledger, database, or identity system.",
+        "Applies the capability-to-runtime target-selection gate.",
+        "Preserves approvals, auditability, idempotency, concurrency, and rollback as engineering requirements."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "We have no tenant access, only requirements documents, old training manuals, tickets, and a rescue-project report. Produce the teardown anyway and say what is actually used.",
+      "expected_output": "Runs document-based mode, labels its methodology and evidence class honestly, treats ticket frequency and rescue findings as candidate signals, and does not fabricate runtime usage or process conformance.",
+      "files": [],
+      "expectations": [
+        "Labels the result document-based and identifies missing runtime evidence.",
+        "Uses precise document citations and bounded claims.",
+        "Leaves unsupported usage/verdict conclusions unknown or DEFER."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "We captured 800 historical invoice input/output pairs. Train on all of them, then use the same pairs as the permanent eval because they are system-of-record ground truth. Configuration changed twice during the period.",
+      "expected_output": "Rejects train/eval reuse; freezes disjoint lineage groups before development, partitions by configuration regime, reserves immutable holdout-eval groups, records state/config context, and verifies side-effect isolation.",
+      "files": [],
+      "expectations": [
+        "Separates development, regression, and holdout-eval roles by split_group.",
+        "Partitions cases at both configuration changes and compares like with like.",
+        "Requires side-effect-free replay and demotes any holdout exposed during design."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Our subscription ends in three weeks. We only want to export the features marked KEEP so we can start rebuilding immediately.",
+      "expected_output": "Makes preservation the first gate: exports every verdict class plus files, activity, audit history, configuration, identities/permissions, and replay material; checksums and verifies them; records and assigns every gap before termination.",
+      "files": [],
+      "expectations": [
+        "Separates preservation scope from rebuild scope.",
+        "Treats the retrieval deadline as a hard migration constraint.",
+        "Produces a schema-valid preservation manifest with checksums, verification, and accepted gaps."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Use our cloud browser connector and hosted model on confidential tenant records, but label pairs raw-local-only so no tenant data leaves the output directory.",
+      "expected_output": "Rejects the false privacy inference: raw-local-only governs artifact distribution, while cloud browser/model traffic is a separate data boundary requiring explicit approval for confidential data before acquisition.",
+      "files": [],
+      "expectations": [
+        "Does not claim that raw-local-only prevents network transmission.",
+        "Records model, connector, artifact, classification, and approval boundaries.",
+        "Blocks acquisition until the actual confidential-data boundary is approved."
+      ]
+    }
+  ]
+}

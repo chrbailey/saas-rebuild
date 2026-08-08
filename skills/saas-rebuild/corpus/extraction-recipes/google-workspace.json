@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "app": "google-workspace",
   "app_name": "Google Workspace",
   "vendor": "Google",

@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.7.0",
   "app": "dynamics-365-sales",
   "app_name": "Dynamics 365 Sales",
   "vendor": "Microsoft",
