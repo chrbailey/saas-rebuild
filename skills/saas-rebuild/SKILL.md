@@ -70,6 +70,14 @@ the recorded phase. Each phase updates `phase` on completion.
    before Phase 1b, not when you stall inside it.
 4. **Verify the browser-automation MCP is connected** (e.g. Claude in Chrome)
    before scheduling the walk; Phase 1 cannot start without it.
+5. **Check the extraction-recipe corpus.** If the named app has a recipe in
+   `corpus/extraction-recipes/<app-slug>.json` (target list:
+   `corpus/apps.json`), load it now — it seeds the Phase 4 route map, the
+   Phase 4b preservation checklist, and names the SKU/role gates to request
+   on day one. Treat its `verification` field honestly:
+   `doc-derived-unverified` recipes are hypotheses to confirm against the
+   tenant, not facts — and a verified teardown should flow corrections back
+   as a recipe PR promoting it to `tenant-verified`.
 
 Record each pre-flight item's status in `teardown.json` under `preflight`;
 an item marked blocked gets an owner and a ticket reference, not silence.
