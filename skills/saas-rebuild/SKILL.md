@@ -120,6 +120,12 @@ logs + iPaaS flows + file-drop/scheduled exports). Breaking an unknown
 integration is the classic rebuild failure. Fold all outputs into
 `teardown.json` features with `evidence` citing the plane.
 
+Where the audit log carries a case-linkable object id, mine it as an event
+log per `references/process-mining.md` — variant counts,
+configured-vs-observed conformance, and median waits between activities turn
+"how work really flows" from interview claims into counted evidence. It
+states its own skip conditions; don't force it on thin logs.
+
 **Every tenant session carries an action log** in its artifact, and the
 read-only claim is stated precisely (sort/pagination clicks can persist view
 preferences; export clicks may queue unverifiable server-side jobs). Note PII
@@ -137,7 +143,11 @@ Four independent evidence streams; gather all four:
 1. **Tenant data signals** (from Phase 1 + targeted revisits): record counts
    per module, newest/oldest record dates, empty modules, configured-but-unused
    automations, stale saved reports, user list with last-login if visible,
-   audit log samples if accessible.
+   audit log samples if accessible. If audit logs qualify,
+   `references/process-mining.md` upgrades this stream from record counts to
+   observed process behavior — its conformance findings feed
+   `configured-never-enabled` and `workaround-internal`, and its bottleneck
+   ranking pre-orders Phase 5 workflow priorities.
 2. **Exports**: download whatever CSV/report exports the app offers for the
    core entities (guide the user through clicks if downloads need approval).
    Store under `exports/` in the output dir; summarize row counts and date
@@ -157,13 +167,18 @@ Four independent evidence streams; gather all four:
 
 For every feature, score and classify:
 
-- `usage`: daily | weekly | rare | never | workaround-external | unknown.
+- `usage`: daily | weekly | rare | never | workaround-external |
+  workaround-internal | unknown.
   Citations are structured: each feature carries an `evidence` array of typed
   citations (plane + claim + source) per
   `templates/feature-inventory.schema.json` — a verdict without at least one
   citation is `unknown`, not a verdict. `workaround-external` means the job
-  is actively done in a satellite tool or spreadsheet instead — that is a
-  different, more actionable finding than "unused"
+  is actively done in a satellite tool or spreadsheet instead;
+  `workaround-internal` means users bend the app from inside (status skips,
+  admin-edit bypasses — surfaced by conformance checking in
+  `references/process-mining.md`). Both are different, more actionable
+  findings than "unused": the workaround is the requirement the configured
+  flow failed to meet
 - `criticality`: does a business process break without it?
 - `replaceability`: trivial (a prompt), moderate (skill workflow), hard
   (needs external integration/state)
@@ -176,6 +191,12 @@ evidence (it exists/is configured) joins with RUNTIME evidence (transactions,
 telemetry, executions) — configured-alone defaults to `configured-never-enabled`
 until proven. Score recency and criticality separately: year-end close runs
 once and is still KEEP.
+
+Where Phase 1b ran, build the dependency graph per
+`references/dependency-graph.md` before finalizing verdicts: color nodes
+by verdict and act on the mismatches — a DROP node a kept path depends on
+keeps its verdict but DEFERs its removal, and a KEEP island no critical
+process touches gets re-challenged against the minimal-cover check.
 
 Sanity pass: any KEEP without cited evidence, or DROP with high criticality,
 gets re-checked. Write `usage-analysis.md` (verdict table + the why column)
@@ -214,6 +235,13 @@ never big-bang), and validate by **replay**: re-run a sample of real historical
 transactions through the rebuilt skill and diff outputs against the system of
 record at posting, document, and total level. Behavioral equivalence on
 historical data is the acceptance test.
+
+Derive the milestone structure from the graph, don't guess it
+(`references/dependency-graph.md`): capability islands are the
+strangler-fig milestones, the condensed topo-sort is their order,
+load-bearing entities get their schemas first, and every articulation
+point enters the risk register with an explicit bridge-or-replace
+decision.
 
 Write `REBUILD_PLAN.md` per `templates/rebuild-plan-template.md`: phased
 milestones (walking skeleton → core workflow → bridges → parallel-run →

@@ -1,10 +1,10 @@
 # Dependency Graph — deriving the rebuild instead of guessing it
 
 Phase 1b already collected every node and edge; this file assembles them into
-a directed typed graph and computes five results from it. The point: rebuild
-milestones, the risk register, and the minimal KEEP set become *derived
-artifacts with evidence trails*, not judgment calls. Build the graph after
-Phase 1b completes, use it during Phase 3 verdicts and Phase 5 sequencing.
+a directed typed graph and computes five results from it, so rebuild
+milestones, the risk register, and the minimal KEEP set are *derived with
+evidence trails*, not guessed. Build the graph after Phase 1b; use it during
+Phase 3 verdicts and Phase 5 sequencing.
 
 ## Node and edge taxonomy
 
@@ -12,12 +12,12 @@ Five node types: **feature**, **entity**, **script** (automation/workflow),
 **integration**, **report**. Reuse feature ids from `teardown.json`; entity
 ids are the data_entities strings, kebab-cased.
 
-Five edge types, all directed, all typed:
+Five edge types, all directed:
 
 - `reads` — X consumes data from entity Y
 - `writes` — X creates/updates records in entity Y
 - `triggers` — X fires script/automation Y (record save, schedule, webhook)
-- `joins-on` — report/search X joins entity Y to entity Z (edge per entity)
+- `joins-on` — report/search X joins entity Y (one edge per joined entity)
 - `exports-to` — X ships data to integration Y (API, iPaaS flow, file drop)
 
 Each Phase 1b plane supplies specific edge types — record the plane on every
@@ -67,19 +67,18 @@ A pure-Python adjacency dict is enough for every computation below:
 Use networkx **if already available** — never install it, nothing here may
 require it. Every algorithm below fits in a dozen lines of stdlib Python.
 
-Expect a few hundred nodes and low thousands of edges on a mid-size tenant;
-all of these computations are instant at that scale. If deduping edges,
-merge evidence planes into a list — two planes agreeing on one edge is
-stronger evidence, not a duplicate.
+Expect a few hundred nodes on a mid-size tenant — everything below is
+instant at that scale. When deduping edges, merge evidence planes into a
+list: two planes agreeing on one edge is stronger evidence, not a duplicate.
 
 ## The five derived results
 
 ### 1. Load-bearing entities → Phase 5 schema order
 
-Weighted in-degree over edges pointing *at* each entity: `writes` = 3,
+Weighted in-degree over edges pointing at each entity: `writes` = 3,
 `joins-on` = 2, `reads` = 1 (a written entity is upstream state; a read one
-may be reference data). PageRank on the reversed graph if networkx exists —
-rankings rarely differ enough to matter; say which you used.
+may be mere reference data). PageRank on the reversed graph if networkx
+exists; say which you used.
 
 Feeds: the top entities by score get their JSON schemas designed **first**
 in Phase 5 — they are the walking skeleton's data model. An entity that
@@ -88,10 +87,9 @@ depends on data nobody claims to use — usually an integration).
 
 ### 2. Articulation points → risk register
 
-Nodes whose removal disconnects the (undirected view of the) graph. These
-are the pre-identified landmines: "breaking an unknown integration is the
-classic rebuild failure" is exactly an articulation point you didn't compute.
-Standard DFS sketch:
+Nodes whose removal disconnects the undirected view of the graph — the
+pre-identified landmines. "Breaking an unknown integration is the classic
+rebuild failure" is an articulation point nobody computed. DFS sketch:
 
 ```python
 def articulation_points(adj):  # adj: undirected {node: set(neighbors)}
@@ -136,29 +134,27 @@ sub-island), bridges named per cut edge.
 
 Topological sort of the condensed component DAG. Condense cycles first
 (strongly connected components — Tarjan, or networkx `condensation`): **a
-cycle means those pieces ship in one milestone**; there is no order inside
-mutual dependence, and pretending otherwise produces a milestone that can't
-pass its own verification step. Then topo-sort the condensed DAG: upstream
-components (written-to entities, triggering scripts) rebuild before their
-dependents.
+cycle means those pieces ship in one milestone** — there is no order inside
+mutual dependence, and pretending otherwise yields a milestone that can't
+pass its own verification step. Then topo-sort: upstream components rebuild
+before their dependents.
 
 Feeds: the order of the Phase 5 milestone list. Ties broken by island
 score — highest load-bearing entity first.
 
 ### 5. Minimal KEEP cover → verdict challenge
 
-Set-cover framing: the smallest set of features whose union of entity and
-process coverage still supports every critical business process (criticality
+Set-cover framing: the smallest feature set whose union of entity/process
+coverage still supports every critical business process (criticality
 `critical` from Phase 3). Greedy approximation — repeatedly take the feature
-covering the most uncovered processes — is fine and is what to use; exact
-set cover is NP-hard and the graph is small enough that greedy lands within
-a feature or two of optimal. Say it's greedy in the artifact.
+covering the most uncovered processes — is fine; exact set cover is NP-hard
+and greedy lands within a feature or two here. Say it's greedy in the
+artifact.
 
-Feeds: **every KEEP verdict outside the cover gets re-challenged**: "what
-breaks if this goes?" If the answer cites no critical process and no edge
-into the cover, the honest verdict is SIMPLIFY or DROP with the graph as
-cited evidence. The cover doesn't overturn verdicts by itself — it names
-which ones must re-defend themselves.
+Feeds: **every KEEP outside the cover gets re-challenged**: "what breaks if
+this goes?" No critical process and no edge into the cover → the honest
+verdict is SIMPLIFY or DROP, graph cited as evidence. The cover doesn't
+overturn verdicts by itself — it names which ones must re-defend themselves.
 
 ## Joining verdicts onto the graph
 

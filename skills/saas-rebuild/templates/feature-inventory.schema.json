@@ -79,6 +79,7 @@
         "rare",
         "never",
         "workaround-external",
+        "workaround-internal",
         "unknown"
       ]
     },

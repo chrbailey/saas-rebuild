@@ -1,0 +1,26 @@
+{
+  "pair_type": "replay",
+  "input": {
+    "transaction": "invoice-post",
+    "fields": {
+      "amount": 1200.5,
+      "currency": "USD",
+      "customer": "cust-0042"
+    }
+  },
+  "output": {
+    "gl_entries": [
+      {"account": "1200", "debit": 1200.5},
+      {"account": "4000", "credit": 1200.5}
+    ],
+    "document_total": 1200.5
+  },
+  "rationale": "Output taken verbatim from the system of record for the same historical transaction; the legacy system is the labeling function.",
+  "provenance": {
+    "app": "erp-cat-01",
+    "teardown_id": "td-demo-001",
+    "phase": 5,
+    "created": "2026-08-08"
+  },
+  "sanitization_tier": "synthetic"
+}

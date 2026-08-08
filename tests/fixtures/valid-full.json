@@ -13,7 +13,21 @@
     "notes": "last-modified column visible; export button present"
   },
   "usage": "weekly",
-  "usage_evidence": "AR clerk interview: pulled every Monday for the collections call",
+  "evidence": [
+    {
+      "plane": "interview",
+      "claim": "AR clerk pulls this report every Monday for the collections call",
+      "source": "interview batch 1, AR group",
+      "confidence": "high"
+    },
+    {
+      "plane": "telemetry",
+      "claim": "report executed 41 times in the trailing 90 days",
+      "source": "report execution log",
+      "observed_at": "2026-07-28",
+      "confidence": "high"
+    }
+  ],
   "criticality": "critical",
   "replaceability": "moderate",
   "verdict": "KEEP",
