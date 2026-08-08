@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Teardown supervised pair (one line of pairs.jsonl)",
+  "description": "The teardown pipeline is a labeling process: the legacy system labels replay transactions, analysts label verdicts, the UI walk labels screen-to-schema extraction. Every phase therefore emits supervised (input, output) pairs — one JSON object per line of pairs.jsonl — which later serve as fine-tuning data, eval suites, and regression harnesses for the replacement skill.",
+  "type": "object",
+  "required": [
+    "pair_type",
+    "input",
+    "output",
+    "provenance",
+    "sanitization_tier"
+  ],
+  "properties": {
+    "pair_type": {
+      "enum": [
+        "replay",
+        "judgment",
+        "perception",
+        "design"
+      ],
+      "description": "replay: historical transaction input to system-of-record output (the legacy system is the labeling function). judgment: evidence bundle to verdict plus why. perception: screen text/DOM excerpt to structured feature entry. design: usage evidence plus workarounds to rebuilt workflow spec."
+    },
+    "input": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "description": "the stimulus side: what the model is given"
+    },
+    "output": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "description": "the labeled response side: what a correct system produces"
+    },
+    "rationale": {
+      "type": "string",
+      "description": "why this output is correct; one paragraph max"
+    },
+    "evidence": {
+      "type": "array",
+      "description": "typed citations backing the pair; mirrors the citation shape in feature-inventory.schema.json (duplicated in $defs so this schema stays self-contained)",
+      "items": {
+        "$ref": "#/$defs/citation"
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "where the pair came from, enough to trace it back to its teardown",
+      "required": [
+        "app",
+        "teardown_id",
+        "phase",
+        "created"
+      ],
+      "properties": {
+        "app": {
+          "type": "string",
+          "description": "app slug; may be a category code after sanitization"
+        },
+        "teardown_id": {
+          "type": "string",
+          "description": "stable id of the teardown run that emitted the pair"
+        },
+        "phase": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "pipeline phase (0-5) that emitted the pair"
+        },
+        "created": {
+          "type": "string",
+          "description": "ISO date the pair was written"
+        }
+      }
+    },
+    "sanitization_tier": {
+      "enum": [
+        "raw-local-only",
+        "sanitized-shareable",
+        "synthetic"
+      ],
+      "description": "raw-local-only: contains tenant data, never leaves the output dir. sanitized-shareable: structure only, names coded, figures rounded. synthetic: statistically regenerated, safe to publish. Rule: only sanitized-shareable and synthetic tiers may leave ~/Dev/teardowns/."
+    }
+  },
+  "$defs": {
+    "citation": {
+      "type": "object",
+      "description": "one typed evidence citation; same shape as the feature schema's evidence items",
+      "required": [
+        "plane",
+        "claim"
+      ],
+      "properties": {
+        "plane": {
+          "enum": [
+            "ui-walk",
+            "config-census",
+            "transactional",
+            "master-data",
+            "setup-census",
+            "code-analysis",
+            "telemetry",
+            "integration-inventory",
+            "export",
+            "interview",
+            "contract",
+            "document"
+          ],
+          "description": "which evidence stream produced the signal"
+        },
+        "claim": {
+          "type": "string",
+          "description": "the specific assertion this citation supports, one sentence"
+        },
+        "source": {
+          "type": "string",
+          "description": "where it was seen: table/report/log/doc, no record contents"
+        },
+        "observed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "ISO date the signal was observed; null if not recorded"
+        },
+        "confidence": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "description": "how directly the signal supports the claim"
+        }
+      }
+    }
+  }
+}
