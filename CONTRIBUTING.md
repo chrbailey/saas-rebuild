@@ -3,6 +3,88 @@
 Contributions are welcome when they strengthen evidence quality, portability,
 failure behavior, reproducibility, or the honesty of public claims.
 
+## Three ways to contribute
+
+You do not need to touch code to make this project more useful. The three
+lanes, in rough order of effort:
+
+### 1. Share a teardown report (no PR needed)
+
+Ran a teardown — or even a partial one — on a tenant you administer? File a
+[Teardown Report](https://github.com/chrbailey/saas-rebuild/issues/new?template=teardown-report.yml)
+issue. The form asks for structure only: verdict counts, the KEEP set,
+coverage and blind spots, preservation status, and what the pipeline missed.
+
+**Sanitize first.** No record contents, exports, customer or employee names,
+real-data screenshots, or internal URLs. Ranges and categories are fine
+("5–10 users", "property management suite"). If naming the app feels
+uncomfortable, name only its category. The form's sanitization checkbox is a
+required field, and reports that leak tenant material will be edited or
+removed.
+
+The most valuable section is usually "What this skill missed" — real gaps in
+the pipeline are how the protocol improves.
+
+### 2. Add an extraction recipe (documentation research PR)
+
+The [extraction-recipe corpus](skills/saas-rebuild/corpus/README.md) has 29
+of 100 target apps covered. Each recipe is documentary research: what the
+vendor's own docs say about export rights, extraction routes, rate limits,
+attachment/audit-log access, and post-termination retrieval — with a cited,
+dated bibliography.
+
+To add one:
+
+- Pick an uncovered app from `skills/saas-rebuild/corpus/apps.json` (the
+  ready-to-run research briefs in [`docs/corpus-batches/`](docs/corpus-batches/)
+  cover the 71 apps without recipes and spell out the whole workflow).
+- Follow the contract in
+  [`skills/saas-rebuild/templates/extraction-recipe.schema.json`](skills/saas-rebuild/templates/extraction-recipe.schema.json):
+  `schema_version: "0.7.0"`, unique HTTPS sources with ISO retrieval dates,
+  `verification: "doc-derived-unverified"`.
+- Honesty outranks completeness: never invent endpoints, nav paths, SKU
+  names, or limits. `null` means "the docs don't say" — it is not a claim of
+  absence.
+- Before pushing, validate against the schema, update the "v0.7, N" recipe
+  count in both `README.md` and the corpus README (a test pins this), and run
+  `python -m pytest tests/ -q`.
+
+### 3. Promote a recipe's verification status (evidence PR)
+
+Every recipe starts `doc-derived-unverified`. The corpus becomes trustworthy
+when people who administer real tenants confirm or correct the routes:
+
+- `community-verified` — reviewable shared evidence (a teardown report, a
+  documented walkthrough) confirms the main routes.
+- `tenant-verified` — the routes were exercised end-to-end in at least one
+  authorized tenant.
+
+A promotion PR changes the `verification` field and must link the evidence
+that motivated it — typically your Teardown Report issue. Corrections
+(a route that no longer exists, a limit that changed, a gated SKU) are just
+as valuable as confirmations; include the same kind of evidence. One tenant
+does not establish behavior across regions, SKUs, or future vendor versions,
+and the recipe's notes should keep saying so.
+
+## A good first contribution
+
+Verify one recipe against a tenant you administer. Pick any
+`doc-derived-unverified` recipe for an app you run
+([`skills/saas-rebuild/corpus/extraction-recipes/`](skills/saas-rebuild/corpus/extraction-recipes/)),
+try its main export routes against your live account — UI export paths,
+API endpoints, rate limits, role requirements — and PR the result:
+
+- Routes confirmed → promotion to `community-verified` or `tenant-verified`
+  with your evidence linked.
+- Routes wrong or drifted → a correction with what you observed and where.
+- Either way, update `last_reviewed`.
+
+It is a bounded afternoon of work, requires no familiarity with the
+codebase, and every completed verification makes day-one discovery cheaper
+for the next person. You need admin (or equivalent authorized) access to the
+tenant you test against — see
+[Data boundary and responsible use](README.md#data-boundary-and-responsible-use).
+
 ## Development setup
 
 ```bash

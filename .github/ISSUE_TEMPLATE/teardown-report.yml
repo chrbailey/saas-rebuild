@@ -29,7 +29,7 @@ body:
       description: How was the tenant-specific model constructed?
       options:
         - Live tenant
-        - Documents only
+        - Document-based
         - Hybrid
     validations:
       required: true
