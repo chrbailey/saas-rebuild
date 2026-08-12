@@ -9,6 +9,12 @@
 
 "use strict";
 
+// Data base: config.js sets window.SR_DATA_BASE. Local/static hosting serves
+// ./data/; a standalone deployment may point this at a raw.githubusercontent
+// URL pinned to a commit SHA instead of shipping the data files.
+const DATA_BASE = (typeof window !== "undefined" && window.SR_DATA_BASE) || "data/";
+const dataUrl = (p) => DATA_BASE + p;
+
 const API_URL = "https://api.anthropic.com/v1/messages";
 const API_VERSION = "2023-06-01";
 const MAX_TOKENS = 32000;
@@ -88,12 +94,12 @@ async function fetchText(path) {
 
 async function loadData() {
   const [skill, xc, refExtraction, refMining, refGraph, idx] = await Promise.all([
-    fetchText("data/skill.md"),
-    fetchText("data/export-compliance.md"),
-    fetchText("data/references/extraction-playbook.md"),
-    fetchText("data/references/process-mining.md"),
-    fetchText("data/references/dependency-graph.md"),
-    fetch("data/recipes/index.json").then((r) => r.json()),
+    fetchText(dataUrl("skill.md")),
+    fetchText(dataUrl("export-compliance.md")),
+    fetchText(dataUrl("references/extraction-playbook.md")),
+    fetchText(dataUrl("references/process-mining.md")),
+    fetchText(dataUrl("references/dependency-graph.md")),
+    fetch(dataUrl("recipes/index.json")).then((r) => r.json()),
   ]);
   state.skill = skill;
   state.exportCompliance = xc;
@@ -318,7 +324,7 @@ $("attach-recipe").addEventListener("click", async () => {
   const slug = $("recipe-select").value;
   if (!slug) return;
   try {
-    const text = await fetchText(`data/recipes/${slug}.json`);
+    const text = await fetchText(dataUrl(`recipes/${slug}.json`));
     const meta = state.recipeIndex.find((r) => r.app === slug);
     const msg =
       `Attaching the extraction recipe for ${meta ? meta.app_name : slug} from the corpus. ` +
@@ -552,6 +558,11 @@ document.addEventListener("click", (e) => {
   } else if (dlId) {
     const pre = document.getElementById(dlId);
     if (pre) download(e.target.dataset.fname || "artifact.txt", pre.textContent);
+  } else if (e.target.dataset && e.target.dataset.recipeDl) {
+    const slug = e.target.dataset.recipeDl;
+    fetchText(dataUrl(`recipes/${slug}.json`))
+      .then((t) => download(`${slug}.recipe.json`, t, "application/json"))
+      .catch(() => {});
   }
 });
 
@@ -588,7 +599,7 @@ async function showRecipe(slug) {
   el.classList.remove("hidden");
   el.innerHTML = "<p class=\"mono\">loading…</p>";
   try {
-    const recipe = JSON.parse(await fetchText(`data/recipes/${slug}.json`));
+    const recipe = JSON.parse(await fetchText(dataUrl(`recipes/${slug}.json`)));
     let html = `<h2>${escapeHtml(recipe.app_name || slug)}</h2>` +
       `<div class="meta">${escapeHtml(recipe.vendor || "")} · ${escapeHtml(recipe.category || "")} · schema ${escapeHtml(recipe.schema_version || "")}</div>`;
     if (recipe.export_rights && recipe.export_rights.summary) {
@@ -606,7 +617,7 @@ async function showRecipe(slug) {
           `</div>`;
       }
     }
-    html += `<p style="margin-top:1rem"><a class="btn secondary" href="data/recipes/${slug}.json" download>Download recipe JSON</a></p>`;
+    html += `<p style="margin-top:1rem"><button class="btn secondary" data-recipe-dl="${escapeHtml(slug)}">Download recipe JSON</button></p>`;
     el.innerHTML = html;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (e) {
