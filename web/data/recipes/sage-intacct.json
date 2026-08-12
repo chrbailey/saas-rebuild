@@ -1,0 +1,248 @@
+{
+  "schema_version": "0.7.0",
+  "app": "sage-intacct",
+  "app_name": "Sage Intacct",
+  "vendor": "Sage",
+  "category": "accounting",
+  "export_rights": {
+    "summary": "Per the Sage Intacct Terms of Service (US), Customer Data may be exported at any time during the term of the Agreement. After termination or expiration, Sage will not delete Customer Data from its production environment for up to 90 days and may assist with export during that period at its standard hourly consulting rate; after the 90-day period Sage may delete all Customer Data. Paid archival services may be available for longer storage.",
+    "tos_url": "https://www.sage.com/en-us/legal/terms-and-conditions/product-and-service-terms-and-conditions/sage-intacct/tos/",
+    "post_termination_window": "90 days (data retained in production up to 90 days post-termination; vendor export assistance billed at standard hourly consulting rates)"
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": [
+        "all DDS-supported standard object records",
+        "all custom platform object records"
+      ],
+      "how": "Data Delivery Service (DDS): subscribe via Company > Admin > Subscriptions > Data Delivery Service > Configure, define a cloud storage destination, then create export jobs per object (full export or changes-only since last export), run on demand or scheduled daily/weekly/monthly. Also drivable via API (getDdsObjects to list supported objects, run DDS jobs programmatically).",
+      "formats": ["csv"],
+      "requires": [
+        "Data Delivery Service subscription (separately enabled module)",
+        "a cloud storage account configured as the delivery destination",
+        "company admin access"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Only certain standard objects are DDS-exportable; check the DDS Objects page or getDdsObjects for the supported list",
+        "Each object's records are delivered as separate .csv files to the cloud destination, not as a single archive",
+        "Vendor best practice is one initial full export followed by incremental changes-only jobs",
+        "The full list of supported cloud destinations was not confirmed from the docs consulted (an official developer sample uses Amazon S3)"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": [
+        "all API-readable objects (GL, AP, AR, journals, invoices, bills, customers, vendors, dimensions, etc.)"
+      ],
+      "how": "REST API at api.intacct.com (e.g. OAuth2 endpoints https://api.intacct.com/ia/api/v1/oauth2/authorize and .../oauth2/token); OAuth 2.0 authorization-code flow with Bearer tokens, apps registered in the Sage developer/app-registry portal. Sage positions REST as the recommended interface for new integrations.",
+      "formats": ["json"],
+      "requires": [
+        "Sage Intacct Web Services developer license (obtained via Sage account manager)",
+        "registered app (client ID/secret) in the Sage App Registry",
+        "an Intacct company user to authorize against"
+      ],
+      "rate_limits": "No public per-minute rate limit documented; API usage is metered as transactions under Sage's Performance Tier model (partner documentation cites 100,000 included transactions/month at the base tier, with paid overages). Third-party guides report OAuth access tokens expiring after 12 hours (43200 s).",
+      "gotchas": [
+        "Web Services is a licensed add-on, not included in every contract",
+        "Rate/tier specifics above come from partner and third-party writeups, not a fetched official limits page — verify against current Sage docs"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": [
+        "all API-readable objects",
+        "attachments (supdoc)",
+        "audit trail (AUDITHISTORY)"
+      ],
+      "how": "Legacy XML Web Services API: POST XML request envelopes; two-level auth with a Web Services sender ID + password (provisioned with the developer license and authorized per company) plus a company user login or session. Use readByQuery/query per object for bulk reads, get_list on supdoc for attachments, getAuditTrail/readByQuery on AUDITHISTORY for audit records.",
+      "formats": ["xml"],
+      "requires": [
+        "Web Services developer license (sender ID/password)",
+        "sender ID authorized in the target company (Company > Company Info > Security web services authorizations)",
+        "company user credentials or session ID"
+      ],
+      "rate_limits": "Metered under the same per-transaction Performance Tier model as REST (each query/readByQuery/create/update/delete call counts as one transaction). Third-party docs cite a cap of 2,000 results per readByQuery call, requiring pagination for large datasets.",
+      "gotchas": [
+        "XML API is legacy: still supported but receiving no new features per Sage guidance",
+        "readByQuery result paging means large tables need many calls, which consumes the transaction allowance"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": [
+        "master records and transaction lists shown on list pages (e.g. customers, vendors, and similar per-module lists)"
+      ],
+      "how": "From an object's list page in the UI (e.g. the Customers list under Accounts Receivable), use the list's export action to export the records; use Manage view to build a custom view controlling which fields, sort order, and records are included in the export.",
+      "formats": ["csv", "xlsx", "doc", "pdf"],
+      "requires": ["list/view permission on the object"],
+      "rate_limits": null,
+      "gotchas": [
+        "Export contents follow the current list view — fields not in the view are not exported",
+        "Per-list manual operation; there is no documented single UI action that exports every entity at once (use DDS or the API for that)"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": [
+        "financial reports",
+        "custom reports (Custom Report Writer and Interactive Custom Report Writer)",
+        "audit-history custom reports (Audit History data source, full admins)"
+      ],
+      "how": "Run a report and use 'Export as' to choose the output format. Memorized/custom reports can be scheduled (Schedule Report page, e.g. weekly/monthly) with delivery to a cloud-storage target (docs name Dropbox, Box, Google Drive, Amazon S3), an HTTP address, or storage in Intacct (My Stored Reports). Filters limit exported rows to the filtered set.",
+      "formats": ["csv", "xlsx", "pdf", "html"],
+      "requires": [
+        "report run permissions; full admin rights for a custom report on the Audit History data source"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Exporting a filtered report exports only the filtered records",
+        "Interactive Custom Report Writer is a separately licensed reporting tool"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit trail / change history"],
+      "how": "UI: open a record's Audit Trail window and use More actions to export; company-wide, full admins can build a custom report on the Audit History data source (sortable by time, user, changed object) and export it. API: getAuditTrail on an object or readByQuery on the AUDITHISTORY object.",
+      "formats": ["csv", "xlsx", "pdf"],
+      "requires": [
+        "View access to the record for per-record audit trail",
+        "full admin rights for the Audit History custom report",
+        "Web Services license for API access"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Audit capture only began May 2016; docs note inconsistencies in data captured May 2016-Feb 2017, AP/AR adjustment audit data unavailable before Nov 2016, and possible partial gaps before Oct 2019",
+        "No explicit retention/purge period is documented in the pages consulted",
+        "Advanced Audit Trail is a separate feature with its own documentation"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["attachments / supporting documents (supdoc)"],
+      "how": "No bulk UI export of attachments was found in the docs consulted. Via the XML API, read the supdoc object (get_list/read): each supporting document returns its name, type, creation details, and file content as a base64-encoded string; transactions reference their attachments via SUPDOCID fields (labeled 'Attachments' in the UI).",
+      "formats": ["base64-in-xml (decode to original file types)"],
+      "requires": ["Web Services license", "read access to supporting documents"],
+      "rate_limits": null,
+      "gotchas": [
+        "Attachment payloads are base64 and can be very large — developer docs advise limiting returned fields and maxitems per call",
+        "Extraction is per-document iteration; there is no documented archive/zip bulk download"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": [
+        "custom objects",
+        "custom fields and other customizations",
+        "platform applications (objects, pages, menus)",
+        "customization packages"
+      ],
+      "how": "Customization Services: group customizations into a customization package — an XML document conforming to the Sage Intacct package XSD — which can be exported and re-imported into another company. Platform Services: an application (custom objects, standard-object extensions, menus) can be published as an XML file and installed on a target company; individual component definitions can be exported from the UI via 'Export Def'.",
+      "formats": ["xml"],
+      "requires": [
+        "Customization Services or Platform Services subscription",
+        "admin rights"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Custom reports and standard configuration settings are not documented as part of these XML packages — coverage of package contents should be verified in-tenant"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "No documented bulk UI export; pull each supdoc record via the XML API (get_list/read on supdoc), which returns file content base64-encoded with name/type metadata, iterating over SUPDOCIDs referenced by transactions.",
+    "audit_log": "Export per-record audit trails from the Audit Trail window (More actions > CSV/Excel/PDF), or company-wide via a full-admin custom report on the Audit History data source, or via API (getAuditTrail / readByQuery on AUDITHISTORY). Capture began May 2016 with documented gaps before Oct 2019; no explicit retention cap documented — verify in-tenant.",
+    "config_artifacts": "Customizations export as XML customization packages (conforming to the package XSD) and Platform Services applications publish as installable XML files; individual component definitions export via 'Export Def' in the UI. Whether custom reports and module configuration settings are captured is not documented — verify in-tenant."
+  },
+  "sources": [
+    {
+      "url": "https://www.intacct.com/ia/docs/en_US/help_action/More/Data_Delivery_Service/data-export-overview.htm",
+      "title": "Export data from Intacct (Sage Intacct Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.intacct.com/ia/docs/en_AU/help_action/More/Data_Delivery_Service/welcome-to-dds.htm",
+      "title": "Welcome to Data Delivery Service (Sage Intacct Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.intacct.com/ia/docs/en_US/help_action/More/Data_Delivery_Service/configure-dds.htm",
+      "title": "Configure Data Delivery Service—DDS (Sage Intacct Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.intacct.com/data-delivery-service/",
+      "title": "Sage Intacct Data Delivery Service (Sage Intacct Developer)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.intacct.com/ia/docs/en_US/help_action/Accounts_Receivable/Setup/Customers/import-export-customer-information-ar.htm",
+      "title": "Import and export customer information (Sage Intacct Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.intacct.com/ia/docs/en_GB/help_action/Reporting/Distribute_and_run_reports/Export_reports/export-reports.htm",
+      "title": "Export reports (Sage Intacct Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.intacct.com/ia/docs/en_US/help_action/Reporting/Interactive_custom_reports/Manage-reports/Schedule_and_run_reports/schedule-interactive-report.htm",
+      "title": "Schedule a custom report—ICRW (Sage Intacct Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.intacct.com/web-services/",
+      "title": "XML Web Services Overview (Sage Intacct Developer)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.sage.com/intacct/docs/developer-portal/guides/oauth2",
+      "title": "OAuth 2.0 authorization (Sage Developer Portal, Intacct)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.intacct.com/ia/docs/en_US/help_action/Administration/Audit_trail/Standard/audit-trail.htm",
+      "title": "Audit Trail (Sage Intacct Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.intacct.com/api/company-console/audit-trails/",
+      "title": "Audit Trails (Sage Intacct Developer API reference)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.intacct.com/api/company-console/attachments/",
+      "title": "Attachments (Sage Intacct Developer API reference)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.intacct.com/customization-services/customization-packages/",
+      "title": "Customization Packages (Sage Intacct Developer)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.intacct.com/platform-services/",
+      "title": "Sage Intacct Platform Services (Sage Intacct Developer)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.sage.com/en-us/legal/terms-and-conditions/product-and-service-terms-and-conditions/sage-intacct/tos/",
+      "title": "Sage Intacct Terms of Service - United States",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.rklesolutions.com/blog/sage-intacct-api-limits-what-are-they-why-should-you-care",
+      "title": "Sage Intacct API Limits: What Are They? Why Should You Care? (RKL eSolutions, third-party Sage partner)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.getknit.dev/blog/sage-intacct-api-integration-guide-in-depth",
+      "title": "Sage Intacct API Integration Guide: REST, XML & Auth (Knit, third-party)",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: the network egress proxy blocked direct fetches of intacct.com, developer.intacct.com, and developer.sage.com, so vendor-page content was consulted through search-engine excerpts of those exact pages rather than full page fetches; nav paths and claims should be re-verified against the live docs and tenant. Honest unknowns: no single-click whole-company backup/export exists in the docs consulted — DDS is the closest whole-tenant route and is a separately subscribed module; the complete list of DDS cloud-storage destinations was not confirmed (S3 appears in an official developer sample; report scheduling separately documents Dropbox, Box, Google Drive, Amazon S3); official current API rate-limit/Performance-Tier numbers were only seen via partner/third-party sources; audit-trail retention has documented capture-start dates (May 2016) and pre-2019 gaps but no documented purge window; Advanced Audit Trail exists as a distinct feature and was not researched in depth. API access of any kind requires a paid Web Services developer license."
+}

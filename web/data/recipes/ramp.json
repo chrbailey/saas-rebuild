@@ -1,0 +1,167 @@
+{
+  "schema_version": "0.7.0",
+  "app": "ramp",
+  "app_name": "Ramp",
+  "vendor": "Ramp",
+  "category": "ap-ar-spend",
+  "export_rights": {
+    "summary": "Ramp's help center states transaction data and receipts are securely stored for as long as the customer remains active, and admins can self-serve CSV/ZIP exports and API access. The DPA states that following termination Ramp will, upon written request, delete or destroy personal data (subject to ordinary-course backups and legal/fraud-prevention retention); it documents deletion rights, not an affirmative post-termination export window.",
+    "tos_url": "https://ramp.com/legal/customer-terms/services-terms/dpa",
+    "post_termination_window": null
+  },
+  "routes": [
+    {
+      "route_type": "api",
+      "covers": [
+        "transactions",
+        "cards",
+        "users",
+        "departments",
+        "locations",
+        "vendors",
+        "reimbursements",
+        "bills",
+        "receipts",
+        "statements",
+        "accounting-data"
+      ],
+      "how": "Ramp Developer API: REST endpoints under https://api.ramp.com/developer/v1/ (e.g. /transactions, /bills, /reimbursements, /receipts). Create an app under Settings > Developer, add the Client Credentials grant type, configure scopes (pattern resource:permission, e.g. transactions:read), then exchange client credentials for an OAuth 2.0 access token. OpenAPI spec published at https://docs.ramp.com/openapi/developer-api.json; plain-text docs at https://docs.ramp.com/llms.txt.",
+      "formats": ["json"],
+      "requires": [
+        "Owner or Admin role to access Settings > Developer and create client credentials",
+        "OAuth scopes granted per resource (e.g. transactions:read)"
+      ],
+      "rate_limits": "100 requests per minute per key; exceeding returns 429 Too Many Requests. Page size per request must be 2-100 (default 20).",
+      "gotchas": [
+        "Access is scope-gated per resource; an app only sees resources whose scopes were configured",
+        "Paginated at max 100 records per page, so large tenants require many requests under the 100 req/min cap"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["transactions", "bills", "reimbursements", "travel-bookings", "insights-data", "out-of-policy-transactions"],
+      "how": "From the Transactions, Bill Pay, Insights, Travel, and related pages, click the download icon (Travel uses 'Export settings' from the download icon) to export the table as CSV. Applied filters carry into the export. Small files download in the browser; larger files are sent via an emailed download link.",
+      "formats": ["csv"],
+      "requires": [
+        "Owner or Admin role for company-wide exports; Managers get CSVs scoped to their teams only"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Filtered views export only the filtered rows",
+        "Large exports arrive asynchronously by email rather than as an immediate download"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["receipts", "attachments"],
+      "how": "Bulk receipt download: go to Expenses > Transactions or Reimbursements, use the History tab, apply date/user/department/amount filters, click the download icon at top right and select the file type. Small downloads land in the browser; larger ones arrive as an emailed link to a ZIP file.",
+      "formats": ["zip", "csv"],
+      "requires": [
+        "Admin role for bulk receipt downloads; Managers can only download receipts individually"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Bulk receipt download is filter-driven per tab (Transactions vs Reimbursements), so a full archive requires repeating per tab/date range"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["saved-reports", "spend-analytics"],
+      "how": "Insights > Reports: open a saved report and click Share (top right) to share or export it. Table data exports as CSV (browser download, or emailed for large files); large PDF reports are built in the background and delivered as an emailed download link valid for 24 hours.",
+      "formats": ["csv", "pdf"],
+      "requires": [
+        "Owner, Admin, Accounting, or Reporting Admin role (Managers cannot share or export reports)"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Emailed PDF report links expire after 24 hours"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log", "authentication-events", "admin-actions"],
+      "how": "Ramp Audit Log lives in the company settings page and tracks actions by Ramp and teammates (including login/logout events with method, MFA, IP, location). Within each section of the audit log, click the download icon on the right-hand side to export that section as CSV.",
+      "formats": ["csv"],
+      "requires": [
+        "Administrator or Owner role",
+        "Ramp Plus plan"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Vendor states not all admin actions are instrumented (some integration setup events and older administrative behaviors are missing)",
+        "Export is per-section, not one consolidated file",
+        "Audit-log retention period is not documented"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Receipts bulk-download from Expenses > Transactions and Reimbursements (History tab > filter > download icon; large jobs emailed as a ZIP link); receipts are also exposed via the Developer API /receipts endpoint. Bill/invoice document bulk export is not explicitly documented.",
+    "audit_log": "Ramp Audit Log (company settings; Admin/Owner on Ramp Plus) exports per-section CSVs via the download icon. Retention period is not documented; vendor notes some admin actions are not yet instrumented.",
+    "config_artifacts": null
+  },
+  "sources": [
+    {
+      "url": "https://support.ramp.com/hc/en-us/articles/16728837805715-Exporting-your-data-to-CSV",
+      "title": "Exporting your data to CSV – Ramp Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.ramp.com/hc/en-us/articles/360060162494-Downloading-receipts",
+      "title": "Downloading receipts – Ramp Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.ramp.com/hc/en-us/articles/42279450714259-Ramp-Audit-Log",
+      "title": "Ramp Audit Log – Ramp Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.ramp.com/hc/en-us/articles/6659830677395-Audit-history",
+      "title": "Audit history – Ramp Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.ramp.com/hc/en-us/articles/46681939909907-Accessing-the-Developer-API",
+      "title": "Accessing the Developer API – Ramp Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.ramp.com/developer-api/v1/api/limits",
+      "title": "Rate limits – Ramp API docs",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.ramp.com/developer-api/v1/overview/scopes",
+      "title": "Authorization (scopes) – Ramp API docs",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.ramp.com/developer-api/v1/reference/rest/bills",
+      "title": "Bills API – Ramp API docs",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.ramp.com/developer-api/v1/reference/rest/receipts",
+      "title": "Receipts API – Ramp API docs",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.ramp.com/hc/en-us/articles/6048244057747-Real-time-reporting",
+      "title": "Real-time reporting – Ramp Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.ramp.com/hc/en-us/articles/31817848602131-Exporting-Bills-via-CSV",
+      "title": "Exporting Bills via CSV – Ramp Help Center",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://ramp.com/legal/customer-terms/services-terms/dpa",
+      "title": "Data Processing Addendum – Ramp Legal",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: the network egress proxy in the research environment blocked direct fetches of ramp.com, support.ramp.com, and docs.ramp.com, so all claims derive from search-engine summaries quoting those vendor pages rather than direct page fetches; treat every route as a hypothesis to verify in-tenant. No whole-account/tenant backup export is documented — full extraction is assembled from per-entity CSV exports, bulk receipt ZIPs, and the Developer API. Ramp also documents accounting-formatted exports (Universal CSV, Custom Accounting CSV Exports, QuickBooks Desktop file export) whose article titles were confirmed but whose exact nav paths and column details were not, so they are omitted from routes. Configuration/customization export (custom fields, approval workflows, accounting rules as restorable artifacts) is not documented. Audit-log retention and any post-termination retrieval window are not documented; the DPA covers deletion on written request, not a retrieval window."
+}

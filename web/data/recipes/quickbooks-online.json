@@ -1,0 +1,184 @@
+{
+  "schema_version": "0.7.0",
+  "app": "quickbooks-online",
+  "app_name": "QuickBooks Online",
+  "vendor": "Intuit",
+  "category": "accounting",
+  "export_rights": {
+    "summary": "Customers can export their reports and lists to Excel from the UI at any time and can migrate the full company file out via Intuit's QBO-to-Desktop migration tool. After cancelling a paid subscription the account goes read-only for one year, during which data can still be reviewed, exported, and printed; the Terms of Service advise customers to export and retain their own copies before termination, as Intuit disclaims responsibility for providing access afterward.",
+    "tos_url": "https://www.intuit.com/legal/terms/en-us/quickbooks/online/",
+    "post_termination_window": "1 year of read-only access after cancelling a paid subscription (export and print still allowed during this window); 90 days for cancelled/expired trials; data is deleted after the window ends"
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": [
+        "reports (general ledger, P&L, balance sheet, transaction detail)",
+        "customers",
+        "vendors",
+        "chart-of-accounts",
+        "products-and-services"
+      ],
+      "how": "Settings (gear) > TOOLS > Export data; pick a reason, set date range on the Reports tab, toggle items on the Reports and Lists tabs, then Export to Excel — delivered as one .zip of Excel files",
+      "formats": ["xlsx", "zip"],
+      "requires": ["company admin access"],
+      "rate_limits": null,
+      "gotchas": [
+        "Transactional history comes out as reports, not raw transaction tables",
+        "Attachments are not included — they export separately from the Attachments page",
+        "Audit log is not part of this export"
+      ]
+    },
+    {
+      "route_type": "account-export",
+      "covers": ["full company file (lists and transactions) for QuickBooks Desktop"],
+      "how": "Open the Export Overview page by replacing the URL path after /app/ with exportqbodatatoqbdt (https://app.qbo.intuit.com/app/exportqbodatatoqbdt), select Get Started > Download tool, run the migration tool, and download the QBXML file; import it into QuickBooks Desktop from the No Company Open screen",
+      "formats": ["qbxml"],
+      "requires": [
+        "company admin access",
+        "Windows machine with QuickBooks Desktop installed and open",
+        "supported desktop browser"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Requires a QuickBooks Desktop install to receive the file, so the artifact is only readable via Desktop",
+        "Vendor documents this as a migration path; fidelity limits of the conversion are not fully enumerated in the article consulted"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": [
+        "all accounting entities (invoices, bills, payments, customers, vendors, items, accounts, journal entries, etc.)",
+        "attachments (Attachable entity)",
+        "reports (Reports API)"
+      ],
+      "how": "QuickBooks Online Accounting API v3 (REST, JSON): OAuth 2.0 authorization-code flow via an app registered at developer.intuit.com; read entities with GET /v3/company/{realmId}/query using the SQL-like query language, paginate with STARTPOSITION/MAXRESULTS; use the change-data-capture (CDC) operation for incremental sync and the batch endpoint to bundle operations",
+      "formats": ["json", "xml"],
+      "requires": [
+        "Intuit developer account and registered app with the Accounting scope",
+        "OAuth 2.0 access token (expires ~1 hour; refresh token for renewal)",
+        "company admin consent to connect the app"
+      ],
+      "rate_limits": "500 requests/minute per company (realmId) with a concurrent-request cap (commonly cited as 10); the batch endpoint is throttled separately at a lower per-realm rate; 429/403 throttling errors with backoff expected",
+      "gotchas": [
+        "Query pagination is offset-based and MAXRESULTS is capped at 1000 per page",
+        "CDC only covers changes within a ~30-day window — beyond that a full re-query is needed",
+        "Exact batch-endpoint throttle figures differ between sources consulted (40 vs 120 requests/min per realm); verify against current Intuit developer docs"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["customers"],
+      "how": "Customer Hub > Customers & leads > Export icon (next to Print) > Export to Excel; equivalent export icons exist on other list pages",
+      "formats": ["xlsx"],
+      "requires": ["user with access to the relevant list"],
+      "rate_limits": null,
+      "gotchas": [
+        "Exports the visible list columns, not every stored field on the record"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": [
+        "any standard or customized report (transaction detail, account list, recurring template list, etc.)"
+      ],
+      "how": "Reports > Standard reports > open the report > Export/Print dropdown > Export to Excel (customize date range and columns first)",
+      "formats": ["xlsx", "pdf"],
+      "requires": ["user with reports access"],
+      "rate_limits": null,
+      "gotchas": [
+        "Report output reflects on-screen customization; wide date ranges must be set before export"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["attachments (receipts, documents attached to transactions)"],
+      "how": "Settings (gear) > Attachments; select files, Batch actions > Export; downloads a .zip of the selected files",
+      "formats": ["zip (original file formats inside)"],
+      "requires": ["company admin access"],
+      "rate_limits": null,
+      "gotchas": [
+        "The page shows a maximum of 300 files at a time — with more attachments you must page through and repeat the batch export per page",
+        "Attachments are never bundled into the Export data zip; this is the only documented UI bulk route"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log (user activity, transaction add/edit/delete history)"],
+      "how": "Settings (gear) > Audit log (admins only); filter by user, date, and event type; use the Print icon to produce a hard/PDF copy via the browser print dialog",
+      "formats": ["print/pdf via browser"],
+      "requires": ["company admin role"],
+      "rate_limits": null,
+      "gotchas": [
+        "Vendor community responses state direct export to Excel is unavailable — print is the documented output",
+        "Displays 150 records at a time and only the first 300 lines print, so large logs must be sliced with filters",
+        "Events are retained for two years; the audit log cannot be turned off"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Bulk export via Settings > Attachments > select > Batch actions > Export (zip); page shows max 300 files at a time so repeat per page. Programmatic alternative: query and download Attachable entities via the Accounting API. Attachments are excluded from the Export data zip.",
+    "audit_log": "Viewable/filterable by admins at Settings > Audit log; events retained for two years. No documented bulk export — vendor community states Excel export is unavailable and printing is limited (150 records shown, first 300 lines printed), so capture requires filtered print/PDF passes or is lost beyond the two-year retention.",
+    "config_artifacts": "Partial only: chart of accounts and other lists export to Excel via Settings > Export data or list reports (e.g. Account List, Recurring Template List reports), but these are listings, not restorable artifacts. No documented export exists for custom form styles, custom fields, user roles, or automation settings — the only documented full-fidelity config carrier is the QBO-to-Desktop migration (QBXML)."
+  },
+  "sources": [
+    {
+      "url": "https://quickbooks.intuit.com/learn-support/en-us/help-article/list-management/export-reports-lists-data-quickbooks-online/L1xleDrLp_US_en_US",
+      "title": "Export your QuickBooks Online data (Intuit help article)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://quickbooks.intuit.com/learn-support/en-us/help-article/import-export-data-files/export-customer-data-excel/L0ZerVWiO_US_en_US",
+      "title": "Export customer data to Excel in QuickBooks (Intuit help article)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://quickbooks.intuit.com/learn-support/en-us/help-article/report-management/export-reports-excel-quickbooks-online/L7iAoP97n_US_en_US",
+      "title": "Export reports to Excel from QuickBooks Online (Intuit help article)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://quickbooks.intuit.com/learn-support/en-us/help-article/import-export-data-files/export-convert-quickbooks-online-data-quickbooks/L0tKtLwhn_US_en_US",
+      "title": "Using the migration tool to move data from QuickBooks Online to QuickBooks Desktop (Intuit help article)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://quickbooks.intuit.com/learn-support/en-us/help-article/audit-log/use-audit-log-quickbooks-online/L2WoVnW6I_US_en_US",
+      "title": "Use the audit log in QuickBooks Online (Intuit help article)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://quickbooks.intuit.com/learn-support/en-us/reports-and-accounting/printing-audit-log/00/1119212",
+      "title": "Printing Audit Log (QuickBooks Community, Intuit moderator answer)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://quickbooks.intuit.com/learn-support/en-us/reports-and-accounting/download-attachments-in-bulk/00/878605",
+      "title": "Download attachments in bulk (QuickBooks Community, Intuit moderator answer)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://quickbooks.intuit.com/learn-support/en-us/help-article/access-permissions/happens-quickbooks-online-data-cancel/L6qDpbE1B_US_en_US",
+      "title": "What happens to my QuickBooks Online data after I cancel? (Intuit help article)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.intuit.com/legal/terms/en-us/quickbooks/online/",
+      "title": "Intuit Terms of Service for QuickBooks Online (US)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.developer.intuit.com/s/question/0D5TR00000oMNgN0AW/qbo-api-throttling-and-rate-limiting",
+      "title": "QBO API throttling and rate limiting (Intuit Developer Help)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://blogs.intuit.com/2025/08/11/best-practices-for-intuit-api-optimization-part-1/",
+      "title": "Best Practices for Intuit API Optimization: Part 1 (Intuit Developer Community Blog)",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research constraint: all Intuit domains (quickbooks.intuit.com, developer.intuit.com, blogs.intuit.com, intuit.com) were blocked by the network egress proxy for direct fetch, so every claim here derives from search-engine extracts of the cited vendor pages rather than full-page reads — treat nav paths and numeric limits as needing in-tenant confirmation. Known open questions: (1) batch-endpoint throttle is variously reported as 40 or 120 requests/min per realm; (2) one search extract of a current audit-log writeup mentioned an 'Export to CSV' button, but that claim could not be tied to a vendor page (Intuit community answers say Excel export is unavailable), so it is omitted from routes; (3) the concurrent-request cap for the API (10 vs 40) differed between sources; (4) the ToS deletion-timeline extract ('permanently deleted after 30 days') may come from a non-US ToS variant and conflicts with the US help article's 1-year read-only window, which is the figure used above; (5) whether the QBO-to-Desktop migration tool carries attachments and all config was not documented in the extracts consulted."
+}

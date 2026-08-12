@@ -1,0 +1,163 @@
+{
+  "schema_version": "0.7.0",
+  "app": "google-workspace",
+  "app_name": "Google Workspace",
+  "vendor": "Google",
+  "category": "productivity-suite",
+  "export_rights": {
+    "summary": "Per the Cloud Data Processing Addendum (which covers Google Workspace), Google will enable the customer, during the term and in a manner consistent with the functionality of the services, to access, rectify, restrict processing of, and export customer data. The customer may instruct return of data during the term and retains a recovery window after the term ends before deletion.",
+    "tos_url": "https://cloud.google.com/terms/data-processing-addendum",
+    "post_termination_window": "Up to 30 days after end of term (CDPA 'recovery period'); after that, Google deletes remaining customer data within a maximum of 180 days unless law requires storage."
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": [
+        "gmail-messages",
+        "drive-files",
+        "groups-archives",
+        "chat-messages",
+        "voice-messages",
+        "calendar-events"
+      ],
+      "how": "Google Vault API (vault.googleapis.com): POST /v1/matters to create a matter, POST /v1/matters/{matterId}/exports (matters.exports.create) with a query plus ExportOptions per service; poll matters.exports.get until status COMPLETED; export files land in a Google-managed Cloud Storage bucket (cloudStorageSink.files gives bucketName/objectName) and are downloaded via the Cloud Storage JSON or XML API. OAuth 2.0 with scope https://www.googleapis.com/auth/ediscovery.",
+      "formats": ["MBOX", "PST", "ICS", "XML", "JSON"],
+      "requires": [
+        "Google Vault privileges and access to the matter (creator, shared, or View All Matters privilege)",
+        "OAuth 2.0 token with https://www.googleapis.com/auth/ediscovery scope"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Export names containing special characters (~!$'(),;@:/?) can prevent the export from being downloaded (per Vault API schema docs)",
+        "Gmail confidential-mode content is only included when MailExportOptions.showConfidentialModeContent=true",
+        "Drive files linked from Gmail messages are only included when MailExportOptions.exportLinkedDriveFiles=true",
+        "Drive access-level metadata for indirect-access users requires DriveExportOptions.includeAccessInfo=true",
+        "Vault edition/SKU availability requirements could not be confirmed from reachable docs"
+      ]
+    },
+    {
+      "route_type": "bulk-api",
+      "covers": ["gmail-messages", "gmail-labels", "gmail-threads", "gmail-drafts"],
+      "how": "Gmail API (gmail.googleapis.com): GET /gmail/v1/users/{userId}/messages (users.messages.list, paginated) then GET /gmail/v1/users/{userId}/messages/{id}?format=raw (users.messages.get) to retrieve each message as full RFC 822 content; labels, threads, and drafts have parallel list/get resources. OAuth 2.0 bearer token with https://www.googleapis.com/auth/gmail.readonly scope.",
+      "formats": ["JSON", "raw RFC 822 (base64url in JSON envelope)"],
+      "requires": [
+        "OAuth 2.0 token with https://www.googleapis.com/auth/gmail.readonly scope, authorized for each target mailbox"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "users.messages.list returns at most 500 messages per page (default 100); paginate via nextPageToken",
+        "format=raw returns the message base64url-encoded inside a JSON envelope; decode to get the .eml content",
+        "Org-wide (other users') mailbox access requires admin-side authorization; the mechanism (domain-wide delegation) is not documented in the sources reachable from this environment"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["drive-files", "drive-file-metadata", "drive-permissions", "shared-drive-files"],
+      "how": "Google Drive API v3 (https://www.googleapis.com/drive/v3/): GET /files (files.list, paginated) to enumerate, GET /files/{fileId} with alt=media to download binary content, GET /files/{fileId}/export?mimeType=... (files.export) to convert Google-native documents (Docs/Sheets/Slides) to standard formats; the About resource's exportFormats map lists supported source-to-target MIME conversions. OAuth 2.0 with https://www.googleapis.com/auth/drive.readonly or drive scope.",
+      "formats": ["original binary formats", "exported MIME types per about.exportFormats map"],
+      "requires": [
+        "OAuth 2.0 token with https://www.googleapis.com/auth/drive.readonly (or broader drive) scope, authorized for each target user or shared drive"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "files.export content is limited to 10 MB per exported file (per API reference); larger Google-native docs need another route (e.g. Vault Drive export)",
+        "Google-native files (Docs/Sheets/Slides) have no binary content to download directly; they must be exported/converted",
+        "Shared drive items require supportsAllDrives=true on requests or they may be missing"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["users", "groups", "group-members", "org-units", "user-aliases", "mobile-devices", "roles"],
+      "how": "Admin SDK Directory API (admin.googleapis.com): GET /admin/directory/v1/users (users.list, paginated, per domain or customer), GET /admin/directory/v1/groups (groups.list), GET /admin/directory/v1/groups/{groupKey}/members (members.list); parallel resources exist for org units, role management, aliases, and mobile devices. OAuth 2.0 with the relevant admin.directory.*.readonly scopes.",
+      "formats": ["JSON"],
+      "requires": [
+        "Google Workspace admin credentials/authorization for Admin SDK",
+        "OAuth 2.0 token with admin.directory.* readonly scopes (e.g. admin.directory.user.readonly, admin.directory.group.readonly)"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "users.list and groups.list are paginated; iterate nextPageToken",
+        "members.list times out after 60 minutes on very large groups (per API reference)"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log", "admin-activity", "login-activity", "drive-activity", "token-activity", "usage-reports"],
+      "how": "Admin SDK Reports API (admin.googleapis.com): GET /admin/reports/v1/activity/users/{userKey}/applications/{applicationName} (activities.list) with applicationName from a documented enum (admin, login, drive, gmail, token, groups, calendar, chat, meet, vault, saml, chrome, and others); filter with startTime/endTime (RFC 3339), paginate with nextPageToken. Usage data via customerUsageReports.get / userUsageReport.get / entityUsageReports.get. OAuth 2.0 with https://www.googleapis.com/auth/admin.reports.audit.readonly (and admin.reports.usage.readonly for usage).",
+      "formats": ["JSON"],
+      "requires": [
+        "Google Workspace admin authorization for Admin SDK Reports",
+        "OAuth 2.0 token with admin.reports.audit.readonly / admin.reports.usage.readonly scopes"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "maxResults is capped at 1000 activity records per page",
+        "For the gmail application, startTime and endTime are mandatory and may span at most 30 days per request",
+        "Overall audit-log retention periods are documented on support.google.com, which was unreachable from this environment — verify retention in-tenant before relying on this route for history"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["calendars", "calendar-events", "calendar-acls"],
+      "how": "Google Calendar API v3 (https://www.googleapis.com/calendar/v3/): GET /users/me/calendarList (calendarList.list) to enumerate calendars, then GET /calendars/{calendarId}/events (events.list, paginated) per calendar; acl.list exposes per-calendar sharing. OAuth 2.0 with calendar.readonly-class scopes.",
+      "formats": ["JSON"],
+      "requires": [
+        "OAuth 2.0 token with Calendar API read scopes, authorized per user"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "API returns JSON event resources, not ICS; Vault's Calendar export and end-user Takeout are the documented ICS-producing routes (Takeout docs unreachable from this environment)"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Drive files bulk-extract via Drive API files.list + files.get (alt=media); Google-native docs must go through files.export, which is limited to 10 MB per file. Gmail attachments come out inside raw RFC 822 messages (Gmail API format=raw) or via Vault Gmail exports (MBOX/PST), with linked Drive files optionally included via exportLinkedDriveFiles.",
+    "audit_log": "Exportable as JSON via Admin SDK Reports API activities.list per application (admin, login, drive, gmail, token, etc.), paginated at 1000 records/page; gmail activity queries limited to 30-day windows. Documented retention periods live on support.google.com, which was unreachable from this environment — retention unconfirmed.",
+    "config_artifacts": "Org structure (users, groups, members, org units, roles, aliases) is readable as JSON via the Admin SDK Directory API, but no restorable whole-tenant export of Admin console settings/policies was documented in the sources reachable from this environment."
+  },
+  "sources": [
+    {
+      "url": "https://cloud.google.com/terms/data-processing-addendum",
+      "title": "Cloud Data Processing Addendum (Google Cloud and Google Workspace)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.googleapis.com/discovery/v1/apis/vault/v1/rest",
+      "title": "Google API Discovery document: Google Vault API v1",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest",
+      "title": "Google API Discovery document: Gmail API v1",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
+      "title": "Google API Discovery document: Google Drive API v3",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.googleapis.com/discovery/v1/apis/admin/directory_v1/rest",
+      "title": "Google API Discovery document: Admin SDK API directory_v1",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.googleapis.com/discovery/v1/apis/admin/reports_v1/rest",
+      "title": "Google API Discovery document: Admin SDK API reports_v1",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
+      "title": "Google API Discovery document: Google Calendar API v3",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.googleapis.com/discovery/v1/apis/admin/datatransfer_v1/rest",
+      "title": "Google API Discovery document: Admin SDK API datatransfer_v1",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research constraint: this environment's egress proxy blocks support.google.com, developers.google.com, workspace.google.com, and other Google doc hosts; only cloud.google.com and googleapis.com (API Discovery Service) were reachable, and the web-search budget was exhausted. Consequently several well-known routes are deliberately omitted rather than described from memory: the Admin console Data Export tool ('Takeout for organizations', support.google.com/a/answer/100458), end-user Google Takeout (MBOX/ICS/HTML archives), Google Chat/Groups UI exports, and any edition/SKU gating (e.g. which editions include Vault). API quota/rate-limit pages were also unreachable, so all rate_limits are null — quotas exist and must be checked before bulk extraction. The Admin SDK Data Transfer API (admin.googleapis.com/admin/datatransfer/v1/transfers) transfers Drive/Calendar ownership between users at offboarding; it moves data rather than exporting it, so it is not listed as a route. Retrieved dates use the actual consultation date (2026-08-08) because the schema requires a YYYY-MM-DD value."
+}
