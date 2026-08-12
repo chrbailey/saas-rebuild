@@ -1,0 +1,128 @@
+{
+  "schema_version": "0.7.0",
+  "app": "deel",
+  "app_name": "Deel",
+  "vendor": "Deel",
+  "category": "hr-payroll",
+  "export_rights": {
+    "summary": "Deel's terms of service and DPA were unreachable in this research pass, so the contractual export-rights statement and any post-termination retrieval window are undocumented here. Deel's own API documentation (consulted via mirrors and its official SDK) shows that a tenant admin can generate scoped bearer tokens and programmatically retrieve the organization's people, contract, timesheet, payroll, invoice, and document data via the public REST API.",
+    "tos_url": null,
+    "post_termination_window": null
+  },
+  "routes": [
+    {
+      "route_type": "api",
+      "covers": [
+        "people",
+        "contracts",
+        "timesheets",
+        "time-off",
+        "invoices",
+        "payments-receipts",
+        "adjustments",
+        "milestones",
+        "tasks",
+        "legal-entities",
+        "teams",
+        "organizations",
+        "candidates",
+        "eor-worker-data",
+        "users-scim-profiles"
+      ],
+      "how": "Deel REST API v2 at https://api.letsdeel.com/rest/v2, Authorization: Bearer <token>. Token generated in-app: Apps & Perks > Developer Center > Generate New Token (shown once). Paginated GET list endpoints include /people, /contracts, /timesheets, /time_offs, /invoices, /invoices/deel (Deel's own fee invoices), /payments plus /payments/{payment_id}/breakdown, /adjustments, /legal-entities, /teams, /organizations, /candidates, and SCIM-style /Users and /Users/.search for user profiles.",
+      "formats": ["JSON"],
+      "requires": [
+        "organization admin access to Developer Center to generate an API token",
+        "token scopes per endpoint family, e.g. people:read, contracts:read, timesheets:read, time-off:read, accounting:read, payslips:read, global-payroll:read, invoice-adjustments:read, benefits:read, worker:read"
+      ],
+      "rate_limits": "Not numerically documented in consulted sources. Mirrored API metadata reports per-token limits returning HTTP 429 with a Retry-After header and cites a vendor rate-limit docs page (developer.deel.com/docs/rate-limit), which was unreachable in this pass — verify live headers.",
+      "gotchas": [
+        "JSON responses only; no whole-tenant bulk-export endpoint appears anywhere in the consulted API specs",
+        "list endpoints paginate (limit/offset or cursor style depending on endpoint) — iterate to exhaustion per entity",
+        "API tokens are shown once at generation and cannot be viewed again"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["gross-to-net-payroll-reports", "payroll-events"],
+      "how": "Global Payroll reporting endpoints on the same REST API: GET /gp/reports/{id}/gross_to_net lists gross-to-net reports and GET /gp/reports/{id}/gross_to_net/csv downloads the report as CSV; GET /gp/legal-entities/{legal_entity_id}/reports lists payroll events per legal entity; GET /reports/payroll/cycles/{cycle_id}/gross-to-net and GET /cycles/{cycle_id}/payroll-report return categorized G2N data per payroll cycle.",
+      "formats": ["CSV", "JSON"],
+      "requires": [
+        "API token with global-payroll:read (G2N reports) or payslips:read (cycle G2N data) scope",
+        "Global Payroll product in use — these endpoints cover GP legal entities and cycles"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "the CSV download is the only CSV-format export found in the consulted API specs; all other report data returns as JSON",
+        "in-app admin report builder / UI CSV exports could not be researched (help center unreachable) — verify in tenant"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": [
+        "payslip-pdfs",
+        "invoice-pdfs",
+        "contract-documents",
+        "employee-agreements",
+        "compliance-documents",
+        "tax-documents"
+      ],
+      "how": "Per-item document download endpoints on the REST API: GET /invoices/{invoice_id}/download (returns a link to the invoice PDF), GET /gp/workers/{id}/payslips/{payslip_id}/download and GET /eor/workers/{worker_id}/payslips/{payslip_id}/download (payslip PDF download links), GET /contracts/{contract_id}/documents, GET /eor/workers/contracts/{contract_id}/employee-agreement/download, GET /eor/workers/compliance-documents/{document_id}/download, GET /eor/workers/tax-documents, GET /workers/contracts/{contract_id}/pdf (contract PDF link). Enumerate parent entities via list endpoints, then download file-by-file.",
+      "formats": ["PDF"],
+      "requires": [
+        "API token scopes: accounting:read (invoices), payslips:read (payslips), worker:read (agreements, compliance and tax documents), contracts:read"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "download endpoints return links rather than streaming the file directly — fetch the link promptly in case it is time-limited",
+        "no bulk/archive file export is documented; extraction is strictly one file per call",
+        "several document endpoints are worker-context (worker:read) rather than org-admin context — coverage from an org token needs in-tenant verification"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": [
+        "custom-field-definitions",
+        "contract-templates",
+        "webhook-subscriptions"
+      ],
+      "how": "Read configuration objects as JSON via the REST API: GET /people/custom_fields and GET /contracts/custom_fields (custom field definitions, plus per-worker/per-contract values), GET /contract-templates (org contract templates), GET /webhooks and GET /webhooks/events/types (webhook subscriptions and available event types).",
+      "formats": ["JSON"],
+      "requires": ["API token with the matching read scopes"],
+      "rate_limits": null,
+      "gotchas": [
+        "these are read-only JSON snapshots, not a documented restorable import/export package format"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "No bulk file export documented. Payslips, invoices, contract documents, employee agreements, compliance and tax documents are each fetched per item through API download endpoints that return PDF links; plan a crawl over list endpoints then per-file downloads.",
+    "audit_log": null,
+    "config_artifacts": "Custom field definitions, contract templates, and webhook subscriptions are readable as JSON via the API; no restorable import format or configuration-package export is documented in the consulted sources."
+  },
+  "sources": [
+    {
+      "url": "https://www.npmjs.com/package/@deel-developers/deel",
+      "title": "Deel API TypeScript SDK (official npm package published by Deel public-api-eng; tarball inspected: base URL https://api.letsdeel.com/rest/v2, bearer auth, People/Contracts/Timesheets/Organizations/Webhooks APIs)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/letsdeel/public-api-samples",
+      "title": "Deel Public API samples (official Deel GitHub org; confirms developer portal at developer.deel.com/docs/welcome)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/api-evangelist/deel",
+      "title": "API Evangelist mirror of Deel OpenAPI definitions (92 subpackage specs with vendor-authored endpoint descriptions and token scopes: reports, payslips, invoices, custom fields, SCIM, plus derived auth/rate-limit metadata)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/jentic/jentic-public-apis/refs/heads/main/apis/openapi/letsdeel.com/main/1.25.0/openapi.json",
+      "title": "Deel REST API OpenAPI 1.25.0 (Jentic mirror; vendor-authored auth description including in-app token generation steps: Apps & Perks > Developer Center)",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research constraint: all Deel-owned domains (developer.deel.com, help.deel.com, deel.com legal pages) were blocked by the network egress policy and the web-search budget was exhausted, so this recipe is built from Deel's own OpenAPI specifications and SDK obtained via mirrors (api-evangelist, jentic) and Deel's official npm package and GitHub samples — vendor-authored text, but not fetched from the live vendor portal. Consequently the following are honest unknowns, not absences in the product: (1) admin-UI per-entity CSV exports and any in-app report builder; (2) any whole-account export/backup feature; (3) audit-log export and its retention; (4) ToS/DPA export-rights language and post-termination retrieval window; (5) numeric API rate limits (a vendor page developer.deel.com/docs/rate-limit exists per mirror metadata). Verify all five against developer.deel.com and help.deel.com from an unrestricted network, and check the live tenant. SCIM-style /Users endpoints appear under the same REST base in the consulted specs."
+}

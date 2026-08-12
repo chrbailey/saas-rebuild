@@ -1,0 +1,222 @@
+{
+  "schema_version": "0.7.0",
+  "app": "sap-concur",
+  "app_name": "SAP Concur",
+  "vendor": "SAP",
+  "category": "ap-ar-spend",
+  "export_rights": {
+    "summary": "Per SAP's General Terms and Conditions for Cloud Services, the customer can access and export its Customer Data during the subscription term in a standard format (subject to technical limitations), and after termination SAP provides limited access strictly for data export before deleting Customer Data from its servers.",
+    "tos_url": "https://assets.cdn.sap.com/agreements/general-terms-and-conditions/cls/general-terms-and-conditions-for-sap-cloud-services-direct-united-states-english-v10-2018.pdf",
+    "post_termination_window": "Up to 1 month 'Retrieval Period' of limited access strictly for exporting Customer Data (SAP GTC for Cloud Services); confirm the window in the customer's own order form/GTC version"
+  },
+  "routes": [
+    {
+      "route_type": "bulk-api",
+      "covers": ["expense-reports-approved", "invoices", "payment-requests", "accounting-extract-files"],
+      "how": "Extracts v1 web service: GET https://{InstanceURL}/api/expense/extract/v1.0 to list extract definitions, POST /{DefinitionID}/job to run, GET /{DefinitionID}/job/status until Complete, then GET /{DefinitionID}/job/{JobID}/file to download the extract (e.g. Standard Accounting Extract) over HTTP instead of SFTP; OAuth Authorization header",
+      "formats": ["flat-file extract (definition-dependent)", "XML API responses"],
+      "requires": ["OAuth token for a user with Company Administrator or Web Services Administrator role (Professional) or Can Administer (Standard)", "extract definitions configured with SAP Concur support"],
+      "rate_limits": null,
+      "gotchas": [
+        "Extract definitions (what fields/entities the file contains) are set up per-client, often with an SAP Concur support resource — content varies by configuration",
+        "Complex configurations (cash advances, company-paid corporate cards with personal amounts) produce complex journal entries; field selection needs care",
+        "Traditionally tied to the Overnight Processing Period, though the API can deliver files throughout the day"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["expense-reports", "expense-entries", "invoices-payment-requests", "users", "lists"],
+      "how": "REST APIs under geolocation base URLs (e.g. us2.api.concursolutions.com, emea2.api.concursolutions.com), OAuth2 (authorization, password, client_credentials grants; access token 1h, refresh token 6 months): Reports v3 GET /api/v3.0/expense/reports with user=ALL (Web Services Admin) and offset/limit paging; Expenses v4 GET /expensereports/v4/users/{userID}/context/{contextType}/reports/{reportId}/expenses; Invoice v3 GET /api/v3.0/invoice/paymentrequestdigests; Identity v4 / SCIM (user-provisioning) for user records; Lists v4 for list data",
+      "formats": ["JSON", "XML (v1/v3 services)"],
+      "requires": ["Registered OAuth app/client credentials (App Center partner or company-level client obtained via SAP Concur)", "scopes such as EXPRPT, user.read, expense.report.read", "Web Services Admin role for company-wide report retrieval via user=ALL"],
+      "rate_limits": "Numeric limits are not published for most APIs; a documented example is Quick Expense v4's shared limit of 120 requests per 5 minutes per userID. Access tokens expire after 1 hour; refresh tokens after 6 months.",
+      "gotchas": [
+        "APIs are per-entity and often per-user — assembling a whole-tenant dump means iterating users and reports",
+        "Reports v3 does not return Central Reconciliation reports",
+        "Store and use the token's geolocation base URI; calls to the wrong data center fail",
+        "'Access to this documentation does not provide access to the API' — company-level API access must be provisioned by SAP Concur"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["approved-expense-reports", "cash-advances", "invoices", "financial-posting-documents"],
+      "how": "Financial Integration Service v4: GET https://{datacenterURI}/financialintegration/fi/v4/companies/transactiontypes/{docType}/transactions returns financial documents ready for ERP posting; POST acknowledgements/confirmations back. Company-level OAuth token, scope FISVC",
+      "formats": ["JSON"],
+      "requires": ["Company-level access token with FISVC scope", "engagement with an SAP Concur representative to enable (Professional and Standard, Expense and Invoice; NA and EMEA data centers)"],
+      "rate_limits": null,
+      "gotchas": [
+        "Designed for ongoing ERP sync of approved/ready documents, not historical backfill of all data",
+        "Documents lock in SAP Concur after confirmation"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["approved-expense-report-accounting-data"],
+      "how": "Concur Expense Standard edition Expense File Export (accounting extract): configured from Expense Settings > Connections > Expense File Export tile; generates a file of detailed expense report data using the default format or a custom format (delimiter, date format, accounting string, offsetting GL entries); files are created and downloaded per the 'Creating and Downloading Extract Files' admin guide",
+      "formats": ["delimited flat file (CSV-style, configurable)"],
+      "requires": ["Standard edition 'Can Administer' role"],
+      "rate_limits": null,
+      "gotchas": [
+        "Covers approved/extracted expense data for accounting purposes, not unsubmitted reports or full history",
+        "Custom format requires configuring six sections; default format needs no setup"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["expense-transactions", "reports", "travel-spend", "invoice-spend", "custom-report-data"],
+      "how": "Reporting > Intelligence or Analysis (Cognos-based reporting): run standard or custom reports and download results to Excel; with the Intelligence tier, schedule reports and use bursting to auto-generate per-recipient output delivered by email (FTP delivery can be requested via Client Support)",
+      "formats": ["XLSX", "other Cognos output formats"],
+      "requires": ["Analysis (included) or Intelligence (paid tier) reporting license", "reporting user/BI Manager permissions"],
+      "rate_limits": null,
+      "gotchas": [
+        "Report output is shaped by the report definition — completeness depends on building a report that includes all needed fields",
+        "Scheduling/bursting is an Intelligence-tier feature; Analysis is more limited"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["receipt-images", "expense-report-images", "invoice-images"],
+      "how": "Image v1 API: retrieve receipt/report/invoice images by reportId, imageId, or invoiceId (scope IMAGE, OAuth). Spend Documents v4: GET receipts and their representations by receipt ID or image ID + company ID (scope spenddocs.receipts.read)",
+      "formats": ["PDF", "JPG/JPEG", "PNG"],
+      "requires": ["OAuth token with IMAGE or spenddocs.receipts.read scope", "API access provisioned by SAP Concur"],
+      "rate_limits": null,
+      "gotchas": [
+        "Retrieval is per report/entry/invoice/image — no documented one-call whole-tenant bulk image export; enumerate reports first (e.g. Reports v3 hasImages=true) and fetch images per item",
+        "10 MB per-image limit; encrypted/password-protected PDFs unsupported"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["lists", "list-items", "expense-group-configurations", "expense-types", "payment-types"],
+      "how": "Lists v4 (GET configured lists shared across Concur products) and List Item Bulk v4 for list items; Expense Group Configurations v3 returns expense types and payment types per group. Read via OAuth REST calls and store JSON as reference artifacts",
+      "formats": ["JSON"],
+      "requires": ["OAuth token with list/config read scopes (e.g. spend.list.read, spend.listitem.read)"],
+      "rate_limits": null,
+      "gotchas": [
+        "These are reference/readback APIs, not a restorable configuration package — no documented export of forms, fields, workflows, or audit rules as re-importable artifacts",
+        "List Item Bulk v4 caps at 250 list items per bulk request"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["expense-report-search-results"],
+      "how": "Expense processor UI: export expense report search result data to an Excel spreadsheet (documented in the 'Exporting Data to an Excel Spreadsheet' help page and the processor export FAQ); exact click path not verifiable from this research environment",
+      "formats": ["XLSX"],
+      "requires": ["Expense Processor role"],
+      "rate_limits": null,
+      "gotchas": [
+        "Ad hoc, per-search export — not a systematic full-history route"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Receipt/report/invoice images are retrievable via Image v1 (by reportId/imageId/invoiceId; PDF/JPG/PNG, 10 MB cap) and Spend Documents v4 (by receipt/image ID); no documented whole-tenant bulk attachment export — plan a scripted per-report crawl",
+    "audit_log": null,
+    "config_artifacts": "Partial readback only: Lists v4/List Item Bulk v4 for lists and Expense Group Configurations v3 for expense/payment types export as JSON reference data; no documented restorable export of forms, fields, workflow, or policy configuration"
+  },
+  "sources": [
+    {
+      "url": "https://github.com/SAP-docs/preview.developer.concur.com",
+      "title": "SAP-docs/preview.developer.concur.com — official SAP GitHub mirror of the SAP Concur Developer Center (cloned and read locally)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/authentication/apidoc.html",
+      "title": "SAP Concur Developer Center — Authentication (OAuth2 grants, token lifetimes, geolocations)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/common/extracts/v1.extracts.html",
+      "title": "SAP Concur Developer Center — Extracts v1",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/expense/expense-report/v3.reports.html",
+      "title": "SAP Concur Developer Center — Reports v3",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/expense/expense-report/v4.expenses.html",
+      "title": "SAP Concur Developer Center — Expenses v4",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/financial-integration/v4.financial-integration.html",
+      "title": "SAP Concur Developer Center — Financial Integration Service v4",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/image/v1.image.html",
+      "title": "SAP Concur Developer Center — Image v1",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/spend-documents/v4.spend-documents.html",
+      "title": "SAP Concur Developer Center — Spend Documents v4",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/invoice/v3.payment-request-digest.html",
+      "title": "SAP Concur Developer Center — Payment Request Digest v3",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/common/lists/v4.list.html",
+      "title": "SAP Concur Developer Center — List v4",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/common/list-item/v4.list-item-bulk.html",
+      "title": "SAP Concur Developer Center — List Item Bulk v4",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/expense/quick-expense/v4.quick-expense.html",
+      "title": "SAP Concur Developer Center — Quick Expense v4 (documented 120 req/5 min per userID rate limit)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.concur.com/api-reference/profile/v4.identity.html",
+      "title": "SAP Concur Developer Center — Identity v4",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/concur-expense/concur-expense-standard-edition-tools-guides/creating-and-downloading-extract-files",
+      "title": "SAP Help Portal — Creating and Downloading Extract Files (Concur Expense Standard edition)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/concur-expense/concur-expense-standard-edition-administration-guides/file-export-data",
+      "title": "SAP Help Portal — File Export Data (Concur Expense Standard edition administration)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.sap.com/docs/CONCUR_EXPENSE/f5755419ccf14165ad6ff6816729ec08/1b51c311d86248379c4e1cf10de05d05.html",
+      "title": "SAP Help Portal — Exporting Data to an Excel Spreadsheet (Concur Expense)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://learning.sap.com/learning-journeys/getting-started-with-concur-expense-standard-for-administrators/exploring-the-basics-of-expense-file-export",
+      "title": "SAP Learning — Exploring the Basics of Expense File Export (Concur Expense Standard for Administrators)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://community.sap.com/t5/spend-management-blog-posts-by-sap/data-access-and-export-for-concur-expense-your-digital-tax-audit-assistant/ba-p/14166670",
+      "title": "SAP Community (by SAP) — Data Access and Export for Concur Expense: Your Digital Tax Audit Assistant",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://community.concur.com/t5/Reporting-Hub/How-To-Setup-and-Run-Burst-Reports-Cognos-11/ba-p/36611",
+      "title": "SAP Concur Community — How To Setup and Run Burst Reports in Cognos 11",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://assets.cdn.sap.com/agreements/general-terms-and-conditions/cls/general-terms-and-conditions-for-sap-cloud-services-direct-united-states-english-v10-2018.pdf",
+      "title": "SAP General Terms and Conditions for SAP Cloud Services (Direct) — customer data export and post-termination Retrieval Period",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research-environment caveats: help.sap.com, learning.sap.com, community.sap.com, community.concur.com, developer.concur.com, concur.com and assets.cdn.sap.com were all blocked by the network egress proxy. Developer-portal API claims (Extracts v1, Reports v3, Expenses v4, Financial Integration v4, Image v1, Spend Documents v4, Lists v4, Identity v4, authentication, Quick Expense rate limit) were read in full from SAP's own official GitHub mirror of the developer portal (SAP-docs/preview.developer.concur.com, cloned locally); the developer.concur.com URLs cited are the canonical locations of those exact documents. Claims about the Standard-edition Expense File Export, processor Excel export, Cognos Analysis/Intelligence exports, the Data Access and Export tax-audit add-on, and the SAP GTC export/Retrieval Period language come from search-engine summaries of the cited SAP pages/PDFs, not full-page fetches — verify wording in-tenant/in-contract. Honest unknowns: no whole-tenant backup/export feature is documented anywhere consulted; no audit-log/audit-trail export API or documented audit retention was found in the developer docs (expense report audit trails exist in-product but their export is undocumented in consulted sources); no restorable configuration-package export is documented. The 'Data Access and Export' add-on (web UI + AIS-format extract for tax audits, EN/DE) was documented by SAP as available for Concur Expense Professional clients in Germany at time of the blog post. Exact numeric rate limits are unpublished for most APIs. The GTC 'Retrieval Period' language is SAP's cross-cloud standard; the customer's applicable version/order form governs."
+}

@@ -1,0 +1,165 @@
+{
+  "schema_version": "0.7.0",
+  "app": "zoho-books",
+  "app_name": "Zoho Books",
+  "vendor": "Zoho",
+  "category": "accounting",
+  "export_rights": {
+    "summary": "Zoho's Terms of Service state that customers own their service data and may access it, share it via third-party integrations, and request that Zoho export or delete it. Zoho Books additionally provides admin self-serve backup of all organizational records and transactions.",
+    "tos_url": "https://www.zoho.com/terms.html",
+    "post_termination_window": null
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": [
+        "all-records-and-transactions",
+        "contacts",
+        "invoices",
+        "bills",
+        "journals"
+      ],
+      "how": "Settings > Data Backup (under Developer Space) > Backup Your Data. A download link is emailed to the registered email address; the archive contains CSV or XLS files of all records and transactions in the organization.",
+      "formats": ["csv", "xls"],
+      "requires": ["Admin user in the Zoho Books organization"],
+      "rate_limits": "Once a backup is initiated, another cannot be run for 15 days; backup takes roughly 30 minutes to complete.",
+      "gotchas": [
+        "Download link expires 30 days after the backup date",
+        "Transaction documents/attachments are not in this backup; they are a separate 'Backup Documents' run"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": [
+        "any-module-list-view",
+        "invoices",
+        "bills",
+        "payments",
+        "contacts",
+        "expenses"
+      ],
+      "how": "Open the module's list page > More icon (top right) > Export. Optionally pick or create an export template to choose fields; option to include sensitive PII; option to password-encrypt the export file.",
+      "formats": ["csv", "xls", "xlsx"],
+      "requires": ["Role with export permission for the module"],
+      "rate_limits": null,
+      "gotchas": [
+        "Only the first 25,000 rows can be exported per module export; beyond that, vendor docs direct you to the Data Backup feature"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": [
+        "invoices",
+        "bills",
+        "contacts",
+        "payments",
+        "expenses",
+        "journals",
+        "chart-of-accounts",
+        "items",
+        "users"
+      ],
+      "how": "REST API v3 (base documented at zoho.com/books/api/v3). OAuth 2.0: register a client in the Zoho Developer Console (api-console.zoho.com); access tokens expire after 1 hour and are renewed with the refresh token. Every request must carry the organization_id parameter (obtainable from GET /organizations).",
+      "formats": ["json"],
+      "requires": ["OAuth 2.0 client (Client ID/Secret)", "organization_id"],
+      "rate_limits": "100 requests/minute per organization; daily caps by plan (Free 1,000; Standard 2,000; Professional 5,000; Premium/Elite/Ultimate 10,000). HTTP 429 on breach; concurrent-call limits also enforced.",
+      "gotchas": [
+        "No dedicated bulk-read/export API is documented for Zoho Books (unlike Zoho CRM's Bulk Read), so full extraction is paginated module-by-module within daily call caps"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["attachments", "transaction-documents"],
+      "how": "Settings > Data Backup > Backup Documents tab > Backup Your Documents. The backup is sent to the organization's primary email address for download.",
+      "requires": ["Admin user in the Zoho Books organization"],
+      "rate_limits": "Cannot run another documents backup for 15 days after one is initiated.",
+      "gotchas": [
+        "Each run only includes documents added AFTER the last backup (incremental), so a first-time full dump matters; vendor community guidance says to write to support@zohobooks.com for help downloading all documents"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-trail", "activity-log"],
+      "how": "Reports > Activity > Audit Trail (Zoho Books logs every change to records, transactions, and settings with timestamp and user). Download via 'Export As' in the top right of the report and pick a file format.",
+      "requires": ["Access to the Reports module / Activity reports"],
+      "rate_limits": null,
+      "gotchas": [
+        "Audit-trail retention period is not documented in the consulted vendor pages"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["financial-reports", "aging-reports", "activity-reports"],
+      "how": "Reports module: export individual reports via 'Export As' with configurable PDF layouts; reports can also be scheduled to auto-send by email at set frequencies (Manage Reports).",
+      "requires": ["Role-based access to the relevant reports"],
+      "rate_limits": null,
+      "gotchas": []
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["chart-of-accounts"],
+      "how": "Accountant > Chart of Accounts > More icon > Export Chart of Accounts; choose CSV, XLS, or XLSX.",
+      "formats": ["csv", "xls", "xlsx"],
+      "requires": ["Access to the Accountant module"],
+      "rate_limits": null,
+      "gotchas": [
+        "Only the chart of accounts has a documented export; custom fields, workflow rules, custom functions, and PDF templates have no documented export as restorable artifacts"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Settings > Data Backup > Backup Documents tab backs up transaction documents to a link emailed to the org's primary address, but each run is incremental (only documents added since the last backup) with a 15-day cooldown; vendor community guidance directs users to support@zohobooks.com for a full attachment download.",
+    "audit_log": "Audit Trail lives under Reports > Activity and is downloadable via 'Export As'; its retention period is not stated in the consulted vendor docs — verify in-tenant.",
+    "config_artifacts": "Only the chart of accounts has a documented export (CSV/XLS/XLSX). No documented export of custom fields, workflow rules, custom functions, report customizations, or PDF templates as restorable artifacts — capture via screenshots/API reads in-tenant."
+  },
+  "sources": [
+    {
+      "url": "https://www.zoho.com/us/books/help/import-export/backup-your-data.html",
+      "title": "Back Up Your Data | Help | Zoho Books",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/us/books/help/import-export/export.html",
+      "title": "Export Data From Zoho Books | Help | Zoho Books",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/us/books/kb/documents/backup-documents.html",
+      "title": "Backup Documents | FAQ | Zoho Books",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/books/api/v3/introduction/",
+      "title": "Introduction | Zoho Books | API Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/blog/books/audit-trail-compliance-in-zoho-books.html",
+      "title": "Audit trail compliance in Zoho Books | Zoho Blog",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/books/help/reports/activity.html",
+      "title": "Activity Reports | Help | Zoho Books",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/us/books/help/reports/manage-reports.html",
+      "title": "Manage Reports | Help | Zoho Books",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/us/books/help/accountant/chart-of-accounts.html",
+      "title": "Chart of Accounts | Help | Zoho Books",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/terms.html",
+      "title": "Zoho - Terms of Service",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: direct HTTPS access to zoho.com was blocked by the research environment's egress proxy, so all vendor-page content above was gathered from search-engine renderings/summaries of the listed official Zoho pages rather than full page fetches — nav paths and limits should be re-verified in-tenant. No explicit post-termination data-retrieval window is documented; the Zoho ToS instead documents deletion timing (terminated-account data removed from the active database during a clean-up that occurs once in 6 months, and from backups ~3 months after that) and states that for inactive unpaid accounts Zoho gives prior notice and an option to back up data before deletion. Audit-trail retention is undocumented. No bulk-read API is documented for Zoho Books, so the admin Data Backup (all records as CSV/XLS) is the primary whole-account route, supplemented by the incremental Backup Documents run for attachments."
+}

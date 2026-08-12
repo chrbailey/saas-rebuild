@@ -1,0 +1,163 @@
+{
+  "schema_version": "0.7.0",
+  "app": "greenhouse",
+  "app_name": "Greenhouse Recruiting",
+  "vendor": "Greenhouse",
+  "category": "recruiting",
+  "export_rights": {
+    "summary": "Greenhouse's own Harvest API documentation states the API 'was designed to allow our customers to export their data from Greenhouse', giving tenant admins programmatic access to most recruiting data. Contractual export terms (MSA/DPA) could not be consulted from this environment, so no contractual entitlement or termination window is documented here.",
+    "tos_url": null,
+    "post_termination_window": null
+  },
+  "routes": [
+    {
+      "route_type": "api",
+      "covers": [
+        "candidates",
+        "applications",
+        "jobs",
+        "job-posts",
+        "job-openings",
+        "offers",
+        "scorecards",
+        "scheduled-interviews",
+        "activity-feed",
+        "users",
+        "approvals",
+        "departments",
+        "offices",
+        "sources",
+        "tags",
+        "prospect-pools",
+        "rejection-reasons",
+        "close-reasons",
+        "eeoc",
+        "demographic-data",
+        "education",
+        "tracking-links"
+      ],
+      "how": "Harvest API: GET https://harvest.greenhouse.io/v1/{entity} (e.g. /v1/candidates, /v1/applications, /v1/jobs, /v1/offers, /v1/scorecards, /v1/users; per-candidate notes/emails via /v1/candidates/{id}/activity_feed). Basic auth over HTTPS with the Harvest API key as username and blank password (append ':' and base64-encode). Keys are created in Configure >> Dev Center >> API Credential Management, with per-endpoint permissions. Paginate via RFC-5988 Link headers with page/per_page (per_page 1-500, default 100 on candidates); some newer endpoints only return a 'next' link.",
+      "formats": ["JSON"],
+      "requires": [
+        "Harvest API key",
+        "user with 'Can manage ALL organization's API Credentials' developer permission to create the key",
+        "endpoint-level permissions granted on the key"
+      ],
+      "rate_limits": "Per-key limit given in the X-RateLimit-Limit header per 10 seconds (docs show 50); HTTP 429 with X-RateLimit-Reset and Retry-After when exceeded",
+      "gotchas": [
+        "Harvest access is binary per endpoint: a key with an endpoint enabled sees ALL data in that endpoint",
+        "custom fields on the application object are only available on Enterprise-level accounts",
+        "URLs to external resources (attachments) in responses are only valid for 7 days",
+        "docs warn to follow Link headers rather than constructing page numbers manually, since paging mechanisms differ per endpoint"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": [
+        "attachments",
+        "resumes",
+        "cover-letters",
+        "offer-letters",
+        "offer-packets",
+        "take-home-tests"
+      ],
+      "how": "No dedicated bulk file export is documented; enumerate candidates via Harvest GET /v1/candidates (and per-candidate GET /v1/candidates/{id}) and download each attachments[].url. Attachment types are one of resume, cover_letter, offer_packet, offer_letter, take_home_test, other.",
+      "formats": ["original uploaded file formats via signed AWS S3 URLs"],
+      "requires": ["Harvest API key with the candidates endpoint permitted"],
+      "rate_limits": "Same as Harvest API: X-RateLimit-Limit per 10 seconds (docs show 50)",
+      "gotchas": [
+        "attachment URLs are signed, temporary S3 links that expire in 7 days - docs say to download immediately after the request and not rely on the URLs later",
+        "if AWS S3 is having issues, document attachments are unavailable through Harvest"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log"],
+      "how": "Audit Log API: first POST https://harvest.greenhouse.io/auth/jwt_access_token with Basic auth (Harvest API key) plus an On-Behalf-Of header carrying a Greenhouse user ID to obtain a JWT access token valid 24 hours; then GET https://auditlog.us.greenhouse.io/events with Authorization: Bearer {token}. Paginate by setting query param paging=true and Size header (100-500), then pass Pit-Id and Search-After headers from the paging object on subsequent requests until next_search_after is null.",
+      "formats": ["JSON"],
+      "requires": [
+        "audit log feature enabled for the organization (docs direct customers to contact Greenhouse account management to enable it)",
+        "Harvest API key to mint the JWT"
+      ],
+      "rate_limits": "50 requests per 10 seconds; paginated requests limited to 3 per 30 seconds; HTTP 429 when exceeded",
+      "gotchas": [
+        "audit log only records events from the prior thirty days, so it must be exported continuously rather than once at teardown",
+        "access tokens expire 24 hours after generation",
+        "external resource URLs in audit log responses are valid for thirty days"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": [
+        "custom-field-definitions",
+        "email-templates",
+        "job-stage-definitions",
+        "user-roles",
+        "user-permissions"
+      ],
+      "how": "Configuration metadata is readable as JSON through Harvest: GET /v1/custom_fields/{field_type} and /v1/custom_field/{id} for custom field definitions, GET /v1/email_templates for email templates, GET /v1/job_stages and /v1/jobs/{id}/stages for interview-stage definitions, GET /v1/user_roles and per-user permission endpoints for the permission model. Same Basic-auth Harvest key as the main API route.",
+      "formats": ["JSON"],
+      "requires": ["Harvest API key with the relevant endpoints permitted"],
+      "rate_limits": "Same as Harvest API: X-RateLimit-Limit per 10 seconds (docs show 50)",
+      "gotchas": [
+        "these are read-only JSON representations; no documented mechanism imports them back as restorable configuration artifacts",
+        "custom_fields and user_roles list endpoints use the newer next-link-only pagination"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Extract per candidate through Harvest: attachments[] on candidate/application objects expose signed S3 URLs (types: resume, cover_letter, offer_packet, offer_letter, take_home_test, other) that expire in 7 days - download immediately while enumerating. No whole-tenant file dump is documented in the sources consulted.",
+    "audit_log": "Audit Log API (auditlog.us.greenhouse.io/events, bearer JWT minted via Harvest key) with documented retention of only the prior thirty days of events; the feature must be enabled by Greenhouse for the organization. Older history is not retrievable per the consulted docs.",
+    "config_artifacts": "Custom field definitions, email templates, job stages, and user roles/permissions are exportable as JSON via Harvest endpoints, but only as read-only representations - no documented restorable config package or import path. Report definitions and workflow/approval configuration exports are not covered in the consulted docs."
+  },
+  "sources": [
+    {
+      "url": "https://github.com/grnhse/greenhouse-api-docs",
+      "title": "Greenhouse API documentation source repository (official, open-source source of developers.greenhouse.io)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/grnhse/greenhouse-api-docs/blob/master/source/includes/harvest/_introduction.md",
+      "title": "Harvest API - Introduction (authentication, rate limiting, pagination, attachment URL expiry, export purpose statement)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/grnhse/greenhouse-api-docs/blob/master/source/includes/harvest/_candidates.md",
+      "title": "Harvest API - Candidates (GET /v1/candidates, per_page 1-500, attachments with 7-day signed URLs)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/grnhse/greenhouse-api-docs/blob/master/source/includes/harvest/_activity_feed.md",
+      "title": "Harvest API - Activity Feed (GET /v1/candidates/{id}/activity_feed)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/grnhse/greenhouse-api-docs/blob/master/source/includes/harvest/_custom_fields.md",
+      "title": "Harvest API - Custom Fields (GET /v1/custom_fields/{field_type})",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/grnhse/greenhouse-api-docs/blob/master/source/includes/harvest/_email_templates.md",
+      "title": "Harvest API - Email Templates (GET /v1/email_templates)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/grnhse/greenhouse-api-docs/blob/master/source/includes/harvest/_job_stages.md",
+      "title": "Harvest API - Job Stages (GET /v1/job_stages)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/grnhse/greenhouse-api-docs/blob/master/source/includes/audit-log/_introduction.md",
+      "title": "Audit Log API - Introduction (thirty-day record, JWT auth via Harvest key, 50/10s and 3/30s limits, enablement via account management)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/grnhse/greenhouse-api-docs/blob/master/source/includes/audit-log/_events.md",
+      "title": "Audit Log API - Events (GET https://auditlog.us.greenhouse.io/events)",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research constraint: greenhouse web properties (support.greenhouse.io, developers.greenhouse.io, greenhouse.com/greenhouse.io legal pages) and web.archive.org were egress-blocked from this environment and the web-search budget was exhausted, so all claims derive from Greenhouse's official open-source API docs repo grnhse/greenhouse-api-docs (last commit 2026-07-30), which is the published source of developers.greenhouse.io. Consequently the following are honest unknowns, NOT absences in the product: admin-UI per-entity exports and bulk candidate export, the report builder as a CSV/Excel export route, any whole-account export/backup or BI/flat-file connector, plan/SKU gating of these features, and the MSA/DPA export-rights language and post-termination retrieval window. The audit log help article support.greenhouse.io/hc/en-us/articles/15074318933275 is referenced by the vendor docs but could not be fetched. The task template requested retrieved/last_reviewed = 'undefined', but the schema's YYYY-MM-DD pattern makes that unvalidatable; actual retrieval date used instead."
+}

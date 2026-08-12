@@ -1,0 +1,243 @@
+{
+  "schema_version": "0.7.0",
+  "app": "stripe",
+  "app_name": "Stripe",
+  "vendor": "Stripe",
+  "category": "payments",
+  "export_rights": {
+    "summary": "Stripe's DPA states that on termination, at the user's choice, Stripe must delete or return all Personal Data processed in connection with the Services (except where law requires longer storage). The SSA adds that Stripe is not obligated to retain user data after the Term except as required by law or post-termination obligations. Card data (PANs) can be exported, but only via a Stripe-managed transfer to another PCI DSS Level 1 processor.",
+    "tos_url": "https://stripe.com/legal/dpa",
+    "post_termination_window": null
+  },
+  "routes": [
+    {
+      "route_type": "api",
+      "covers": [
+        "customers",
+        "charges",
+        "payment-intents",
+        "invoices",
+        "subscriptions",
+        "products",
+        "prices",
+        "payouts",
+        "balance-transactions",
+        "disputes",
+        "refunds",
+        "events"
+      ],
+      "how": "REST API at https://api.stripe.com/v1/* with list endpoints per object (e.g. GET /v1/customers, /v1/invoices, /v1/balance_transactions). Auth: secret API key (sk_live_...) as HTTP Basic username (no password) or as Bearer token. Cursor pagination via limit + starting_after; official SDKs provide auto-pagination helpers (e.g. auto_paging_each).",
+      "formats": ["json"],
+      "requires": ["live-mode secret API key (or restricted key with read scopes)"],
+      "rate_limits": "Live mode basic rate limiter: 100 operations/second (25 in sandbox); individual API endpoints default to 25 requests/second and also count against the global limit. 429 on excess; increases available via Stripe Support.",
+      "gotchas": [
+        "Events (/v1/events) only go back 30 days — the API is not an audit-history archive",
+        "Full card numbers are never returned by the API; PAN export requires the Stripe-managed processor-to-processor transfer route",
+        "Payment credentials saved through Link are excluded from card-data exports"
+      ]
+    },
+    {
+      "route_type": "backup-integration",
+      "covers": [
+        "all-core-stripe-objects-as-warehouse-tables",
+        "standard-dashboard-reports"
+      ],
+      "how": "Stripe Data Pipeline: no-code product that sends complete Stripe data to Snowflake, Amazon Redshift, Databricks, or BigQuery, or delivers Parquet files to customer-owned cloud storage (e.g. Google Cloud Storage, Azure Blob Storage). Loads run on ~3-hour refresh intervals with webhook notifications; initial data available within ~12 hours of accepting the data share. Custom scheduling lets you select which data loads to subscribe to. Standard dashboard reports (Revenue Recognition, Balance Summary, Payout Reconciliation) can also be delivered as CSV to the configured pipeline destination.",
+      "formats": ["warehouse tables", "parquet", "csv"],
+      "requires": ["Data Pipeline product (paid add-on) enabled on the account", "destination warehouse or cloud storage bucket"],
+      "rate_limits": null,
+      "gotchas": [
+        "Loads are periodic (about every 3 hours), not real-time"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["payments", "customers", "invoices", "subscriptions"],
+      "how": "Dashboard per-list Export button: Payments page > Export (choose time zone, date range, columns; Successful/Refunded/Uncaptured/All payments; select Custom columns to include Fee); Customers page (dashboard.stripe.com/customers) > filter then Export with time zone/date range/column preferences; Invoices page > Export (all or filtered subset, invoice tax data also exportable); Billing > Subscriptions > Export (choose CSV and fields). Downloads a CSV to the browser.",
+      "formats": ["csv"],
+      "requires": ["Dashboard login with access to the relevant page"],
+      "rate_limits": null,
+      "gotchas": [
+        "Exports are per-list and filter-scoped — assembling a full account picture requires repeating per entity",
+        "Customer exports contain no full payment-credential data"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["any-queryable-stripe-data", "custom-reports"],
+      "how": "Stripe Sigma: write SQL against Stripe data in the Dashboard; Download CSV exports the full result set (not limited to the 1,000 viewable rows). Queries can be scheduled daily/weekly/monthly; each run emits a sigma.created webhook with a ScheduledQueryRun object referencing a file object (purpose sigma_scheduled_query) retrievable via the API, and results can be emailed to team members.",
+      "formats": ["csv"],
+      "requires": ["Sigma product enabled on the account"],
+      "rate_limits": null,
+      "gotchas": [
+        "Daily scheduled query data (day ending 12:00am UTC) is typically only available by ~2pm UTC — Sigma data is batch-processed, not live"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["financial-reports", "balance-summary", "payout-reconciliation"],
+      "how": "Financial reports: downloadable CSVs from the Dashboard reporting pages, and programmatically via the Reports API — POST /v1/reporting/report_runs with a report type (e.g. balance summary has report type ID 'balance') and run parameters; when status becomes succeeded the result field references a file (purpose finance_report_run) to download.",
+      "formats": ["csv"],
+      "requires": ["live-mode secret API key for the Reports API; Dashboard access for UI downloads"],
+      "rate_limits": null,
+      "gotchas": [
+        "Report CSVs express amounts in major currency units (10.00), while the API uses minor units (integer cents) — normalize before reconciling"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["dispute-evidence-files", "report-run-outputs", "sigma-query-results", "tax-documents", "uploaded-files"],
+      "how": "Files API: GET /v1/files lists file objects (filterable by purpose, e.g. dispute_evidence, finance_report_run, sigma_scheduled_query, tax_document_user_upload); download each file's contents from its authenticated URL using the live secret key. File Links API (/v1/file_links) can mint non-authenticated shareable URLs when needed.",
+      "formats": ["original file formats", "csv"],
+      "requires": ["live-mode secret API key"],
+      "rate_limits": null,
+      "gotchas": [
+        "Files are those uploaded to or generated by Stripe (evidence, reports, documents) — Stripe is not a general document store, so most tenants have few files"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log", "security-history"],
+      "how": "Activity logs (docs.stripe.com/activity-logs) record sensitive account activity (logins, bank account changes, API key management, user invitations, role changes); docs state historical information can be exported for compliance reports (SOC 2, PCI DSS). A 2026-04-22 API changelog entry adds programmatic access to account activity logs via an Activity Logs API.",
+      "formats": ["csv"],
+      "requires": ["Dashboard administrator access"],
+      "rate_limits": null,
+      "gotchas": [
+        "Retention period for activity logs is not stated in the consulted docs",
+        "Do not confuse with /v1/events, which is object-change events and only retains 30 days"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["card-payment-credentials", "PAN-data"],
+      "how": "Stripe-managed PAN export: contact Stripe with the name of the receiving processor; Stripe transfers full card data directly to the new processor. The recipient must be PCI DSS Level 1 compliant (current PCI AOC or listing on Visa's Global Registry) and provide a PGP public key of at least 4096 bits hosted over HTTPS on their own domain.",
+      "formats": ["PGP-encrypted transfer to receiving processor"],
+      "requires": ["vendor ticket (Stripe support request)", "receiving PCI DSS Level 1 processor"],
+      "rate_limits": null,
+      "gotchas": [
+        "Card data goes to the new processor, never to the customer directly",
+        "Link-saved payment credentials are excluded from the export"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Stripe holds few customer files; those it has (dispute evidence, generated report runs, Sigma results, tax documents) are listable via GET /v1/files filtered by purpose and downloadable from each file's authenticated URL with the live secret key. No single bulk file-export feature is documented.",
+    "audit_log": "Activity logs (security history) are viewable in the Dashboard and exportable for compliance reporting, with an Activity Logs API added per the 2026-04-22 changelog; the docs consulted do not state an activity-log retention period. The separate /v1/events API retains only 30 days.",
+    "config_artifacts": "No packaged, restorable configuration-export artifact is documented. Configuration-like objects (products, prices, tax rates, webhook endpoints, coupons) are individually readable via the REST API and would need to be re-created via API in a successor system; Sigma saved queries and report definitions have no documented export."
+  },
+  "sources": [
+    {
+      "url": "https://support.stripe.com/questions/exporting-payment-data",
+      "title": "Exporting Payment data - Stripe Help & Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/stripe-data/export-customizations",
+      "title": "Customize your data exports - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/data/access-data-in-warehouse",
+      "title": "How Data Pipeline works - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/stripe-data/access-data-in-warehouse/data-warehouses",
+      "title": "Export data to a data warehouse - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/rate-limits",
+      "title": "Rate limits - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/api/authentication",
+      "title": "Authentication - Stripe API Reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/pagination",
+      "title": "How pagination works - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/api/events/list",
+      "title": "List all events - Stripe API Reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/stripe-data/write-queries",
+      "title": "Write queries (Sigma) - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/api/sigma/scheduled_queries",
+      "title": "Scheduled Queries - Stripe API Reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/reports/api",
+      "title": "How the Reports API works - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/reports/balance",
+      "title": "Balance summary report - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/api/reporting/report_run",
+      "title": "Report Runs - Stripe API Reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/api/files",
+      "title": "Files - Stripe API Reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/api/file_links",
+      "title": "File Links - Stripe API Reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/activity-logs",
+      "title": "Activity logs - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/changelog/dahlia/2026-04-22/programmatic-access-to-activity-logs",
+      "title": "Adds programmatic access to account activity logs - Stripe Documentation changelog",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/get-started/data-migrations/pan-export",
+      "title": "PAN export - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://support.stripe.com/questions/what-if-i-decide-to-leave-stripe-can-i-export-card-data",
+      "title": "Export customer card data from Stripe - Stripe Help & Support",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.stripe.com/invoicing/dashboard/manage-invoices",
+      "title": "Manage invoices - Stripe Documentation",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://stripe.com/legal/dpa",
+      "title": "Data Processing Agreement - Stripe Legal",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://stripe.com/legal/ssa",
+      "title": "Stripe Services Agreement - General Terms",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: direct fetches of stripe.com/docs.stripe.com/support.stripe.com were blocked by the network egress proxy in this environment, so all vendor-doc content above was obtained via web-search retrieval of the cited vendor pages rather than direct page fetches; treat exact nav labels and limits as needing on-tenant confirmation. Honest unknowns: no whole-account one-click export exists (Data Pipeline is the closest, and it is a paid add-on, as is Sigma); no documented post-termination self-service retrieval window was found (the DPA return/delete right is the only stated entitlement); activity-log retention is not stated in the consulted docs; Sigma/Data Pipeline pricing tiers and exact SKU names were not confirmed and are omitted. The task brief specified retrieved/last_reviewed = 'undefined', but the schema requires YYYY-MM-DD strings, so the actual research date 2026-08-08 is used."
+}

@@ -1,0 +1,118 @@
+{
+  "schema_version": "0.7.0",
+  "app": "asana",
+  "app_name": "Asana",
+  "vendor": "Asana",
+  "category": "project-management",
+  "export_rights": {
+    "summary": "Asana's developer documentation states that an organization_export request 'starts a job to export the complete data of the given Organization' in JSON format, available to Service Accounts of Enterprise organizations, and that 'admins can export subsets of organization data as CSV, such as tasks in a project'. The customer-facing terms/DPA could not be reached from this environment, so the contractual statement of export rights was not consulted.",
+    "tos_url": null,
+    "post_termination_window": null
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": ["complete organization data (all objects, JSON)"],
+      "how": "POST https://app.asana.com/api/1.0/organization_exports with {data:{organization:<workspace_gid>}}; poll GET /organization_exports/{organization_export_gid} until state=finished; download the gzip JSON file at download_url. Auth: Bearer personal access token of a Service Account.",
+      "formats": ["JSON (gzip .gz)"],
+      "requires": ["Enterprise organization", "Service Account personal access token"],
+      "rate_limits": "Standard API limits apply (150 req/min free domains, 1500 req/min premium domains).",
+      "gotchas": [
+        "Exports can take from several minutes to a few hours for large organizations.",
+        "download_url may be null while in progress or on failure, and when present may only be valid for 1 hour from retrieval — refresh on demand, do not persist.",
+        "Docs do not state whether attachment binaries are included in the JSON export."
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["tasks", "subtasks", "projects", "sections", "stories/comments", "attachments-metadata", "portfolios", "goals", "teams", "users", "custom-field-definitions", "tags", "project-templates"],
+      "how": "REST API at https://app.asana.com/api/1.0 (e.g. GET /projects/{project_gid}/tasks, GET /workspaces/{workspace_gid}/tasks/search). Auth: personal access token (Bearer) for single-user scripts, OAuth 2.0 for multi-user apps. Paginate with limit + opaque offset tokens (next_page in response).",
+      "formats": ["JSON"],
+      "requires": ["personal access token or OAuth 2.0 app; any plan"],
+      "rate_limits": "150 requests/min (free domains) or 1500 requests/min (premium domains) per token; search API limited to 60 req/min; max 50 concurrent reads and 15 concurrent writes; an additional computational cost-based quota; 429 with Retry-After when exceeded.",
+      "gotchas": [
+        "Large unpaginated result sets may be truncated or time out — pagination is required on newer endpoints; docs recommend splitting queries by team/section per the object hierarchy.",
+        "Requests rejected with 429 still count against the quota.",
+        "Projects with over 1,000 tasks and deeply nested subtasks are called out as pathological cases."
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["project tasks (CSV)", "workspace members (CSV)", "teams (CSV)", "search report results (CSV)"],
+      "how": "Admin/UI CSV exports. Developer docs confirm these exist ('admins can export subsets of organization data as CSV, such as tasks in a project') and the audit-log event catalog enumerates project_csv_export_started, workspace_members_export_started, workspace_teams_export_started, division_teams_export_started and search_report_export_started — but the consulted docs give no UI navigation steps; verify paths in-tenant (help.asana.com was unreachable from this environment).",
+      "formats": ["CSV"],
+      "requires": ["admin role for workspace-level exports (per docs wording 'admins can export')"],
+      "rate_limits": null,
+      "gotchas": [
+        "Exact nav paths, included fields, and any row/field truncation are undocumented in the sources consulted.",
+        "A workspace_attachment_export_started audit event implies an attachment export feature exists, but it is otherwise undocumented in the consulted sources."
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["attachments"],
+      "how": "Enumerate per object: GET /attachments?parent={task|project_brief|comment gid}, then GET /attachments/{attachment_gid} and fetch download_url. Auth: personal access token or OAuth.",
+      "formats": ["original file binaries", "JSON metadata"],
+      "requires": ["personal access token or OAuth 2.0"],
+      "rate_limits": "Standard API limits (150/1500 req/min; 50 concurrent reads).",
+      "gotchas": [
+        "download_url may only be valid for two minutes from retrieval — fetch and download immediately, never persist URLs.",
+        "download_url is null for Box-hosted attachments and for Vimeo-hosted video messages; host field distinguishes asana/dropbox/gdrive/box/vimeo — externally hosted files must be pulled from their own host.",
+        "No documented single bulk-download endpoint; must walk tasks/objects to enumerate attachments."
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log"],
+      "how": "GET https://app.asana.com/api/1.0/workspaces/{workspace_gid}/audit_log_events with start_at/end_at/event_type/actor filters; paginated (default limit 1000 events) via offset tokens. Auth: Service Account personal access token.",
+      "formats": ["JSON"],
+      "requires": ["Enterprise domain", "Service Account personal access token"],
+      "rate_limits": "Standard API limits apply.",
+      "gotchas": [
+        "Events are permanently deleted after 90 days — docs recommend continuous ingestion into a SIEM for a permanent record; a one-time exit export only captures the trailing 90 days.",
+        "API only captures events from October 8, 2021 onward.",
+        "Covers logins, admin-setting changes, membership/access changes, deletions, exports, app authorizations — not a full change history of task content."
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Per-object via REST API: list attachments per parent, then download each download_url (valid ~2 minutes; null for Box-hosted and Vimeo video-message attachments — retrieve those from the external host). Whether the Enterprise organization export JSON includes attachment binaries is not stated in the consulted docs. An admin-side 'workspace attachment export' is implied by the audit event workspace_attachment_export_started but is otherwise undocumented in consulted sources.",
+    "audit_log": "Audit Log API (Enterprise + Service Account PAT): GET /workspaces/{workspace_gid}/audit_log_events, JSON, paginated (default 1000/page). Documented retention is 90 days from capture, after which events are permanently deleted; events exist only from 2021-10-08 onward.",
+    "config_artifacts": "No dedicated restorable config-export is documented in the consulted sources. Custom field definitions, project templates, task templates, forms-related settings etc. are readable as JSON via the REST API, and the Enterprise organization export is described as 'the complete data of an organization', but neither is documented as a re-importable configuration artifact."
+  },
+  "sources": [
+    {
+      "url": "https://github.com/Asana/developer-docs/blob/master/defs/asana_oas.yaml",
+      "title": "Asana REST API OpenAPI specification (organization_exports, audit_log_events, attachments, search endpoints) — Asana/developer-docs (official vendor repo, source of developers.asana.com)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/Asana/developer-docs/blob/master/source/includes/markdown/_rate-limits.html.md",
+      "title": "Asana API docs: Rate limits (standard, concurrent, cost limits)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/Asana/developer-docs/blob/master/source/includes/markdown/_audit-log.html.md",
+      "title": "Asana API docs: Audit log events (retention, plan/auth requirements, export-related event catalog)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/Asana/developer-docs/blob/master/source/includes/markdown/_errors.html.md",
+      "title": "Asana API docs: Errors / retrieving very large data sets (organization export and admin CSV export guidance)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/Asana/developer-docs/blob/master/source/includes/markdown/_pagination.html.md",
+      "title": "Asana API docs: Pagination",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/Asana/developer-docs/blob/master/source/includes/markdown/_auth.html.md",
+      "title": "Asana API docs: Authentication (personal access tokens, OAuth 2.0)",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research constraints: asana.com, help.asana.com, developers.asana.com and web.archive.org were all blocked by the network egress proxy, and the web-search budget was exhausted, so this recipe is built entirely from a local clone of Asana's official developer-docs GitHub repository — vendor-authored, but a snapshot last committed 2024-09-11; live docs may have newer limits, plan names (e.g. Advanced/Enterprise+ SKUs are not reflected), or endpoints. Not confirmable from consulted sources and therefore omitted: UI navigation paths for project CSV/JSON export and admin-console exports; whether project export offers JSON as well as CSV; report/dashboard (Universal Reporting) export capability; terms-of-service/DPA export-rights language and any post-termination retrieval window; whether the org export JSON contains attachment binaries. The schema's date patterns for 'retrieved' and 'last_reviewed' reject the literal 'undefined' requested by the tasking, so the actual consultation date 2026-08-08 is recorded instead. Verify all routes in-tenant before relying on them."
+}

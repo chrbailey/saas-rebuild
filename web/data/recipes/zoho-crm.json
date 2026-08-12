@@ -1,0 +1,176 @@
+{
+  "schema_version": "0.7.0",
+  "app": "zoho-crm",
+  "app_name": "Zoho CRM",
+  "vendor": "Zoho",
+  "category": "crm",
+  "export_rights": {
+    "summary": "Zoho's Terms of Service let customers access their service data and request that Zoho export or delete it; on termination Zoho states it provides prior notice and an option to back up data. Trial data is permanently lost unless exported or upgraded before the trial ends.",
+    "tos_url": "https://www.zoho.com/terms.html",
+    "post_termination_window": "No explicit retrieval window is documented. Terms state prior notice of termination with an option to back up data, and that after account termination data is deleted from the active database within 6 months and from backups 3 months after that."
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": ["all-module-records", "attachments"],
+      "how": "Setup > Data Administration > Data Backup (admin only): full backup of CRM data plus attachments, delivered as separate ZIP archives (CRM Data = per-module CSVs, CRM Attachments = all attachments). A Data Backup API (v8) also exists to initiate backups and fetch download URLs programmatically.",
+      "formats": ["csv", "zip"],
+      "requires": ["Administrator profile", "backup allowance varies by edition (Ultimate edition includes 4 backups at no charge; additional backups are paid)"],
+      "rate_limits": "Number of backups per organization is edition-dependent",
+      "gotchas": [
+        "Download link stays active only 7 days from backup creation",
+        "ZIP files cap at 1 GB; larger data/attachment sets split into multiple 1 GB archives"
+      ]
+    },
+    {
+      "route_type": "bulk-api",
+      "covers": ["module-records"],
+      "how": "Bulk Read API: POST https://www.zohoapis.com/crm/bulk/v8/read with module, field list, and criteria; poll job details, then download the result ZIP from the download_url returned on completion. Auth: OAuth 2.0, header 'Authorization: Zoho-oauthtoken <token>'.",
+      "formats": ["csv", "ics", "zip"],
+      "requires": ["OAuth client with scope ZohoCRM.bulk.read or ZohoCRM.modules.{module}.READ"],
+      "rate_limits": "Bulk/API calls draw from the org's daily API credit pool (edition-based, 24-hour rolling window); concurrency and sub-concurrency caps also apply",
+      "gotchas": [
+        "200,000 records per job page; check more_records in job details and paginate for larger modules",
+        "Default output is CSV unless file_type ics is requested"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["module-records"],
+      "how": "Setup > Data Administration > Export: pick a module and export its records to local disk; output is CSV, zipped for download. List views also allow 'Actions > Export selected records' for up to 500 selected records.",
+      "formats": ["csv", "xlsx", "zip"],
+      "requires": ["Export permission in profile"],
+      "rate_limits": "Daily export limits by edition: Free 10, Standard 100, Professional 250, Enterprise 500, Ultimate 1,000",
+      "gotchas": [
+        "Max 200,000 records per module per export (CSV); XLSX export capped at 50,000 records",
+        "Export download link valid for 7 days"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["module-records", "attachments-metadata", "users", "settings-metadata"],
+      "how": "REST API v8 at https://www.zohoapis.com/crm/v8/... (records, related lists, attachments, settings/metadata endpoints). Auth: OAuth 2.0, header 'Authorization: Zoho-oauthtoken <token>'.",
+      "formats": ["json"],
+      "requires": ["OAuth client registered in Zoho API console with module READ scopes"],
+      "rate_limits": "Credit-based daily limits by edition on a 24-hour rolling window; extra credits purchasable pay-as-you-go from the API dashboard; concurrency limits per org per app, with sub-concurrency of 10 for certain heavy APIs",
+      "gotchas": [
+        "Per-call record caps exist (e.g. 100 records per insert/update call); bulk extraction is better served by the Bulk Read API"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["attachments", "email-attachments", "field-attachments"],
+      "how": "Bulk: the Data Backup feature delivers all attachments as a separate CRM Attachments ZIP. Per-record: GET /crm/v8/{module}/{record_id}/Attachments to list, GET /crm/v8/{module}/{record_id}/Attachments/{attachment_id} to download; dedicated v8 APIs also exist for email attachments and file-upload-field attachments.",
+      "formats": ["zip", "original-file-formats"],
+      "requires": ["Administrator profile for backup route; OAuth client with attachment READ scopes for API route"],
+      "rate_limits": "API route consumes daily API credits",
+      "gotchas": [
+        "Per-record API download is one attachment per call; whole-tenant attachment extraction is far cheaper via Data Backup"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log"],
+      "how": "Setup > Security Control > Audit Log > Export Audit Log, then Download when ready. Also available programmatically via the v8 'Initiate Export Audit Log' API.",
+      "formats": ["csv", "zip"],
+      "requires": ["Admin for org-wide log; non-admin users see only their own and subordinates' actions"],
+      "rate_limits": null,
+      "gotchas": [
+        "Retention: only the last 3 years of actions are kept; older entries are permanently deleted. The in-product log view defaults to 60 days",
+        "Filtered exports are limited to a 180-day time range; an unfiltered export can cover the full 3 years",
+        "Exports over 100,000 entries are split into multiple CSVs inside a ZIP"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["field-definitions", "layouts", "workflow-definitions"],
+      "how": "No documented one-click customization export. The v8 settings/metadata APIs return configuration as JSON: fields and layouts metadata, workflow rule configuration (get/configure/update workflow rules), and workflow usage reports. Sandbox deploys copy configuration between orgs but do not produce an offline artifact.",
+      "formats": ["json"],
+      "requires": ["OAuth client with settings/metadata READ scopes"],
+      "rate_limits": "Consumes daily API credits",
+      "gotchas": [
+        "Metadata JSON is documentation-grade, not a vendor-supported restore package; reports and dashboards have no documented definition export"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Included in the Data Backup feature as a separate CRM Attachments ZIP (1 GB per archive, split when larger); individually downloadable via the v8 attachments APIs (record attachments, email attachments, file-upload-field attachments).",
+    "audit_log": "Setup > Security Control > Audit Log > Export Audit Log (CSV, ZIP-split above 100,000 entries), or the v8 Initiate Export Audit Log API. Documented retention is 3 years of actions; filtered export ranges are capped at 180 days.",
+    "config_artifacts": "No vendor-documented restorable customization package. Fields, layouts, and workflow rules can be pulled as JSON via v8 settings/metadata APIs; report/dashboard definitions have no documented export route."
+  },
+  "sources": [
+    {
+      "url": "https://help.zoho.com/portal/en/kb/crm/data-administration/export-data/articles/export-crm-data",
+      "title": "Export CRM Data - Zoho CRM Help",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.zoho.com/portal/en/kb/crm/data-administration/data-backup",
+      "title": "Data Backup - Zoho CRM Help",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/crm/developer/docs/api/v8/backup-overview.html",
+      "title": "Data Backup API - Zoho CRM API V8",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/crm/developer/docs/api/v8/download-backup.html",
+      "title": "Download Backed up Data - Zoho CRM API V8",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/crm/developer/docs/api/v8/bulk-read/create-job.html",
+      "title": "Create Bulk Read Job (Bulk Export) - Zoho CRM API V8",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/crm/developer/docs/api/v8/bulk-read/download-result.html",
+      "title": "Download Bulk Read Job Result - Zoho CRM API V8",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/crm/developer/docs/api/v8/api-limits.html",
+      "title": "API Limits - Zoho CRM API V8",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.zoho.com/portal/en/kb/crm/security-control/audit-log/articles/monitor-audit-log",
+      "title": "Monitoring Audit Logs - Zoho CRM Help",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/crm/developer/docs/api/v8/create-export-audit-log.html",
+      "title": "Initiate Export Audit Log API - Zoho CRM API V8",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/crm/developer/docs/api/v8/get-attachments.html",
+      "title": "Get List of Attachments API - Zoho CRM API V8",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/crm/developer/docs/api/v8/download-attachments.html",
+      "title": "Download an Attachment API - Zoho CRM API V8",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/crm/developer/docs/api/v8/api-references.html",
+      "title": "APIs and References - Zoho CRM V8 APIs",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://help.zoho.com/portal/en/kb/crm/faqs/data-administration/export/articles/faqs-exporting-data-from-zoho-crm",
+      "title": "FAQs: Exporting Data from Zoho CRM",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.zoho.com/terms.html",
+      "title": "Zoho - Terms of Service",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: direct fetches to zoho.com/help.zoho.com were blocked by the research environment's egress proxy, so all claims come from search-engine excerpts of the vendor pages listed in sources rather than full page reads; verify nav paths and limits in-tenant before relying on them. Exporting from the Reports module (CSV/XLS/PDF) is widely referenced in Zoho community threads but could not be confirmed from an official help article in this pass, so no report-builder route is listed. Pricing for backups beyond the edition allowance is documented as paid but the per-backup price was not surfaced. The exact Data Backup API endpoint paths were not captured verbatim and are omitted; see the backup API docs in sources. Zoho CRM is a multi-DC product (zohoapis.com, zohoapis.eu, zohoapis.in, etc.); API base URL depends on the org's data center — verify in-tenant."
+}
