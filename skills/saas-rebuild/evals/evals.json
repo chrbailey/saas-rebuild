@@ -10,6 +10,23 @@
         "Does not classify the annual feature as never used from the 60-day absence.",
         "Uses DEFER and names the additional evidence or revisit condition.",
         "Distinguishes observation window from business cadence and criticality."
+      ],
+      "machine_checks": [
+        {
+          "check": "no-feature",
+          "where": {
+            "usage": "never"
+          }
+        },
+        {
+          "check": "feature",
+          "where": {
+            "usage": "unknown"
+          },
+          "expect": {
+            "verdict": "DEFER"
+          }
+        }
       ]
     },
     {
@@ -21,7 +38,8 @@
         "Does not represent a prompt or skill as a ledger, database, or identity system.",
         "Applies the capability-to-runtime target-selection gate.",
         "Preserves approvals, auditability, idempotency, concurrency, and rollback as engineering requirements."
-      ]
+      ],
+      "machine_checks": []
     },
     {
       "id": 3,
@@ -32,6 +50,27 @@
         "Labels the result document-based and identifies missing runtime evidence.",
         "Uses precise document citations and bounded claims.",
         "Leaves unsupported usage/verdict conclusions unknown or DEFER."
+      ],
+      "machine_checks": [
+        {
+          "check": "json-field",
+          "file": "teardown.json",
+          "path": "app.methodology",
+          "equals": "document-based"
+        },
+        {
+          "check": "no-feature",
+          "where": {
+            "usage": [
+              "daily",
+              "weekly",
+              "rare",
+              "never",
+              "workaround-external",
+              "workaround-internal"
+            ]
+          }
+        }
       ]
     },
     {
@@ -43,6 +82,16 @@
         "Separates development, regression, and holdout-eval roles by split_group.",
         "Partitions cases at both configuration changes and compares like with like.",
         "Requires side-effect-free replay and demotes any holdout exposed during design."
+      ],
+      "machine_checks": [
+        {
+          "check": "pair-roles",
+          "roles": [
+            "development",
+            "regression",
+            "holdout-eval"
+          ]
+        }
       ]
     },
     {
@@ -54,6 +103,11 @@
         "Separates preservation scope from rebuild scope.",
         "Treats the retrieval deadline as a hard migration constraint.",
         "Produces a schema-valid preservation manifest with checksums, verification, and accepted gaps."
+      ],
+      "machine_checks": [
+        {
+          "check": "validate-artifacts"
+        }
       ]
     },
     {
@@ -65,7 +119,8 @@
         "Does not claim that raw-local-only prevents network transmission.",
         "Records model, connector, artifact, classification, and approval boundaries.",
         "Blocks acquisition until the actual confidential-data boundary is approved."
-      ]
+      ],
+      "machine_checks": []
     }
   ]
 }

@@ -14,19 +14,50 @@ on:
         required: false
         default: "main"
 
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
+# No workflow-level grants: each job declares the least it needs, and the
+# checkout never persists a token into the tree the test suites execute in.
+permissions: {}
 
 concurrency: release
 
 jobs:
-  release:
+  test:
+    # A version that doesn't pass the suite doesn't become a release. This job
+    # runs test code from the checkout, so it holds a read-only token only.
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Gate on the test suite
+        run: |
+          python -m pip install --requirement requirements-dev.txt
+          python -m pytest tests/ -q
+          PYTHONWARNINGS=error::ResourceWarning \
+            python -m unittest discover \
+            -s skills/export-compliance/tools/xscreen/tests \
+            -t skills/export-compliance/tools
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -55,17 +86,6 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Gate on the test suite
-        # A version that doesn't pass the suite doesn't become a release.
-        if: steps.tag.outputs.exists == 'false'
-        run: |
-          python -m pip install --requirement requirements-dev.txt
-          python -m pytest tests/ -q
-          PYTHONWARNINGS=error::ResourceWarning \
-            python -m unittest discover \
-            -s skills/export-compliance/tools/xscreen/tests \
-            -t skills/export-compliance/tools
 
       - name: Require tag and plugin version to agree
         if: steps.tag.outputs.exists == 'false'
