@@ -13,3 +13,6 @@ __pycache__/
 *.egg-info/
 /dist/*.zip
 /dist/SHA256SUMS
+
+# Claude Code agent worktrees (tooling scratch, never source)
+.claude/worktrees/

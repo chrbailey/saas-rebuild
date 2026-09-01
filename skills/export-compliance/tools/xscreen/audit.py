@@ -160,13 +160,55 @@ class AuditLog:
         return _gen()
 
     def head(self) -> tuple[int, str]:
-        """(sequence, hash) of the last well-formed entry, or (0, GENESIS)."""
+        """(sequence, hash) of the last well-formed entry, or (0, GENESIS).
+
+        Reads the tail of the file rather than the whole log. Every append
+        calls this, and a full forward scan made each screening run O(size of
+        the evidence file): a five-year retention log with a few million
+        entries turned every `case.screened` append into a multi-second read.
+        The tail path falls back to the full scan whenever the last line is
+        not a well-formed entry, so a partial write costs one slow append
+        instead of a wrong head.
+        """
+        tail = self._tail_entry()
+        if tail is not None:
+            return tail.get("seq", 0), tail.get("hash", GENESIS)
         seq, h = 0, GENESIS
         for e in self.entries():
             if e.get("__corrupt__"):
                 continue
             seq, h = e.get("seq", seq), e.get("hash", h)
         return seq, h
+
+    def _tail_entry(self, window: int = 65536) -> dict[str, Any] | None:
+        """The last well-formed entry, read from the end of the file.
+
+        Returns None when the tail cannot be trusted (missing file, empty,
+        last line unparseable, or the entry lacks its chain fields), which
+        sends the caller to the full scan.
+        """
+        try:
+            size = self.path.stat().st_size
+        except FileNotFoundError:
+            return None
+        if size == 0:
+            return None
+        with self.path.open("rb") as fh:
+            fh.seek(max(0, size - window))
+            chunk = fh.read()
+        lines = [ln for ln in chunk.split(b"\n") if ln.strip()]
+        if not lines:
+            return None
+        if size > window and len(lines) < 2:
+            # The window may have cut into the last line; do not trust it.
+            return None
+        try:
+            obj = json.loads(lines[-1].decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        if not isinstance(obj, dict) or "seq" not in obj or "hash" not in obj:
+            return None
+        return obj
 
     # -- tamper marker ---------------------------------------------------
 
@@ -292,9 +334,28 @@ class AuditLog:
                     "the final entry's hash does not match the HEAD marker -- the "
                     "last entry was replaced"
                 )
+            elif marker.get("seq", 0) < seq:
+                # Every append through this module updates the marker, so a
+                # log that runs past it was extended by something else -- a
+                # hand-written line, an older tool, or an attacker who
+                # recomputed the chain forward but did not touch the marker.
+                # This case used to verify clean.
+                problems.append(
+                    f"the log ends at entry {seq} but the HEAD marker records "
+                    f"{marker.get('seq')} -- {seq - marker.get('seq', 0)} entry(ies) "
+                    "were appended without going through the audited writer"
+                )
         return (not problems), problems
 
     def retention_floor(self, now: datetime | None = None) -> str:
         """ISO date before which entries may lawfully be purged."""
         now = now or datetime.now(timezone.utc)
-        return now.replace(year=now.year - RETENTION_YEARS).date().isoformat()
+        try:
+            floor = now.replace(year=now.year - RETENTION_YEARS)
+        except ValueError:
+            # 29 February minus five years does not exist; `replace` raised and
+            # `xscreen audit verify` crashed on every leap day. Round to the
+            # 28th, which is the more conservative floor (one day later would
+            # allow purging one day sooner).
+            floor = now.replace(year=now.year - RETENTION_YEARS, day=28)
+        return floor.date().isoformat()
