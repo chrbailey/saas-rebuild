@@ -3,8 +3,12 @@
 
 JSON Schema catches local shape errors. This command also checks invariants
 that JSON Schema cannot express across files: stable-id uniqueness, evidence
-resolution, graph endpoints and process coverage, dataset-lineage isolation,
-state references, and preservation file size/digests/path containment.
+resolution (graph edges, teardown decisions, and pair citations all resolve
+to the feature inventory, and a pair's copy of a citation must equal its
+inventory definition), graph endpoints and process coverage, verdict parity
+between inventory and graph in both directions, dataset-lineage isolation,
+state references to the validated files, and preservation file
+size/digests/path containment with normalized path comparison.
 """
 
 from __future__ import annotations
@@ -39,6 +43,15 @@ SCHEMAS = {
     "pair": "pairs.schema.json",
     "graph": "dependency-graph.schema.json",
     "preservation": "preservation-manifest.schema.json",
+}
+# teardown.json `artifacts` keys that must name the file this command
+# validated; a state pointing elsewhere would make the validated file and the
+# declared artifact silently differ.
+STATE_ARTIFACTS = {
+    "feature_inventory": REQUIRED["features"],
+    "pairs": REQUIRED["pairs"],
+    "graph": REQUIRED["graph"],
+    "preservation_manifest": REQUIRED["preservation"],
 }
 
 
@@ -165,6 +178,34 @@ class Validation:
                     f"{sorted(unresolved)}"
                 )
 
+        # The feature inventory is the evidence registry. A pair carries a
+        # copy of each citation it relies on; the copy must be the same
+        # observation, field for field, or the pair is citing evidence the
+        # inventory never recorded.
+        for pair in pairs:
+            for citation in pair.get("evidence", []):
+                evidence_id = citation["evidence_id"]
+                definition = evidence_map.get(evidence_id)
+                if definition is None:
+                    self.error(f"pair {pair['pair_id']} cites unknown evidence: {evidence_id}")
+                    continue
+                unresolved = set(citation.get("derived_from", [])) - evidence_set
+                if unresolved:
+                    self.error(
+                        f"pair {pair['pair_id']} citation {evidence_id} has unknown "
+                        f"derivation parents: {sorted(unresolved)}"
+                    )
+                differing = sorted(
+                    field
+                    for field in set(citation) | set(definition)
+                    if citation.get(field) != definition.get(field)
+                )
+                if differing:
+                    self.error(
+                        f"pair {pair['pair_id']} citation {evidence_id} differs from its "
+                        f"feature-inventory definition in: {differing}"
+                    )
+
         for feature in features:
             usage = feature.get("usage")
             usage_citations = [
@@ -227,6 +268,10 @@ class Validation:
             for edge in graph["edges"]
             if edge["type"] == "supports"
         }
+        feature_map = {feature["id"]: feature for feature in features}
+        for node in graph["nodes"]:
+            if node.get("type") == "feature" and node["id"] not in feature_map:
+                self.error(f"graph feature node has no inventory entry: {node['id']}")
         for feature in features:
             node = node_map.get(feature["id"])
             if node is None:
@@ -234,8 +279,11 @@ class Validation:
                 continue
             if node.get("type") != "feature":
                 self.error(f"feature graph node has wrong type: {feature['id']}")
-            if feature.get("verdict") and node.get("verdict") != feature["verdict"]:
-                self.error(f"verdict mismatch for {feature['id']}")
+            if node.get("verdict") != feature.get("verdict"):
+                self.error(
+                    f"verdict mismatch for {feature['id']}: "
+                    f"inventory={feature.get('verdict')} graph={node.get('verdict')}"
+                )
             for process in feature.get("business_processes", []):
                 if node_map.get(process, {}).get("type") != "business-process":
                     self.error(f"feature {feature['id']} references missing process node: {process}")
@@ -263,6 +311,12 @@ class Validation:
             repeated = duplicates(values)
             if repeated:
                 self.error(f"duplicate teardown {field} ids: {sorted(repeated)}")
+        for decision in state["decisions"]:
+            unresolved = set(decision["evidence_ids"]) - evidence_set
+            if unresolved:
+                self.error(
+                    f"teardown decision {decision['id']} has unknown evidence: {sorted(unresolved)}"
+                )
 
         for name, relative in state["artifacts"].items():
             try:
@@ -272,6 +326,12 @@ class Validation:
                 continue
             if not path.is_file():
                 self.error(f"state artifact {name} does not exist: {relative}")
+                continue
+            expected = STATE_ARTIFACTS.get(name)
+            if expected is not None and path != (self.root / expected).resolve():
+                self.error(
+                    f"state artifact {name} must be the validated file {expected}, not {relative}"
+                )
 
         if preservation["teardown_id"] != state["teardown_id"]:
             self.error("preservation teardown_id does not match state")
@@ -279,15 +339,20 @@ class Validation:
         repeated = duplicates(artifact_ids)
         if repeated:
             self.error(f"duplicate preservation artifact ids: {sorted(repeated)}")
-        file_paths: list[str] = []
+        # Compare preserved files by resolved path, never by spelling:
+        # "./pairs.jsonl" and "pairs.jsonl" are the same file.
+        pairs_path = (self.root / REQUIRED["pairs"]).resolve()
+        spellings_by_file: dict[Path, list[str]] = {}
         for artifact in preservation["artifacts"]:
+            preserved: list[Path] = []
             for file_entry in artifact.get("files", []):
-                file_paths.append(file_entry["path"])
                 try:
                     path = contained_path(self.root, file_entry["path"])
                 except ValueError as error:
                     self.error(f"preservation artifact {artifact['id']}: {error}")
                     continue
+                preserved.append(path)
+                spellings_by_file.setdefault(path, []).append(file_entry["path"])
                 if not path.is_file():
                     self.error(f"preserved file does not exist: {file_entry['path']}")
                     continue
@@ -298,13 +363,19 @@ class Validation:
                     self.error(f"preserved file digest mismatch: {file_entry['path']}")
             if (
                 artifact["category"] == "replay-corpus"
-                and any(item["path"] == state["artifacts"]["pairs"] for item in artifact.get("files", []))
+                and pairs_path in preserved
                 and artifact.get("record_count") != len(pairs)
             ):
-                self.error("replay-corpus record_count does not match pairs.jsonl")
-        repeated = duplicates(file_paths)
-        if repeated:
-            self.error(f"preserved file appears in multiple artifacts: {sorted(repeated)}")
+                self.error(
+                    f"replay-corpus record_count does not match pairs.jsonl "
+                    f"in preservation artifact {artifact['id']}"
+                )
+        for path, spellings in spellings_by_file.items():
+            if len(spellings) > 1:
+                self.error(
+                    f"preserved file appears in multiple artifacts: "
+                    f"{path.relative_to(self.root).as_posix()} (listed as {spellings})"
+                )
 
     def finish(self, *, features: int = 0, pairs: int = 0) -> int:
         if self.errors:
