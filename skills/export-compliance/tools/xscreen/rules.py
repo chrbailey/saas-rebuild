@@ -646,6 +646,18 @@ def provisional_disposition(result: ScreeningResult) -> tuple[str, str]:
     worst = max((SEVERITY_RANK.get(f.severity, 0) for f in flags), default=0)
 
     if band == "EXACT":
+        exact = [c for c in result.candidates if c.get("band") == "EXACT"]
+        # OFAC marks weak aliases as low-quality identifiers. When every
+        # EXACT candidate matched only through one, the automatic
+        # CONFIRMED_HIT floor overstated the evidence -- and the guardrail
+        # then forbade the adjudicator to disagree with it.
+        if exact and all((c.get("signals") or {}).get("weak_alias") for c in exact):
+            return "REVIEW", (
+                "Exact name match, but only against weak aliases -- broad or "
+                "generic akas the source list itself marks as low-quality "
+                "identifiers. Requires adjudication and human review; a "
+                "weak-alias hit alone does not auto-confirm."
+            )
         return "CONFIRMED_HIT", (
             "Exact normalized name match against a restricted party list. "
             "Requires human confirmation before any disposition other than hold."

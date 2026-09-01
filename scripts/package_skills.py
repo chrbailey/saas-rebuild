@@ -14,6 +14,7 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import subprocess
 import sys
 import zipfile
 
@@ -26,17 +27,45 @@ ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
 
 def source_files(skill_dir: Path) -> list[Path]:
-    files: list[Path] = []
+    """Git-tracked files under `skill_dir`, sorted by archive entry name.
+
+    Enumerating with rglob() ingested whatever the worktree held: a
+    developer's `.pytest_cache/` (or a stray `.env`) shipped inside an
+    attested release archive, and `--check` could not see it because both
+    comparison builds read the same dirty tree. The git index is the
+    definition of "source bytes"; a tracked file missing from disk is an
+    error, never a skip.
+    """
     for path in skill_dir.rglob("*"):
         if path.is_symlink():
             raise ValueError(f"refusing to package symlink: {path}")
-        if (
-            path.is_file()
-            and "__pycache__" not in path.parts
-            and path.suffix != ".pyc"
-        ):
-            files.append(path)
-    return sorted(files)
+    try:
+        listing = subprocess.run(
+            ["git", "-C", str(skill_dir), "ls-files", "-z"],
+            check=True,
+            capture_output=True,
+        ).stdout.decode("utf-8")
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError(
+            f"cannot enumerate tracked source files under {skill_dir}: {exc}"
+        ) from exc
+    files: list[Path] = []
+    for rel in listing.split("\0"):
+        if not rel:
+            continue
+        path = skill_dir / rel
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"tracked file missing from the worktree: {path}"
+            )
+        files.append(path)
+    if not files:
+        raise RuntimeError(f"git tracks no files under {skill_dir}")
+    # Sort by the string the archive entry will carry, so the entry order and
+    # `check()`'s string-sorted comparison can never disagree (Path objects
+    # sort by parts, which orders `corpus/` before a sibling `corpus.md`;
+    # string order does the opposite).
+    return sorted(files, key=lambda p: p.relative_to(skill_dir).as_posix())
 
 
 def archive_bytes(skill_name: str, skill_dir: Path) -> bytes:

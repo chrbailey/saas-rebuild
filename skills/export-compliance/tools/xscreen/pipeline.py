@@ -23,7 +23,7 @@ from typing import Callable, Iterable
 from .adjudicate import adjudicate_result, resolve_disposition
 from .audit import AuditLog
 from .critic import CriticReview, Route, run_loop
-from .fetch import Manifest, corpus_check, load_manifest, load_parties, staleness_check
+from .fetch import Manifest, corpus_check, load_corpus, load_manifest, staleness_check
 from .llm import Backend
 from .match import ListIndex, screen_name, tuning_digest
 from .models import ScreeningResult, SubjectParty
@@ -138,7 +138,10 @@ def parse_party_file(text: str) -> tuple[list[SubjectParty], list[str]]:
 def build_index(data_dir: Path) -> tuple[ListIndex, Manifest]:
     manifest = load_manifest(data_dir)
     index = ListIndex()
-    index.add_all(load_parties(data_dir))
+    # load_corpus verifies parties.jsonl against the manifest's corpus digest
+    # and refuses on mismatch -- the corpus screening matches against must be
+    # the corpus the manifest attests to.
+    index.add_all(load_corpus(data_dir, manifest))
     return index.build(), manifest
 
 
@@ -231,6 +234,7 @@ def run(
     start_entry = log.append("run.start", {
         "subjects": len(subjects),
         "list_manifest_digest": manifest.digest,
+        "corpus_sha256": manifest.corpus_sha256,
         "list_total_parties": manifest.total_parties,
         "list_files": [
             {"code": f.get("code"), "sha256": f.get("sha256"), "fetched_at": f.get("fetched_at"),
@@ -263,7 +267,10 @@ def run(
         if has_candidates:
             if use_llm and use_critic:
                 def _adj(r: ScreeningResult, brief: str) -> ScreeningResult:
-                    r = adjudicate_result(r, backend, enabled=True)
+                    # The brief must reach the adjudicator PROMPT (see
+                    # _render_case); stamping it on the output alone made
+                    # every temperature-0 retry an identical repeat.
+                    r = adjudicate_result(r, backend, enabled=True, retry_brief=brief)
                     if brief:
                         for a in r.adjudications:
                             a["retry_context"] = brief[:800]

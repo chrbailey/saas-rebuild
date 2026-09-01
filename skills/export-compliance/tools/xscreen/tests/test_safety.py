@@ -33,6 +33,54 @@ class CorpusCase(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
 
+class TestCorpusIntegrityBinding(CorpusCase):
+    """Deleting one blocked party from parties.jsonl produced a false CLEAR
+    while the manifest digest, corpus check, staleness check and audit record
+    all stayed pristine. The per-file hashes cover the raw downloads, but
+    screening matches against the merged corpus -- so the merged corpus is
+    what the manifest must attest to, and a mismatch is a refusal."""
+
+    def _screen(self):
+        from xscreen.pipeline import parse_party_file, run
+
+        subjects, _ = parse_party_file("name\nNorthwind Heavy Machinery OAO\n")
+        return run(subjects, self.data, self.tmp / "audit.jsonl",
+                   use_llm=False, use_critic=False)
+
+    def test_manifest_records_the_corpus_digest(self):
+        m = refresh(self.data, FULL, offline=True)
+        self.assertEqual(len(m.corpus_sha256), 64)
+        self.assertEqual(load_manifest(self.data).corpus_sha256, m.corpus_sha256)
+
+    def test_edited_corpus_is_refused_not_screened(self):
+        refresh(self.data, FULL, offline=True)
+        p = self.data / "parties.jsonl"
+        kept = [l for l in p.read_text().splitlines() if '"SDN:1001"' not in l]
+        self.assertLess(len(kept), len(p.read_text().splitlines()),
+                        "fixture drift: SDN:1001 not present to delete")
+        p.write_text("\n".join(kept))
+        with self.assertRaises(RuntimeError) as ctx:
+            self._screen()
+        self.assertIn("does not match the digest", str(ctx.exception))
+
+    def test_manifest_without_corpus_digest_is_refused(self):
+        refresh(self.data, FULL, offline=True)
+        mp = self.data / "manifest.json"
+        man = json.loads(mp.read_text())
+        man.pop("corpus_sha256", None)
+        mp.write_text(json.dumps(man))
+        with self.assertRaises(RuntimeError) as ctx:
+            self._screen()
+        self.assertIn("no corpus digest", str(ctx.exception))
+
+    def test_intact_corpus_screens_and_the_audit_carries_the_digest(self):
+        m = refresh(self.data, FULL, offline=True)
+        self._screen()
+        start = next(e for e in AuditLog(self.tmp / "audit.jsonl").entries()
+                     if e["event"] == "run.start")
+        self.assertEqual(start["payload"]["corpus_sha256"], m.corpus_sha256)
+
+
 class TestCorpusCoverage(CorpusCase):
     """`xscreen refresh --sources DPL` rebuilt parties.jsonl from that one
     list. The manifest reported fresh and not degraded, and the next screen
@@ -83,6 +131,17 @@ class TestCorpusCoverage(CorpusCase):
                     allow_stale=allow_stale)
             self.assertIn("does not cover", str(ctx.exception),
                           f"allow_stale={allow_stale} bypassed the coverage refusal")
+
+    def test_manifest_without_coverage_record_is_refused(self):
+        refresh(self.data, FULL, offline=True)
+        mp = self.data / "manifest.json"
+        man = json.loads(mp.read_text())
+        man["covered_sources"] = []
+        man["degraded"] = False
+        mp.write_text(json.dumps(man))
+        ok, msg = corpus_check(load_manifest(self.data))
+        self.assertFalse(ok)
+        self.assertIn("no source coverage", msg)
 
     def test_allow_stale_still_works_for_a_complete_but_old_corpus(self):
         """The override must keep functioning for what it was built for."""

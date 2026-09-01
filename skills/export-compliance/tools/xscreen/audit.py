@@ -184,10 +184,14 @@ class AuditLog:
         root-owned in a real deployment: an attacker who has to edit two files
         in agreement is doing something much more deliberate than `truncate`.
         """
-        self.head_marker_path.write_text(
+        tmp = self.head_marker_path.with_name(self.head_marker_path.name + ".tmp")
+        tmp.write_text(
             json.dumps({"seq": seq, "hash": digest}, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        # Atomic replace: a crash mid-write must not leave a torn marker that
+        # verify() would read as disagreement with an intact log.
+        os.replace(tmp, self.head_marker_path)
 
     def _read_head_marker(self) -> dict[str, Any] | None:
         try:

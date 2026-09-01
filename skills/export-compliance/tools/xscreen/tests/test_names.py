@@ -39,7 +39,20 @@ class TestTokens(unittest.TestCase):
 
     def test_suffix_only_name_survives(self):
         # Stripping must never produce an empty key.
-        self.assertTrue(core_tokens("Holding Group"))
+        self.assertTrue(core_tokens("Company Limited"))
+
+    def test_loaded_organizational_nouns_are_not_suffixes(self):
+        # "Alpha Fund" and "Alpha Trust" once normalized to the same key and
+        # banded EXACT at 1.0 -- an automatic CONFIRMED_HIT the adjudicator
+        # was forbidden to dissent from. Trust/fund/group/holding are name
+        # parts, not legal wrappers.
+        self.assertNotEqual(normalized("Alpha Fund"), normalized("Alpha Trust"))
+        self.assertNotEqual(normalized("Wagner Group International Holdings"),
+                            "wagner")
+        self.assertIn("group", core_tokens("Wagner Group"))
+        # True legal forms still fold together.
+        self.assertEqual(normalized("Acme LLC"), normalized("Acme Ltd"))
+        self.assertEqual(normalized("Northwind OAO"), normalized("Northwind JSC"))
 
     def test_word_equivalences(self):
         self.assertEqual(normalized("Global Technologies"), normalized("Global Technology"))
@@ -61,6 +74,18 @@ class TestSkeleton(unittest.TestCase):
 
     def test_slavic_ov_off_family(self):
         self.assertEqual(skeleton("Petrov"), skeleton("Petroff"))
+
+    def test_qaf_family_unites(self):
+        # Qadhafi/Gaddafi/Kaddafi all render the same Arabic qāf. The digraph
+        # table had no q/g/k fold, so the three skeletons were qdf/gdf/kdf and
+        # the most famous transliteration family in OFAC history was a
+        # complete blocking miss.
+        self.assertEqual(skeleton("Qadhafi"), skeleton("Gaddafi"))
+        self.assertEqual(skeleton("Qadhafi"), skeleton("Kaddafi"))
+        self.assertEqual(skeleton("Qasemi"), skeleton("Ghasemi"))
+
+    def test_tch_folds_with_ch(self):
+        self.assertEqual(skeleton("Tchernov"), skeleton("Chernov"))
 
     def test_distinct_names_do_not_collide(self):
         self.assertNotEqual(skeleton("Petrov"), skeleton("Ivanov"))
@@ -114,6 +139,10 @@ class TestAcronym(unittest.TestCase):
     def test_rejects_non_initialism(self):
         self.assertFalse(is_acronym_of("ZEN", core_tokens("Zenith Precision Instruments")))
         self.assertFalse(is_acronym_of("A", core_tokens("Acme Corp")))
+
+    def test_two_letter_initials_are_noise_not_acronyms(self):
+        # On a real list "GE" would initial-match half the two-token names.
+        self.assertFalse(is_acronym_of("GE", core_tokens("General Electric")))
 
 
 class TestDeterminism(unittest.TestCase):

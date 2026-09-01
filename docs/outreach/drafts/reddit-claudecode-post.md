@@ -70,7 +70,7 @@ lacks. CONTRIBUTING.md has the loop.
 
 ## Reviewer notes (delete before posting)
 
-- Numbers pinned to v0.7: 29/100, all doc-derived-unverified, 274 tests
+- Numbers pinned to v0.7: 29/100, all doc-derived-unverified, 302 tests
   (rounded to ~270 in the draft to keep it casual — restore the exact
   number if you prefer).
 - If the sub requires flair, "Showcase"/"Plugin" equivalents fit.

@@ -54,6 +54,32 @@ class TestOFAC(unittest.TestCase):
         self.assertTrue(any("Moscow" in a for a in by["1001"].addresses))
         self.assertIn("Russia", by["1001"].countries)
 
+    def test_weak_aliases_are_parsed_and_labelled(self):
+        # OFAC marks a weak aka by wrapping the name in quotation marks.
+        alts = parse_ofac_alt('1001,101,"aka","""THE HAMMER""",-0-\n'
+                              "1001,102,\"aka\",\"'EL MARTILLO'\",-0-\n"
+                              '1001,103,"aka","REAL FORMER NAME LLC",-0-\n')
+        names = alts["1001"]
+        self.assertIn(("THE HAMMER", True), names)
+        self.assertIn(("EL MARTILLO", True), names)
+        self.assertIn(("REAL FORMER NAME LLC", False), names)
+
+    def test_weak_aliases_reach_the_party_record(self):
+        alts = parse_ofac_alt('1001,101,"aka","""THE HAMMER""",-0-\n')
+        merged = merge_ofac(parse_ofac_sdn(read("SDN.raw")), alts, {})
+        p = {x.native_id: x for x in merged.parties}["1001"]
+        self.assertIn("THE HAMMER", p.aliases)
+        self.assertIn("THE HAMMER", p.weak_aliases)
+
+    def test_remarks_akas_are_extracted_and_screenable(self):
+        # SDN remarks carry aliases the ALT file never lists
+        # ("a.k.a. FARQAD GENERAL TRADING."). They were never indexed, so a
+        # counterparty using exactly that trading name screened clean.
+        p = {x.native_id: x for x in self.out.parties}["1002"]
+        self.assertIn("FARQAD GENERAL TRADING", p.aliases)
+        # Free-text extraction is low-provenance, so it must not auto-confirm.
+        self.assertIn("FARQAD GENERAL TRADING", p.weak_aliases)
+
     def test_missing_alt_file_produces_a_warning_not_silence(self):
         out = parse_ofac_sdn(read("SDN.raw"))
         merged = merge_ofac(out, {}, {})

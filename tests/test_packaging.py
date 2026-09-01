@@ -46,10 +46,18 @@ def zip_entries(path):
 
 
 def source_files(skill_dir):
+    # Expectations come from the git index, matching the packager: archives
+    # must carry exactly the tracked source bytes, never untracked local
+    # state that happens to sit in the worktree.
+    listing = subprocess.run(
+        ["git", "-C", str(skill_dir), "ls-files", "-z"],
+        check=True,
+        capture_output=True,
+    ).stdout.decode("utf-8")
     return {
-        f"{skill_dir.name}/{path.relative_to(skill_dir).as_posix()}": path.read_bytes()
-        for path in skill_dir.rglob("*")
-        if path.is_file() and not is_artifact(path.relative_to(skill_dir).parts)
+        f"{skill_dir.name}/{rel}": (skill_dir / rel).read_bytes()
+        for rel in listing.split("\0")
+        if rel
     }
 
 
@@ -95,6 +103,33 @@ def test_release_outputs_are_not_committed():
     dist = REPO_ROOT / "dist"
     assert not list(dist.glob("*.zip"))
     assert not (dist / "SHA256SUMS").exists()
+
+
+def test_untracked_worktree_files_are_not_packaged():
+    # A dev who ran pytest locally had `.pytest_cache/` inside a release
+    # archive; a stray `.env` would have shipped (and been attested) the same
+    # way. The packager must read the git index, not the dirty worktree.
+    stray = REPO_ROOT / "skills" / "saas-rebuild" / "stray-local-state.tmp"
+    stray.write_text("local state; must never ship in a release archive")
+    try:
+        assert stray not in packaged_source_files(stray.parent)
+    finally:
+        stray.unlink()
+
+
+def test_missing_tracked_file_fails_the_build(tmp_path):
+    # ls-files reads the index, so `git add` is enough -- no commit identity
+    # needed, and the test stays hermetic on shallow CI checkouts.
+    repo = tmp_path / "repo"
+    skill = repo / "skills" / "demo"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("demo")
+    (skill / "tool.py").write_text("print('hi')\n")
+    subprocess.run(["git", "init", "--quiet", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+    (skill / "tool.py").unlink()
+    with pytest.raises(FileNotFoundError, match="tracked file missing"):
+        packaged_source_files(skill)
 
 
 def test_packager_rejects_symlinks(tmp_path):

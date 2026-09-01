@@ -16,9 +16,10 @@ public description from outrunning the repository's actual enforcement.
 | Shareable paired cases received a separate sanitization review | Pair schema conditional requires approved review metadata | Metadata is not content inspection; re-identification risk remains contextual |
 | Evaluation cases are isolated from training | Required dataset role and lineage group; the validator and negative tests reject cross-role overlap | External training pipelines must honor the recorded split |
 | Historical replay is side-effect-free and version-aware | Replay context requires a legacy config reference and verified side-effect isolation | Capturing every hidden state variable is often impossible |
-| Skill archives are reproducible from source | Deterministic packager, byte comparison in CI, SHA-256 manifest | Reproducibility does not by itself prove source trust or semantic correctness |
+| Skill archives are reproducible from source | Deterministic packager enumerating git-tracked files only, byte comparison in CI, SHA-256 manifest, missing-tracked-file and untracked-file tests | Reproducibility does not by itself prove source trust or semantic correctness |
+| The screening corpus matched against is the corpus the manifest attests to | `parties.jsonl` SHA-256 recorded at refresh, verified at load, refused on mismatch or absence, echoed in the `run.start` audit entry; tamper test | An attacker with write access to both the corpus and the manifest can still forge agreement; anchor the manifest externally for that threat |
 | Release artifacts came from this repository workflow | GitHub artifact attestation in the tag workflow | Consumers must actually verify the attestation and repository identity |
-| The export-compliance deterministic core is tested on Python 3.11–3.14 | 274 unit/adversarial tests, hash-seed rerun, end-to-end fixture screen, cross-run disposition comparison | Fixture coverage is not legal certification or proof against all name variants |
+| The export-compliance deterministic core is tested on Python 3.11–3.14 | 302 unit/adversarial tests, hash-seed rerun, end-to-end fixture screen, cross-run disposition comparison | Fixture coverage is not legal certification or proof against all name variants |
 | Export-compliance can run without outbound screening calls | Default offline backend and local fixture tests | `refresh` uses government endpoints; configured hosted model backends send minimized case data |
 
 ## Explicit non-claims

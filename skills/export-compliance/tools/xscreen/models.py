@@ -16,7 +16,7 @@ import hashlib
 from dataclasses import dataclass, field, asdict
 from typing import Any, Literal
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 PartyType = Literal["individual", "entity", "vessel", "aircraft", "unknown"]
 
@@ -44,6 +44,11 @@ class ListedParty:
     name: str                      # primary name as published
     party_type: PartyType = "unknown"
     aliases: list[str] = field(default_factory=list)
+    # Subset of `aliases` that OFAC marks as weak ("weak AKAs" -- broad,
+    # generic or low-quality identifiers, denoted by quotation marks in the
+    # published data). Screened like any alias, but an exact hit on one is
+    # lower-quality evidence and must not auto-confirm.
+    weak_aliases: list[str] = field(default_factory=list)
     addresses: list[str] = field(default_factory=list)
     countries: list[str] = field(default_factory=list)
     programs: list[str] = field(default_factory=list)   # OFAC programs / EAR cites

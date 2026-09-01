@@ -37,6 +37,25 @@ def _esc(s: str) -> str:
     return out.strip()
 
 
+# Leading characters that make a spreadsheet treat a cell as a formula.
+_FORMULA_LEAD = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _cell(v):
+    """Neutralize spreadsheet formula injection in a CSV cell.
+
+    `csv.writer` quotes delimiters but does nothing about a leading `=`, `+`,
+    `-` or `@` -- Excel and LibreOffice evaluate those on open. A counterparty
+    named `=HYPERLINK(...)` in a customer master would execute on the
+    compliance analyst's machine. The Markdown path escapes for exactly this
+    threat model; the CSV deliverable gets the standard mitigation, a leading
+    apostrophe, which spreadsheets strip on display.
+    """
+    if isinstance(v, str) and v.startswith(_FORMULA_LEAD):
+        return "'" + v
+    return v
+
+
 def summary_csv(results: Sequence[ScreeningResult]) -> str:
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
@@ -51,7 +70,7 @@ def summary_csv(results: Sequence[ScreeningResult]) -> str:
         top = live[0] if live else {}
         verdicts = sorted({a.get("verdict", "") for a in r.adjudications}) if r.adjudications else []
         prohibitive = [f.get("rule_id") for f in r.rule_flags if f.get("severity") == "prohibitive"]
-        w.writerow([
+        w.writerow([_cell(v) for v in (
             r.subject.get("ref", ""),
             r.subject.get("name", ""),
             r.disposition,
@@ -66,7 +85,7 @@ def summary_csv(results: Sequence[ScreeningResult]) -> str:
             len(r.critic_findings),
             r.screened_at,
             r.list_manifest_digest,
-        ])
+        )])
     return buf.getvalue()
 
 

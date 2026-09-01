@@ -77,9 +77,26 @@ class Manifest:
     degraded_reason: str = ""
     digest: str = ""
     covered_sources: list[str] = field(default_factory=list)
+    # SHA-256 of parties.jsonl -- the merged corpus screening actually matches
+    # against. The per-file hashes above cover the RAW downloads only; without
+    # this, editing parties.jsonl produced false clears while every digest in
+    # the manifest and audit trail stayed pristine.
+    corpus_sha256: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    """Write via a same-directory temp file and rename.
+
+    These files are the evidentiary record; a crash mid-write must leave
+    either the old version or the new one, never a torn file that a later
+    run would happily parse.
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def _ssl_context() -> ssl.SSLContext:
@@ -290,17 +307,23 @@ def refresh(
         {r.code for r in records if not r.error and r.code not in ("SDN_ALT", "SDN_ADD")}
     )
 
+    corpus_text = "\n".join(
+        json.dumps(p.to_dict(), ensure_ascii=False) for p in merged
+    )
+    manifest.corpus_sha256 = hashlib.sha256(corpus_text.encode("utf-8")).hexdigest()
     manifest.digest = stable_digest(
         {"files": [{"code": r.code, "sha256": r.sha256} for r in records],
-         "total": manifest.total_parties}
+         "total": manifest.total_parties,
+         "corpus_sha256": manifest.corpus_sha256}
     )
 
-    (data_dir / "manifest.json").write_text(
-        json.dumps(manifest.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-    (data_dir / "parties.jsonl").write_text(
-        "\n".join(json.dumps(p.to_dict(), ensure_ascii=False) for p in merged),
-        encoding="utf-8",
+    # Corpus first, manifest second: a crash between the two leaves an old
+    # manifest whose corpus_sha256 no longer matches, and load_corpus refuses
+    # to screen -- fail closed, not fail stale.
+    _atomic_write(data_dir / "parties.jsonl", corpus_text)
+    _atomic_write(
+        data_dir / "manifest.json",
+        json.dumps(manifest.to_dict(), indent=2, ensure_ascii=False),
     )
     return manifest
 
@@ -320,6 +343,40 @@ def load_parties(data_dir: Path) -> list[ListedParty]:
     return out
 
 
+def load_corpus(data_dir: Path, manifest: Manifest) -> list[ListedParty]:
+    """Load parties.jsonl, verifying it against the manifest's corpus digest.
+
+    The manifest's per-file hashes cover the raw downloads, but screening
+    matches against the merged corpus -- and that file was loaded on trust.
+    Deleting one blocked party from parties.jsonl produced a false CLEAR while
+    the manifest digest, the audit trail, and every "what did you screen
+    against" answer stayed pristine. The digest sold as tamper-evidence must
+    cover the corpus actually used, so a mismatch here is a refusal, not a
+    warning.
+    """
+    path = Path(data_dir) / "parties.jsonl"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"No party corpus at {path}. Run `xscreen refresh` first."
+        )
+    if not manifest.corpus_sha256:
+        raise RuntimeError(
+            "Refusing to screen: the manifest records no corpus digest, so the "
+            "party corpus cannot be verified against it. The snapshot predates "
+            "corpus binding or the manifest was edited; run `xscreen refresh`."
+        )
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != manifest.corpus_sha256:
+        raise RuntimeError(
+            "Refusing to screen: parties.jsonl does not match the digest "
+            f"recorded at refresh time (manifest {manifest.corpus_sha256[:12]}…, "
+            f"file {actual[:12]}…). The corpus was modified after refresh; "
+            "screening against it would produce results the manifest cannot "
+            "vouch for. Run `xscreen refresh`."
+        )
+    return load_parties(data_dir)
+
+
 def load_manifest(data_dir: Path) -> Manifest:
     path = Path(data_dir) / "manifest.json"
     if not path.exists():
@@ -334,6 +391,7 @@ def load_manifest(data_dir: Path) -> Manifest:
         degraded_reason=d.get("degraded_reason", ""),
         digest=d.get("digest", ""),
         covered_sources=d.get("covered_sources", []),
+        corpus_sha256=d.get("corpus_sha256", ""),
     )
     return m
 
@@ -375,9 +433,20 @@ def corpus_check(manifest: Manifest) -> tuple[bool, str]:
 
     Age is a judgement the operator may make. Completeness is not.
     """
+    covered = set(manifest.covered_sources or [])
     missing = [c for c in DEFAULT_REFRESH
-               if c not in set(manifest.covered_sources or []) and c not in ("SDN_ALT", "SDN_ADD")]
-    if manifest.covered_sources and missing:
+               if c not in covered and c not in ("SDN_ALT", "SDN_ADD")]
+    if not covered:
+        # A manifest with no coverage record at all used to pass this check.
+        # That rewarded exactly the wrong files: a hand-edited manifest or one
+        # predating coverage tracking, neither of which can vouch for
+        # completeness.
+        return False, (
+            "The manifest records no source coverage, so corpus completeness "
+            "cannot be established. Run `xscreen refresh` with the default "
+            "source set."
+        )
+    if missing:
         return False, (
             f"The loaded corpus does not cover {missing}. It was built by a "
             "narrower refresh and is not a complete screening corpus -- a party "
