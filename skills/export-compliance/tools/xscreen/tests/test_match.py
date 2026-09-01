@@ -148,6 +148,121 @@ class TestBlockingDisclosure(unittest.TestCase):
         self.assertEqual(diags, {})
 
 
+class TestAcronymReachability(unittest.TestCase):
+    """The acronym band rule must fire through the real pipeline.
+
+    Blocking is token- and skeleton-based, and an initialism shares neither
+    with its expansion -- so screen_name("IRGC") returned zero candidates
+    against a list carrying only the expanded name, and the acronym rule was
+    dead code except when the list itself carried the acronym as an alias
+    (i.e. when it was already an exact match). The short-name gate also
+    preceded the acronym rule, eating every 3-letter initialism.
+    """
+
+    @staticmethod
+    def _idx(*names):
+        idx = ListIndex()
+        for i, n in enumerate(names, 1):
+            idx.add(ListedParty(uid=f"SDN:{i}", source="SDN", native_id=str(i), name=n))
+        return idx.build()
+
+    def test_initialism_query_finds_the_expanded_listing(self):
+        b = bands(self._idx("ISLAMIC REVOLUTIONARY GUARD CORPS"), "IRGC")
+        self.assertEqual(b.get("SDN:1"), "STRONG")
+
+    def test_three_letter_initialism_survives_the_short_name_gate(self):
+        b = bands(self._idx("Kuznetsov Machine Zavod"), "KMZ")
+        self.assertEqual(b.get("SDN:1"), "STRONG")
+
+    def test_expanded_query_finds_a_listed_acronym(self):
+        b = bands(self._idx("KMZ"), "Kuznetsov Machine Zavod")
+        self.assertEqual(b.get("SDN:1"), "STRONG")
+
+    def test_two_letter_initials_do_not_band(self):
+        self.assertEqual(bands(self._idx("General Electric"), "GE"), {})
+
+
+class TestTransliterationRecall(unittest.TestCase):
+    """Consonant families the skeleton claimed to unite but did not."""
+
+    @staticmethod
+    def _idx(name):
+        idx = ListIndex()
+        idx.add(ListedParty(uid="SDN:1", source="SDN", native_id="1", name=name))
+        return idx.build()
+
+    def test_qaf_family_is_found(self):
+        for q in ("Muammar Gaddafi", "Muammar Kaddafi", "Muammar Qaddafi"):
+            b = bands(self._idx("QADHAFI, Muammar"), q)
+            self.assertIn("SDN:1", b, q)
+
+    def test_tch_variant_is_found(self):
+        self.assertIn("SDN:1", bands(self._idx("CHERNOV, Andrei"), "Andrey Tchernov"))
+
+    def test_q_gh_variant_is_found(self):
+        self.assertIn("SDN:1",
+                      bands(self._idx("MOHAMMAD REZA GHASEMI"), "Muhammed Riza Qasemi"))
+
+
+class TestSuffixInflation(unittest.TestCase):
+    """'Alpha Fund' vs 'Alpha Trust' banded EXACT at score 1.0 because
+    trust/fund/group/holding were stripped as corporate suffixes. EXACT means
+    an automatic CONFIRMED_HIT the adjudicator is forbidden to dissent from,
+    so a one-shared-word coincidence became an uncontestable hit."""
+
+    def test_fund_vs_trust_is_not_a_hit(self):
+        idx = ListIndex()
+        idx.add(ListedParty(uid="SDN:1", source="SDN", native_id="1", name="Alpha Trust"))
+        self.assertNotEqual(bands(idx.build(), "Alpha Fund").get("SDN:1"), "EXACT")
+
+    def test_rare_name_inside_a_loaded_qualifier_still_hits(self):
+        # Recall must survive the fix: a listed "Wagner" inside subject
+        # "Wagner Group" is still caught by discriminating containment.
+        idx = ListIndex()
+        idx.add(ListedParty(uid="SDN:1", source="SDN", native_id="1", name="WAGNER"))
+        idx.add(ListedParty(uid="SDN:2", source="SDN", native_id="2", name="Beacon Optics"))
+        b = bands(idx.build(), "Wagner Group")
+        self.assertEqual(b.get("SDN:1"), "STRONG")
+
+
+class TestWeakAliases(unittest.TestCase):
+    def _screen(self, subject_name):
+        p = ListedParty(uid="SDN:9", source="SDN", native_id="9",
+                        name="IVANOV, Igor Petrovich",
+                        aliases=["THE PROFESSOR"], weak_aliases=["THE PROFESSOR"])
+        idx = ListIndex()
+        idx.add(p)
+        return screen_name(SubjectParty(ref="t", name=subject_name), idx.build())
+
+    def test_weak_alias_hit_is_labelled(self):
+        cands = self._screen("The Professor")
+        self.assertEqual(cands[0].band, "EXACT")
+        self.assertTrue(cands[0].signals.get("weak_alias"))
+
+    def test_primary_name_hit_is_not_labelled(self):
+        cands = self._screen("Ivanov, Igor Petrovich")
+        self.assertEqual(cands[0].band, "EXACT")
+        self.assertNotIn("weak_alias", cands[0].signals)
+
+    def test_weak_alias_exact_floors_at_review_not_confirmed(self):
+        from xscreen.models import ScreeningResult
+        from xscreen.rules import provisional_disposition
+        cands = self._screen("The Professor")
+        r = ScreeningResult(subject={"ref": "t", "name": "The Professor"},
+                            candidates=[c.to_dict() for c in cands])
+        disp, reason = provisional_disposition(r)
+        self.assertEqual(disp, "REVIEW")
+        self.assertIn("weak alias", reason)
+
+    def test_primary_exact_still_auto_confirms(self):
+        from xscreen.models import ScreeningResult
+        from xscreen.rules import provisional_disposition
+        cands = self._screen("Ivanov, Igor Petrovich")
+        r = ScreeningResult(subject={"ref": "t", "name": "Ivanov, Igor Petrovich"},
+                            candidates=[c.to_dict() for c in cands])
+        self.assertEqual(provisional_disposition(r)[0], "CONFIRMED_HIT")
+
+
 class TestPrecisionGuards(unittest.TestCase):
     def setUp(self):
         self.idx = build_index()

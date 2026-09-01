@@ -56,6 +56,17 @@ class TestModelCannotClearAnExactMatch(unittest.TestCase):
         self.assertTrue(r.adjudications[0]["guardrail_override"])
         self.assertIn("not permitted", r.adjudications[0]["guardrail_override"])
 
+    def test_weak_alias_dissent_may_stand_but_still_requires_a_human(self):
+        # An exact hit through an OFAC weak alias is low-quality evidence:
+        # the model may disagree with it, but the case never ends CLEAR.
+        r = make_result()
+        r.candidates[0]["signals"] = {"weak_alias": True}
+        r = resolve_disposition(adjudicate_result(
+            r, FakeBackend(adj_payload("SDN:1001", "DIFFERENT_PARTY", 0.95))))
+        self.assertNotEqual(r.disposition, "CLEAR")
+        self.assertTrue(r.requires_human)
+        self.assertIn("weak alias", r.adjudications[0]["guardrail_override"])
+
     def test_exact_match_dismissed_by_model_still_requires_a_human(self):
         r = make_result(band="EXACT", severity="prohibitive")
         r = resolve_disposition(adjudicate_result(r, FakeBackend(

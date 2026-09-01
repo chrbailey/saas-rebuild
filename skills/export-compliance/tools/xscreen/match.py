@@ -37,6 +37,7 @@ from .models import Candidate, ListedParty, MatchBand, SubjectParty
 from .names import (
     core_tokens,
     fold,
+    initials,
     is_acronym_of,
     jaro_winkler,
     levenshtein_ratio,
@@ -115,6 +116,10 @@ class ListIndex:
         self.parties: dict[str, ListedParty] = {}
         self._token_postings: dict[str, set[int]] = defaultdict(set)
         self._skel_postings: dict[str, set[int]] = defaultdict(set)
+        # initials of a multi-token listed name -> entries. An acronym shares
+        # no token and no skeleton with its expansion, so without a dedicated
+        # posting the acronym band rule was unreachable through blocking.
+        self._acronym_postings: dict[str, set[int]] = defaultdict(set)
         self._df: dict[str, int] = defaultdict(int)
         self._common_cache: set[str] | None = None
         self._built = False
@@ -144,6 +149,10 @@ class ListIndex:
             for st in set(skeleton(nm).split()):
                 if st:
                     self._skel_postings[st].add(idx)
+            if len(toks) >= 2:
+                acro = initials(toks)
+                if len(acro) >= 3:
+                    self._acronym_postings[acro].add(idx)
         self._built = False
         self._common_cache = None
 
@@ -194,16 +203,30 @@ class ListIndex:
         for st in set(skeleton(name).split()):
             if st:
                 keys.append((len(self._skel_postings.get(st, ())), st, "skeleton"))
+        # Acronym reachability, in both directions. An initialism shares no
+        # token and no skeleton with its expansion, so "IRGC" pulled ZERO
+        # candidates against a list carrying only "Islamic Revolutionary
+        # Guard Corps" -- the acronym band rule below only ever fired when
+        # the list itself carried the acronym as an alias, i.e. when it was
+        # already an exact match.
+        for t in set(toks):
+            if len(t) >= 3 and t in self._acronym_postings:
+                keys.append((len(self._acronym_postings[t]), t, "acronym"))
+        if len(toks) >= 2:
+            acro = initials(toks)
+            if len(acro) >= 3 and acro in self._token_postings:
+                keys.append((self._df.get(acro, 0), acro, "token"))
         keys.sort(key=lambda k: (k[0], k[1]))
 
         out: set[int] = set()
         truncated: list[str] = []
+        lookup = {"token": self._token_postings, "skeleton": self._skel_postings,
+                  "acronym": self._acronym_postings}
         for df, key, kind in keys:
             if out and len(out) >= MAX_BLOCK_ENTRIES:
                 truncated.append(f"{key} (df={df})")
                 continue
-            postings = (self._token_postings if kind == "token" else self._skel_postings)
-            out |= postings.get(key, set())
+            out |= lookup[kind].get(key, set())
         return BlockResult(out, truncated)
 
 
@@ -340,17 +363,21 @@ def assign_band(score: float, signals: dict[str, float | bool], subject_name: st
     if signals.get("exact_reordered"):
         return "EXACT"
 
+    # An initialism that resolves exactly is a strong signal on its own; list
+    # data and shipping documents disagree about this constantly. It must
+    # outrank the short-name gate below: acronyms are short by construction,
+    # and behind the gate this rule was dead for the 3-letter initialisms
+    # that dominate real trade documents. (is_acronym_of refuses 2-letter
+    # forms; those genuinely are noise.)
+    if signals.get("acronym"):
+        return "STRONG"
+
     # Very short names: exact only. Fuzzy matching "SU" against "SUN", "SUD",
     # "SUR" generates pure noise and buries real hits.
     if len(s_norm.replace(" ", "")) < SHORT_NAME_CHARS or len(
         entry.norm.replace(" ", "")
     ) < SHORT_NAME_CHARS:
         return "NONE"
-
-    # An initialism that resolves exactly is a strong signal on its own; list
-    # data and shipping documents disagree about this constantly.
-    if signals.get("acronym"):
-        return "STRONG"
 
     # Full containment of the shorter name plus a matching skeleton means the
     # names differ only by extra qualifiers and vowel drift.
@@ -444,6 +471,12 @@ def screen_name(
             party = index.parties[entry.uid]
             signals = dict(signals)
             signals["matched_subject_name"] = qname
+            # A hit through a weak alias is real but lower-quality evidence;
+            # the disposition floor and guardrails read this signal.
+            if party.weak_aliases and entry.listed_name.lower() in {
+                w.lower() for w in party.weak_aliases
+            }:
+                signals["weak_alias"] = True
             signals.update(geo_signals(subject, party))
             cand = Candidate(
                 listed_uid=entry.uid,

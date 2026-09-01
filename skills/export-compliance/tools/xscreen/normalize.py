@@ -288,6 +288,28 @@ ALT_COLS = 5    # ent_num, alt_num, alt_type, alt_name, alt_remarks
 ADD_COLS = 6    # ent_num, add_num, address, city_state_zip, country, remarks
 
 
+# Aliases OFAC records only in the free-text remarks of the primary file
+# ("a.k.a. FARQAD GENERAL TRADING." / "a.k.a. 'THE TEACHER'"). These never
+# reach the ALT file, so without extraction they were never indexed and never
+# screened. They are treated as weak: free-text extraction is lower-quality
+# provenance than a structured ALT row, so an exact hit on one routes to
+# review rather than auto-confirming.
+_REMARKS_AKA = re.compile(
+    r"(?:a\.k\.a\.|f\.k\.a\.|n\.k\.a\.)\s+"
+    r"(?:['\"]([^'\"]{2,120})['\"]|([^;.]{2,120}))",
+    re.IGNORECASE,
+)
+
+
+def _remarks_akas(remarks: str) -> list[str]:
+    out: list[str] = []
+    for quoted, bare in _REMARKS_AKA.findall(remarks or ""):
+        name = (quoted or bare).strip()
+        if name:
+            out.append(name)
+    return out
+
+
 # Values OFAC uses in the SDN type column. Used as a content sanity check:
 # the flat files are positionally defined, so a column *count* check cannot
 # detect a same-width reorder. If the field that should hold the party type
@@ -324,6 +346,7 @@ def parse_ofac_sdn(text: str, source_code: str = "SDN") -> ParseOutcome:
             out.skipped_rows += 1
             continue
         remarks = _clean(row[11]) if len(row) > 11 else ""
+        akas = _remarks_akas(remarks)
         out.parties.append(
             ListedParty(
                 uid=f"{source_code}:{ent}",
@@ -331,6 +354,8 @@ def parse_ofac_sdn(text: str, source_code: str = "SDN") -> ParseOutcome:
                 native_id=ent,
                 name=name,
                 party_type=_party_type(typ),
+                aliases=list(akas),
+                weak_aliases=list(akas),
                 programs=[p.strip() for p in re.split(r"[;\]\[]+", program) if p.strip()],
                 remarks=remarks,
                 raw={"row": " | ".join(row)},
@@ -352,15 +377,30 @@ def parse_ofac_sdn(text: str, source_code: str = "SDN") -> ParseOutcome:
     return out
 
 
-def parse_ofac_alt(text: str, source_code: str = "SDN") -> dict[str, list[str]]:
-    """Return ent_num -> alternate names, to merge into SDN records."""
-    out: dict[str, list[str]] = {}
+def parse_ofac_alt(text: str, source_code: str = "SDN") -> dict[str, list[tuple[str, bool]]]:
+    """Return ent_num -> [(alternate name, is_weak)], to merge into SDN records.
+
+    OFAC denotes a weak alias -- a broad, generic or otherwise low-quality
+    aka -- by wrapping the name in quotation marks in the published data.
+    The earlier version read only the name column and threw the distinction
+    away, so an exact hit on a weak aka carried the same automatic
+    CONFIRMED_HIT floor as a hit on a primary name, with the adjudicator
+    forbidden to dissent. Weak aliases are still screened (they are on the
+    list for a reason); they are just labelled as the lower-quality evidence
+    they are.
+    """
+    out: dict[str, list[tuple[str, bool]]] = {}
     for row in csv.reader(io.StringIO(text)):
         if len(row) < 4:
             continue
         ent, alt_name = _clean(row[0]), _clean(row[3])
-        if ent and alt_name:
-            out.setdefault(ent, []).append(alt_name)
+        if not (ent and alt_name):
+            continue
+        weak = len(alt_name) >= 3 and alt_name[0] in "\"'" and alt_name[-1] == alt_name[0]
+        if weak:
+            alt_name = alt_name[1:-1].strip()
+        if alt_name:
+            out.setdefault(ent, []).append((alt_name, weak))
     return out
 
 
@@ -380,7 +420,7 @@ def parse_ofac_add(text: str) -> dict[str, list[str]]:
 
 def merge_ofac(
     base: ParseOutcome,
-    alts: dict[str, list[str]] | None = None,
+    alts: dict[str, list[tuple[str, bool]]] | None = None,
     adds: dict[str, list[str]] | None = None,
 ) -> ParseOutcome:
     """Fold ALT and ADD files into the primary SDN records.
@@ -395,7 +435,13 @@ def merge_ofac(
     for p in base.parties:
         a = alts.get(p.native_id)
         if a:
-            p.aliases.extend(a)
+            for item in a:
+                # Tolerate the pre-weak-alias plain-string shape so a caller
+                # feeding a hand-built dict does not silently lose aliases.
+                nm, weak = item if isinstance(item, tuple) else (item, False)
+                p.aliases.append(nm)
+                if weak:
+                    p.weak_aliases.append(nm)
             matched_alt += 1
         ad = adds.get(p.native_id)
         if ad:
@@ -533,6 +579,8 @@ def dedupe(parties: list[ListedParty]) -> list[ListedParty]:
             continue
         seen = {a.lower() for a in cur.aliases}
         cur.aliases.extend(a for a in p.aliases if a.lower() not in seen)
+        seen_w = {a.lower() for a in cur.weak_aliases}
+        cur.weak_aliases.extend(a for a in p.weak_aliases if a.lower() not in seen_w)
         seen_addr = {a.lower() for a in cur.addresses}
         cur.addresses.extend(a for a in p.addresses if a.lower() not in seen_addr)
         seen_c = {c.lower() for c in cur.countries}

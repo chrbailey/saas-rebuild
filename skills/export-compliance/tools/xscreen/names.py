@@ -23,6 +23,16 @@ from functools import lru_cache
 # Legal-form suffixes carry almost no discriminating power ("Acme LLC" vs
 # "Acme Ltd" is the same risk) but they wreck edit-distance scores. They are
 # stripped for the comparison key and preserved on the record for display.
+#
+# Only true legal forms belong here. This set once also stripped words like
+# "trust", "fund", "holding", "group" and "international" -- organizational
+# nouns that are part of the NAME, not the legal wrapper -- which made
+# "Alpha Fund" and "Alpha Trust" normalize to the same key and band EXACT at
+# score 1.0. EXACT means an automatic CONFIRMED_HIT floor that the
+# adjudicator is forbidden to dissent from, so the over-stripping turned a
+# one-shared-word coincidence into an uncontestable hit. Those words now stay
+# in the token stream; the containment and discriminating-token rules still
+# catch a listed "Wagner" inside "Wagner Group".
 
 CORPORATE_SUFFIXES: frozenset[str] = frozenset(
     """
@@ -31,10 +41,7 @@ CORPORATE_SUFFIXES: frozenset[str] = frozenset(
     bv nv cv oy oyj ab as asa aps kft zrt doo dd ad sp zoo sro spol akz
     ooo oao zao pao ao pjsc ojsc cjsc jsc ojs npo fgup gup mup fsue sue
     kk yk gk kabushiki gaisha kaisha yugen godo
-    sdn bhd berhad tbk pt cv persero
-    trust foundation fund holding holdings group international intl
-    est establishment enterprise enterprises industries industry
-    partnership associates association society cooperative coop
+    sdn bhd berhad tbk pt persero
     lda unipessoal eirl srlcv
     """.split()
 )
@@ -129,10 +136,17 @@ def normalized(s: str) -> str:
 # both produces a key that unites "Mohammed"/"Muhammad"/"Mohamad" and
 # "Yusuf"/"Yousef", at the cost of some over-generation.
 
+# Order matters: longer digraphs run before the shorter ones they contain
+# ("tch" before "ch"), and the single-character folds run last. The q/g/k
+# fold at the end unites the most consequential transliteration family in
+# OFAC history -- Qadhafi/Gaddafi/Kaddafi all render the same Arabic qāf --
+# which the digraph table alone missed entirely: the three skeletons were
+# qdf/gdf/kdf and never blocked into the same candidates.
 _DIGRAPHS: tuple[tuple[str, str], ...] = (
-    ("sch", "s"), ("sh", "s"), ("ch", "c"), ("kh", "k"), ("gh", "g"),
-    ("ph", "f"), ("th", "t"), ("zh", "j"), ("dh", "d"), ("ts", "c"),
-    ("ck", "k"), ("qu", "k"), ("ough", "o"), ("x", "ks"),
+    ("sch", "s"), ("tch", "c"), ("sh", "s"), ("ch", "c"), ("kh", "k"),
+    ("gh", "g"), ("ph", "f"), ("th", "t"), ("zh", "j"), ("dh", "d"),
+    ("ts", "c"), ("ck", "k"), ("qu", "k"), ("ough", "o"), ("x", "ks"),
+    ("q", "k"), ("g", "k"),
 )
 
 _VOWELS = "aeiouy"
@@ -302,9 +316,13 @@ def initials(t: tuple[str, ...]) -> str:
 
 
 def is_acronym_of(a: str, b_tokens: tuple[str, ...]) -> bool:
-    """True when `a` reads as the initialism of `b_tokens` (KMZ / K M Z)."""
+    """True when `a` reads as the initialism of `b_tokens` (KMZ / K M Z).
+
+    Three letters minimum: on a real list, two-letter initials collide with
+    half the two-token names in the file and produce nothing but noise.
+    """
     a_compact = fold(a).replace(" ", "")
-    if len(a_compact) < 2 or len(b_tokens) < 2:
+    if len(a_compact) < 3 or len(b_tokens) < 2:
         return False
     return a_compact == initials(b_tokens)
 

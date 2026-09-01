@@ -42,24 +42,36 @@ words. Extra mappings cover characters NFKD leaves alone (ø, đ, ł, æ, ß, þ
 **Tokens.** Word-level equivalences (`company`→`co`, `technologies`→`tech`,
 `brothers`→`bros`) and noise removal (`the`, `of`, `and`, romance articles).
 
-**Core tokens.** Legal-form suffixes stripped — some 90 of them across
+**Core tokens.** Legal-form suffixes stripped — some 80 of them across
 jurisdictions (LLC, Ltd, GmbH, OAO, ZAO, PJSC, KK, Sdn Bhd, doo, kft…). "Acme
 Precision LLC" and "Acme Precision GmbH" produce the same key, which is right:
 the legal form carries almost no discriminating power but wrecks edit distance.
-Stripping never empties a name — an entity genuinely called "Holding Group"
-keeps its tokens.
+Only true legal forms are stripped. Organizational nouns — trust, fund,
+foundation, holding, group, international, enterprises — are part of the name
+and stay in the token stream; stripping them once made "Alpha Fund" and
+"Alpha Trust" band EXACT at 1.0, an automatic confirmed hit the adjudicator
+was forbidden to dissent from. Stripping never empties a name — an entity
+genuinely called "Company Limited" keeps its tokens.
 
 **Skeleton.** Consonant skeleton for transliteration drift. Slavic surname
 endings normalize first (`-off`/`-ov`/`-ew`/`-ev` → `ov`), then digraphs fold
-(`kh`→`k`, `ph`→`f`, `sch`→`s`), then doubled letters collapse, then non-
-initial vowels drop. `Mohammed`/`Muhammad`, `Yusuf`/`Yousef`, `Petrov`/`Petroff`
+(`kh`→`k`, `ph`→`f`, `sch`→`s`, `tch`→`c`), then `q` and `g` fold to `k` —
+the Arabic qāf family, so `Qadhafi`/`Gaddafi`/`Kaddafi` and
+`Qasemi`/`Ghasemi` converge — then doubled letters collapse, then non-initial
+vowels drop. `Mohammed`/`Muhammad`, `Yusuf`/`Yousef`, `Petrov`/`Petroff`
 converge. `Petrov`/`Ivanov` and `Northwind`/`Southwind` do not.
 
 ### Blocking
 
 An inverted index over every name and alias of every listed party, plus a
-skeleton index. Query tokens expand **rarest first**, capped at
-`MAX_BLOCK_ENTRIES`.
+skeleton index and an acronym index (the initials of every multi-token listed
+name, three letters or longer). Query tokens expand **rarest first**, capped
+at `MAX_BLOCK_ENTRIES`. The acronym index exists because an initialism shares
+no token and no skeleton with its expansion: without it, "IRGC" pulled zero
+candidates against a list carrying only "Islamic Revolutionary Guard Corps",
+and the acronym band rule below was unreachable. Both directions are indexed —
+a compact query token is looked up against listed initials, and a multi-token
+query's initials are looked up against listed names.
 
 The safety argument for capping at all: an exact match shares *every* token
 with the query, so it necessarily appears in the postings of the query's rarest
@@ -93,15 +105,26 @@ Rule-based, first match wins:
 
 1. `exact_normalized` → **EXACT**
 2. `exact_reordered` (same token multiset, different order) → **EXACT**
-3. Either name under 4 folded characters → **NONE** (exact only)
-4. Acronym relationship resolves → **STRONG**
+3. Acronym relationship resolves (3+ letters) → **STRONG** — this outranks
+   the short-name gate below because acronyms are short by construction;
+   behind the gate the rule was dead for the 3-letter initialisms that
+   dominate real trade documents
+4. Either name under 4 folded characters → **NONE** (exact only)
 5. Full token containment plus skeleton equality → **STRONG**
 6. Full skeleton containment with ≥2 skeleton tokens → **STRONG**
-7. score ≥ 0.90 → **STRONG**; ≥ 0.78 → **WEAK**; else **NONE**
+7. Full containment of a discriminating (list-rare) token → **STRONG**
+8. score ≥ 0.90 → **STRONG**; ≥ 0.78 → **WEAK**; else **NONE**
 
 Rule 6 is the dropped-name-part case: "Vasiliy Petroff" against "PETROV,
 Vasiliy Ivanovich". Every skeleton token of the shorter name is present in the
 longer one. The two-token floor stops generic single words from firing it.
+
+An EXACT hit normally floors the disposition at CONFIRMED_HIT. The one
+exception: when every EXACT candidate matched only through an OFAC **weak
+alias** (a quoted, low-quality aka in the published data, or an alias
+recovered from free-text remarks), the floor is REVIEW — still adjudicated,
+still human-reviewed, never auto-confirmed on evidence the source list itself
+marks as weak.
 
 ### The early exit, and why it is provable
 

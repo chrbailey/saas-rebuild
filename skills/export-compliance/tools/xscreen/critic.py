@@ -137,8 +137,8 @@ def _render_for_critic(result: ScreeningResult) -> str:
                 "legal_effect": c.get("legal_effect"),
                 "listed_party": {
                     k: v for k, v in (c.get("listed_party") or {}).items()
-                    if k in ("name", "aliases", "countries", "addresses",
-                             "programs", "ids", "remarks", "party_type")
+                    if k in ("name", "aliases", "weak_aliases", "countries",
+                             "addresses", "programs", "ids", "remarks", "party_type")
                 },
             }
             for c in result.candidates if c.get("band") != "NONE"
