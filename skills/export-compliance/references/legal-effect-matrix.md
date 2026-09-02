@@ -6,8 +6,8 @@ substitute for the primary publication. Citations are given so the primary can
 be found; read it before acting on anything here.
 
 The single most common and most expensive screening error is treating every
-list as if it meant the same thing. It does not. Three prohibit dealing
-outright (SDN, DPL, DDTC Debarred), two impose a licence requirement scoped to
+list as if it meant the same thing. It does not. Four prohibit dealing
+outright (SDN, FSE, DPL, DDTC Debarred), two impose a licence requirement scoped to
 specific items (Entity List, MEU), one is a diligence trigger that programs
 routinely and wrongly auto-block (UVL), and two are program-specific with no
 single rule (Non-SDN, ISN).
@@ -21,7 +21,8 @@ tool does not replace that coverage.
 | List | Agency | Effect of a confirmed hit | Authority |
 |---|---|---|---|
 | **SDN** | Treasury/OFAC | Property blocked; U.S. persons generally prohibited from dealing. Strict liability. | 31 CFR Ch. V |
-| **Non-SDN Consolidated** (SSI, FSE, CAPTA, NS-PLC, NS-MBS, NS-CMIC) | Treasury/OFAC | Program-specific and usually **narrower than blocking**. Read the program tag and the governing directive. | 31 CFR Ch. V; directives |
+| **FSE** (Foreign Sanctions Evaders) | Treasury/OFAC | U.S. persons prohibited from **all transactions or dealings**, direct or indirect, with the listed person absent a licence. Not a blocking action — property is not frozen — but the dealing is prohibited. Published alongside the Non-SDN lists; do not read it as one. | EO 13608, sec. 1; confirm the current entry |
+| **Non-SDN Consolidated** (SSI, CAPTA, NS-PLC, NS-MBS, NS-CMIC) | Treasury/OFAC | Program-specific and usually **narrower than blocking**. Read the program tag and the governing directive. | 31 CFR Ch. V; directives |
 | **DPL** (Denied Persons) | Commerce/BIS | Export privileges denied by order. No participation in any EAR transaction for the order's term. No licence exception available. | 15 CFR 736.2(b)(4); Supp. 1 to Part 764; Part 766 |
 | **Entity List** | Commerce/BIS | Licence required **for the items specified in that entry**, with a stated review policy (often presumption of denial). Licence exceptions limited per the entry. | 15 CFR 744.16; Supp. 4 to Part 744 |
 | **UVL** (Unverified) | Commerce/BIS | No licence exceptions; UVL statement required from the party before an otherwise-NLR shipment. **Not a prohibition on dealing.** | 15 CFR 744.15, Supp. 6 |
@@ -35,6 +36,15 @@ tool does not replace that coverage.
 debt- and equity-maturity restrictions, not a prohibition on all dealing. Over-
 blocking here refuses lawful business *and* hides the restriction that actually
 applies, so it fails in both directions at once.
+
+**Reading an FSE hit as a Non-SDN "narrow" restriction.** The Foreign
+Sanctions Evaders List is published in OFAC's consolidated Non-SDN file, but
+EO 13608 imposes a general prohibition on transactions and dealings with the
+listed person — the opposite of narrow. `xscreen` raises `LIST.FSE` at
+prohibitive severity whether the row arrived under the CSL's FSE source label
+or as a Non-SDN row tagged FSE-IR / FSE-SY. Confirm the current entry: the
+Syria leg was affected by the 2025 revocation of the Syria program, and many
+FSE parties are also SDNs, in which case blocking governs.
 
 **Auto-blocking UVL parties.** A UVL listing means BIS could not complete an
 end-use check. The obligation it creates is a documented UVL statement, not a

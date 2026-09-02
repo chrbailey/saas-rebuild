@@ -28,7 +28,6 @@ Deliberate design choices worth knowing before you tune anything:
 
 from __future__ import annotations
 
-import math
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Iterable
@@ -48,6 +47,7 @@ from .names import (
     token_containment,
     token_set_ratio,
 )
+from .rules import Policy, default_policy
 from .sources import legal_effect_for
 
 # Signal weights. They sum to 1.0; changing them changes every historical
@@ -84,6 +84,15 @@ MAX_BLOCK_ENTRIES = 20_000
 # nothing but noise.
 SHORT_NAME_CHARS = 4
 
+# Whitespace-insensitive comparison is allowed only once the squashed name is
+# this long. "Ga zprom Neft" against "GAZPROM NEFT" was a complete miss --
+# no shared token, no shared skeleton, a score in the 0.5s -- because every
+# signal is token-based and an OCR split or a keying slip moves a token
+# boundary. Compared with the spaces removed the two are identical. Below
+# this length the same comparison unites unrelated short strings ("A C ME" /
+# "ACME"), so it is gated the way SHORT_NAME_CHARS gates fuzzy matching.
+COMPACT_MIN_CHARS = 6
+
 
 @dataclass
 class BlockResult:
@@ -91,9 +100,6 @@ class BlockResult:
 
     entries: set[int]
     truncated_tokens: list[str]
-
-    def __bool__(self) -> bool:
-        return bool(self.entries)
 
 
 @dataclass
@@ -106,6 +112,8 @@ class IndexedName:
     skel: str
     sorted_norm: str = ""
     sorted_skel: str = ""
+    # `norm` with the whitespace removed; see COMPACT_MIN_CHARS.
+    compact: str = ""
 
 
 class ListIndex:
@@ -120,6 +128,10 @@ class ListIndex:
         # no token and no skeleton with its expansion, so without a dedicated
         # posting the acronym band rule was unreachable through blocking.
         self._acronym_postings: dict[str, set[int]] = defaultdict(set)
+        # whitespace-stripped normalized name -> entries. A token-split name
+        # shares no token with its listed form, so without this posting the
+        # compact band rule was unreachable through blocking.
+        self._compact_postings: dict[str, set[int]] = defaultdict(set)
         self._df: dict[str, int] = defaultdict(int)
         self._common_cache: set[str] | None = None
         self._built = False
@@ -131,18 +143,23 @@ class ListIndex:
             toks = core_tokens(nm)
             if not toks:
                 continue
+            norm = normalized(nm)
+            compact = norm.replace(" ", "")
             self.entries.append(
                 IndexedName(
                     uid=party.uid,
                     listed_name=nm,
                     source=party.source,
-                    norm=normalized(nm),
+                    norm=norm,
                     toks=toks,
                     skel=skeleton(nm),
                     sorted_norm=sorted_normalized(nm),
                     sorted_skel=sorted_skeleton(nm),
+                    compact=compact,
                 )
             )
+            if len(compact) >= COMPACT_MIN_CHARS:
+                self._compact_postings[compact].add(idx)
             for t in set(toks):
                 self._token_postings[t].add(idx)
                 self._df[t] += 1
@@ -216,12 +233,17 @@ class ListIndex:
             acro = initials(toks)
             if len(acro) >= 3 and acro in self._token_postings:
                 keys.append((self._df.get(acro, 0), acro, "token"))
+        # Whitespace-insensitive reachability: a listed name whose squashed
+        # form equals the query's is a candidate whatever the token split.
+        compact = normalized(name).replace(" ", "")
+        if len(compact) >= COMPACT_MIN_CHARS and compact in self._compact_postings:
+            keys.append((len(self._compact_postings[compact]), compact, "compact"))
         keys.sort(key=lambda k: (k[0], k[1]))
 
         out: set[int] = set()
         truncated: list[str] = []
         lookup = {"token": self._token_postings, "skeleton": self._skel_postings,
-                  "acronym": self._acronym_postings}
+                  "acronym": self._acronym_postings, "compact": self._compact_postings}
         for df, key, kind in keys:
             if out and len(out) >= MAX_BLOCK_ENTRIES:
                 truncated.append(f"{key} (df={df})")
@@ -251,6 +273,18 @@ def score_pair(subject_name: str, entry: IndexedName,
     skel_cont_early = token_containment(tuple(s_skel.split()), tuple(entry.skel.split()))
     acronym = (is_acronym_of(subject_name, entry.toks)
                or is_acronym_of(entry.listed_name, s_toks))
+    # Whitespace-insensitive signals (see COMPACT_MIN_CHARS). `compact_equal`
+    # is deliberately exclusive of `exact_normalized`: it names the case where
+    # ONLY the token boundaries differ. Containment is one squashed form inside
+    # the other; on its own it proves little ("ivanov" sits inside
+    # "ivanovamaria"), so the band rule additionally demands a shared
+    # discriminating token, which screen_name supplies.
+    s_compact = s_norm.replace(" ", "")
+    e_compact = entry.compact or entry.norm.replace(" ", "")
+    compact_ok = min(len(s_compact), len(e_compact)) >= COMPACT_MIN_CHARS
+    compact_equal = compact_ok and s_norm != entry.norm and s_compact == e_compact
+    compact_containment = (compact_ok and s_compact != e_compact
+                           and (s_compact in e_compact or e_compact in s_compact))
 
     # Provable early exit, in two parts.
     #
@@ -264,10 +298,11 @@ def score_pair(subject_name: str, entry: IndexedName,
     # skeleton containment of 1.0.) Below the WEAK floor, the pair cannot band
     # *on score*.
     #
-    # Part two, the bypass rules. Three band rules fire without consulting the
-    # score at all, and a low ceiling does not bound them -- a full skeleton
-    # containment contributes only 0.10 to the ceiling but is worth STRONG on
-    # its own. So each bypass condition independently suppresses the exit.
+    # Part two, the bypass rules. Several band rules fire without consulting
+    # the score at all, and a low ceiling does not bound them -- a full
+    # skeleton containment contributes only 0.10 to the ceiling but is worth
+    # STRONG on its own, and a compact-equal pair can sit near 0.5. So each
+    # bypass condition independently suppresses the exit.
     # (The brute-force equivalence test in the suite exists because the first
     # version of this argument got exactly that case wrong.)
     s_skel_toks_early = tuple(s_skel.split())
@@ -285,6 +320,8 @@ def score_pair(subject_name: str, entry: IndexedName,
         acronym                                          # acronym rule
         or cont_early >= 1.0                             # containment + skeleton rule, exact rules
         or (skel_cont_early >= 1.0 and multi_token)      # skeleton containment rule
+        or compact_equal                                 # compact rule
+        or compact_containment                           # compact containment rule
     )
     if early_exit and ceiling < WEAK_FLOOR and not bypass_possible:
         return 0.0, {
@@ -295,6 +332,7 @@ def score_pair(subject_name: str, entry: IndexedName,
             "skeleton_multi_token": False,
             "exact_normalized": False, "exact_reordered": False,
             "acronym": False,
+            "compact_equal": False, "compact_containment": False,
             "below_band_ceiling": round(ceiling, 4),
         }
 
@@ -345,6 +383,8 @@ def score_pair(subject_name: str, entry: IndexedName,
         "exact_normalized": s_norm == entry.norm,
         "exact_reordered": s_norm != entry.norm and s_sorted == entry.sorted_norm,
         "acronym": acronym,
+        "compact_equal": compact_equal,
+        "compact_containment": compact_containment,
     }
     return round(score, 4), signals
 
@@ -379,6 +419,13 @@ def assign_band(score: float, signals: dict[str, float | bool], subject_name: st
     ) < SHORT_NAME_CHARS:
         return "NONE"
 
+    # The normalized forms differ only in where the token boundaries fall:
+    # "Ga zprom Neft" against "GAZPROM NEFT". Same letters, same order, no
+    # shared token -- so no other rule could see it. Not EXACT, because a
+    # split name is degraded evidence and EXACT auto-confirms.
+    if signals.get("compact_equal"):
+        return "STRONG"
+
     # Full containment of the shorter name plus a matching skeleton means the
     # names differ only by extra qualifiers and vowel drift.
     if signals.get("containment") == 1.0 and signals.get("skeleton_equal"):
@@ -403,6 +450,13 @@ def assign_band(score: float, signals: dict[str, float | bool], subject_name: st
     if signals.get("containment") == 1.0 and signals.get("discriminating_containment"):
         return "STRONG"
 
+    # One squashed form inside the other, with a shared token rare enough to
+    # carry identity: "Ga zprom Neft Trading" against "GAZPROM NEFT" shares
+    # only "neft". Without the discriminating guard "Gene ral Trading" would
+    # sit inside every "General Trading Company N" on the list.
+    if signals.get("compact_containment") and signals.get("discriminating_containment"):
+        return "STRONG"
+
     if score >= STRONG_FLOOR:
         return "STRONG"
     if score >= WEAK_FLOOR:
@@ -410,13 +464,27 @@ def assign_band(score: float, signals: dict[str, float | bool], subject_name: st
     return "NONE"
 
 
-def geo_signals(subject: SubjectParty, party: ListedParty) -> dict[str, object]:
-    """Geography agreement, recorded but never used to demote a band."""
-    subj_country = fold(subject.country or subject.destination_country)
-    listed = [fold(c) for c in party.countries if c]
+def geo_signals(subject: SubjectParty, party: ListedParty,
+                policy: Policy | None = None) -> dict[str, object]:
+    """Geography agreement, recorded but never used to demote a band.
+
+    Agreement is EQUALITY after each side is resolved to an ISO code through
+    the policy file's country aliases (folded string equality when a value
+    does not resolve). It used to be a substring test, and "us" is a
+    substring of "rUSsia": a U.S.-addressed subject was reported as agreeing
+    with a Moscow listing, the one direction this signal must never err in,
+    because an adjudicator reads "agrees" as corroboration.
+    """
+    p = policy or default_policy()
+
+    def key(raw: str) -> str:
+        return p.resolve_country(raw) or fold(raw)
+
+    subj_country = key(subject.country or subject.destination_country)
+    listed = {key(c) for c in party.countries if c}
     if not subj_country or not listed:
         return {"country_evidence": "insufficient"}
-    if any(subj_country == c or subj_country in c or c in subj_country for c in listed):
+    if subj_country in listed:
         return {"country_evidence": "agrees", "listed_countries": party.countries}
     return {"country_evidence": "differs", "listed_countries": party.countries}
 
@@ -442,11 +510,14 @@ def screen_name(
     index: ListIndex,
     min_band: MatchBand = "WEAK",
     diagnostics: dict | None = None,
+    policy: Policy | None = None,
 ) -> list[Candidate]:
     """All candidates for one subject, best first.
 
     Every alias the operator supplied is screened as well as the primary name;
-    the best-scoring name/alias pair per listed party survives.
+    the best-scoring name/alias pair per listed party survives. `policy`
+    supplies the country aliases for the geography signal; the shipped file
+    is used when none is given.
     """
     order = {"EXACT": 3, "STRONG": 2, "WEAK": 1, "NONE": 0}
     floor = order[min_band]
@@ -462,7 +533,7 @@ def screen_name(
         for idx in blocked.entries:
             entry = index.entries[idx]
             score, signals = score_pair(qname, entry)
-            if signals.get("containment") == 1.0:
+            if signals.get("containment") == 1.0 or signals.get("compact_containment"):
                 signals["discriminating_containment"] = discriminating(
                     index, core_tokens(qname), entry.toks)
             band = assign_band(score, signals, qname, entry)
@@ -477,7 +548,7 @@ def screen_name(
                 w.lower() for w in party.weak_aliases
             }:
                 signals["weak_alias"] = True
-            signals.update(geo_signals(subject, party))
+            signals.update(geo_signals(subject, party, policy))
             cand = Candidate(
                 listed_uid=entry.uid,
                 listed_name=entry.listed_name,
@@ -514,13 +585,6 @@ def screen_name(
     return out
 
 
-def idf(index: ListIndex, token: str) -> float:
-    """Inverse document frequency of a token, for explainability output."""
-    n = max(1, index.size)
-    df = index._df.get(token, 0)
-    return round(math.log((n + 1) / (df + 1)) + 1.0, 4)
-
-
 def tuning_digest() -> str:
     """Digest of every constant that changes a score or a band.
 
@@ -538,4 +602,5 @@ def tuning_digest() -> str:
         "block_df_ceiling": BLOCK_DF_CEILING,
         "max_block_entries": MAX_BLOCK_ENTRIES,
         "short_name_chars": SHORT_NAME_CHARS,
+        "compact_min_chars": COMPACT_MIN_CHARS,
     })

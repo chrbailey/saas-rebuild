@@ -109,12 +109,18 @@ def parse_party_file(text: str) -> tuple[list[SubjectParty], list[str]]:
                 f"{MAX_ALIASES} were screened."
             )
             aliases = aliases[:MAX_ALIASES]
+        # Case-insensitive: the comparison used to run on the raw value and
+        # the lowering only on the result, so an ERP's "Entity" screened as
+        # "unknown" and every SDN hit on it drew the 50 Percent Rule flag
+        # meant for entities of unknown type.
+        ptype = g("party_type").lower()
+        if ptype not in ("individual", "entity", "vessel", "aircraft"):
+            ptype = "unknown"
         subjects.append(SubjectParty(
             ref=g("ref") or f"row{i}",
             name=name,
             aliases=aliases,
-            party_type=(g("party_type") or "unknown").lower() if g("party_type") in
-            ("individual", "entity", "vessel", "aircraft") else "unknown",  # type: ignore[arg-type]
+            party_type=ptype,  # type: ignore[arg-type]
             country=g("country"),
             address=g("address"),
             role=g("role"),
@@ -154,7 +160,7 @@ def screen_subject(
 ) -> ScreeningResult:
     """Deterministic half only. No model involved."""
     diagnostics: dict = {}
-    candidates = screen_name(subject, index, diagnostics=diagnostics)
+    candidates = screen_name(subject, index, diagnostics=diagnostics, policy=policy)
     result = ScreeningResult(
         subject=subject.to_dict(),
         candidates=[c.to_dict() for c in candidates],

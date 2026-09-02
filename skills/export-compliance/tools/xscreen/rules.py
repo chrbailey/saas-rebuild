@@ -21,11 +21,13 @@ import json
 import re
 from dataclasses import dataclass, asdict, field
 from datetime import date, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from .models import Candidate, ScreeningResult, SubjectParty, stable_digest
 from .names import fold
+from .sources import legal_effect_for
 
 POLICY_PATH = Path(__file__).parent / "policy" / "destinations.json"
 
@@ -47,6 +49,28 @@ class RuleFlag:
         return asdict(self)
 
 
+# ISO 3166 "official" renderings and their ERP echoes put the generic part
+# after a comma or in parentheses: "Iran, Islamic Republic of", "IRAN
+# (ISLAMIC REPUBLIC OF)", "Congo, Democratic Republic of the". The alias
+# table cannot enumerate every such spelling, and it does not have to: the
+# fragment after the separator always ends in "of"/"of the", so rotating it
+# to the front recovers the natural-order name the table does carry.
+_ROTATE_RE = re.compile(r"^\s*([^,(]+?)\s*[,(]\s*([^)]+?)\s*\)?\s*$")
+
+
+def _country_keys(raw: str) -> list[str]:
+    """Folded alias-lookup keys for a free-text country, most literal first."""
+    keys = [fold(raw)]
+    m = _ROTATE_RE.match(raw or "")
+    if m and fold(m.group(2)).endswith((" of", " of the")):
+        keys.append(fold(f"{m.group(2)} {m.group(1)}"))
+    # A leading article is decoration: "The Bahamas", "the Netherlands".
+    for k in list(keys):
+        if k.startswith("the "):
+            keys.append(k[4:])
+    return keys
+
+
 @dataclass
 class Policy:
     as_of: str
@@ -58,6 +82,7 @@ class Policy:
     aliases: dict[str, str]
     known_iso2: set[str] = field(default_factory=set)
     tiers: dict[str, str] = field(default_factory=dict)
+    iso3: dict[str, str] = field(default_factory=dict)
     digest: str = ""
 
     @property
@@ -74,18 +99,26 @@ class Policy:
         with exit code 0 -- while the schema told operators that "an
         unresolvable value raises DEST.UNRESOLVED rather than being ignored."
         Now it does.
+
+        Resolution order: the alias table (plain names, ISO long forms in
+        either the natural or the "X, Y of" / "X (Y of)" order, colloquial
+        renderings), then a known alpha-2 code, then an alpha-3 code. The
+        ISO-official forms matter because that is what ERP master data
+        emits: "Iran, Islamic Republic of" used to fall out as
+        DEST.UNRESOLVED -- a diligence flag -- on a comprehensively
+        embargoed destination.
         """
         s = fold(raw)
         if not s:
             return ""
-        if s in self.aliases:
-            return self.aliases[s]
+        for key in _country_keys(raw):
+            if key in self.aliases:
+                return self.aliases[key]
         if len(s) == 2 and s.upper() in self.known_iso2:
             return s.upper()
+        if len(s) == 3 and s.upper() in self.iso3:
+            return self.iso3[s.upper()]
         return ""
-
-    def has_entry(self, iso: str) -> bool:
-        return iso in self.countries or iso in self.transshipment
 
 
 def load_policy(path: Path | None = None) -> Policy:
@@ -94,10 +127,20 @@ def load_policy(path: Path | None = None) -> Policy:
     countries = {c["iso2"]: c for c in raw.get("countries", [])}
     transshipment = set(raw.get("transshipment_watch", {}).get("countries", []))
     aliases = {fold(k): v for k, v in raw.get("aliases", {}).items() if not k.startswith("$")}
+    # Plain names resolve too -- the canonical name table and the name on
+    # each policy entry -- without displacing a hand-written alias.
+    for iso, name in raw.get("names", {}).items():
+        if not iso.startswith("$") and name:
+            aliases.setdefault(fold(name), iso)
+    for iso, entry in countries.items():
+        if entry.get("name"):
+            aliases.setdefault(fold(entry["name"]), iso)
+    iso3 = {k.upper(): v for k, v in raw.get("iso3", {}).items() if not k.startswith("$")}
     # Anything named anywhere in the file is a known code, plus the published
     # ISO 3166-1 alpha-2 list. Codes outside this set are typos or made up,
     # and must not resolve.
-    known = set(raw.get("known_iso2", [])) | set(countries) | transshipment | set(aliases.values())
+    known = (set(raw.get("known_iso2", [])) | set(countries) | transshipment
+             | set(aliases.values()) | set(iso3.values()))
     return Policy(
         as_of=raw.get("as_of", ""),
         verified_by=raw.get("verified_by", ""),
@@ -108,10 +151,22 @@ def load_policy(path: Path | None = None) -> Policy:
         aliases=aliases,
         known_iso2=known,
         tiers=raw.get("tiers", {}),
+        iso3=iso3,
         # Hash the parsed content, not the file bytes, so reformatting is
         # not mistaken for a policy change while a value edit always is.
         digest=stable_digest({k: v for k, v in raw.items() if not k.startswith("$")}),
     )
+
+
+@lru_cache(maxsize=1)
+def default_policy() -> Policy:
+    """The shipped policy file, parsed once per process.
+
+    For callers that need country resolution but hold no policy of their
+    own -- the matcher's geography signal. Re-reading and re-hashing the
+    file per candidate would put a disk read inside the scoring loop.
+    """
+    return load_policy()
 
 
 # --------------------------------------------------------------------------
@@ -336,6 +391,12 @@ def _order_active(cand: Candidate, as_of: date) -> tuple[bool, str]:
     return True, "in force on the transaction date"
 
 
+def _fse_tagged(cand: Candidate) -> bool:
+    """OFAC tags FSE rows FSE-IR / FSE-SY inside its consolidated Non-SDN file."""
+    programs = (cand.listed_party or {}).get("programs", []) or []
+    return any(str(p).strip().upper().startswith("FSE") for p in programs)
+
+
 def list_hit_rules(cands: list[Candidate], as_of: date) -> list[RuleFlag]:
     """Translate deterministic matches into legal consequence."""
     out: list[RuleFlag] = []
@@ -406,6 +467,42 @@ def list_hit_rules(cands: list[Candidate], as_of: date) -> list[RuleFlag]:
                         "and any parent. Document the ownership conclusion."
                     ),
                 ))
+        elif src == "FSE" or (src == "NONSDN" and _fse_tagged(c)):
+            # Foreign Sanctions Evaders used to fall through to the Non-SDN
+            # rule: licence severity, "generally NOT a blocking designation".
+            # Literally true -- an FSE listing does not block property -- and
+            # dangerously misleading, because EO 13608 prohibits U.S. persons
+            # from ALL transactions or dealings with the listed person. For a
+            # shipment decision that is the prohibitive outcome, not the
+            # "read the directive" one. The CSL carries FSE as its own source
+            # label; OFAC's consolidated Non-SDN file carries it as a program
+            # tag on a NONSDN row, so both routes land here.
+            programs = ", ".join((c.listed_party or {}).get("programs", [])) or "unspecified"
+            out.append(RuleFlag(
+                rule_id="LIST.FSE",
+                severity="prohibitive",
+                title=f"OFAC Foreign Sanctions Evader {strength}: {c.listed_name}",
+                basis=(
+                    "Executive Order 13608 of May 1, 2012, sec. 1; OFAC Foreign "
+                    "Sanctions Evaders List"
+                ),
+                detail=(
+                    f"{legal_effect_for('FSE')} Program tag(s): {programs}. "
+                    "Confirm against the current FSE List entry: the Syria leg "
+                    "of the program was affected by the 2025 revocation of the "
+                    "Syria sanctions program, and many FSE parties are also "
+                    "SDNs, in which case the SDN blocking effect governs."
+                ),
+                action_required=(
+                    "Do not proceed with any transaction or dealing involving "
+                    "this party absent an OFAC license. FSE is a transaction "
+                    "prohibition rather than a blocking action: property is not "
+                    "frozen and the 31 CFR 501.603 blocked-property report does "
+                    "not follow automatically, but a rejected transaction may be "
+                    "reportable under 31 CFR 501.604 -- confirm with counsel. "
+                    "Check for a parallel SDN entry before deciding which applies."
+                ),
+            ))
         elif src == "NONSDN":
             programs = ", ".join((c.listed_party or {}).get("programs", [])) or "unspecified"
             out.append(RuleFlag(
