@@ -11,6 +11,7 @@ from conftest import (
     PLUGIN_MANIFEST,
     REPO_ROOT,
     SKILL_DIR,
+    repo_files,
 )
 
 
@@ -28,14 +29,14 @@ def marketplace_entry(marketplace_manifest, plugin_manifest):
 
 
 def test_all_json_files_parse():
-    paths = sorted(REPO_ROOT.rglob("*.json"))
+    paths = repo_files("*.json")
     assert paths
     for path in paths:
         json.loads(path.read_text(encoding="utf-8"))
 
 
 def test_all_json_schemas_are_valid():
-    paths = sorted(REPO_ROOT.rglob("*.schema.json"))
+    paths = repo_files("*.schema.json")
     assert len(paths) >= 5
     ids = []
     for path in paths:

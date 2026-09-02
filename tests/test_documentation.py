@@ -2,12 +2,12 @@
 
 import re
 
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, repo_files
 
 
 def test_relative_markdown_links_resolve():
     missing = []
-    for path in sorted(REPO_ROOT.rglob("*.md")):
+    for path in repo_files("*.md"):
         for target in re.findall(r"\]\(([^)]+)\)", path.read_text(encoding="utf-8")):
             target = target.split("#", 1)[0].split("?", 1)[0]
             if not target or re.match(r"^[a-z]+:", target):
