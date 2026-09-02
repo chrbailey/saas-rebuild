@@ -167,7 +167,12 @@
     },
     "notes": {
       "type": "string",
-      "description": "anything that fits nowhere above; honest unknowns belong here"
+      "description": "anything that fits nowhere above; honest unknowns belong here. Describe the product and the documents, not the research session: constraints of the pass that produced the recipe go in research_caveats"
+    },
+    "research_caveats": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Constraints of the research pass that produced this recipe: vendor hosts that could not be fetched, exhausted search budgets, mirrors or source repositories read instead of live vendor pages, and which claims therefore rest on search-engine excerpts. These describe how the documents were consulted, not what they say. They are part of the recipe's provenance and must be preserved when a recipe is revised; they are removed only when a later pass consults the affected sources directly"
     }
   }
 }

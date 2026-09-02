@@ -5,7 +5,7 @@
   "vendor": "Block",
   "category": "payments",
   "export_rights": {
-    "summary": "Square's terms/DPA pages could not be reached from this research environment, so no contractual export-rights statement is cited here. Vendor documentation consulted does show that sellers can self-serve export their transaction data as CSV from the Square Dashboard and read essentially all business data (payments, orders, customers, catalog, inventory, payouts, invoices, disputes, team, labor) through the Square Connect v2 REST API.",
+    "summary": "Square's terms/DPA pages were not consulted, so no contractual export-rights statement is cited here. Vendor documentation consulted does show that sellers can self-serve export their transaction data as CSV from the Square Dashboard and read essentially all business data (payments, orders, customers, catalog, inventory, payouts, invoices, disputes, team, labor) through the Square Connect v2 REST API.",
     "tos_url": null,
     "post_termination_window": null
   },
@@ -57,13 +57,13 @@
       "requires": ["Square Dashboard access with reporting permissions"],
       "rate_limits": null,
       "gotchas": [
-        "Documented via the official support article 'View and search transactions'; exact column set and any date-range/row caps were not confirmable because the help center was unreachable from this research environment."
+        "Documented via the official support article 'View and search transactions'; exact column set and any date-range/row caps were not confirmable from the consulted sources."
       ]
     },
     {
       "route_type": "report-builder",
       "covers": ["sales-reports", "summaries"],
-      "how": "Square Dashboard reporting section: Square publishes a support article titled 'Print, export, or email your reports' (article 8362) covering printing, exporting, or emailing Dashboard reports. Article title confirmed from the official Square Support Center; step-level detail and formats could not be fetched from this environment — verify nav path and formats in-tenant.",
+      "how": "Square Dashboard reporting section: Square publishes a support article titled 'Print, export, or email your reports' (article 8362) covering printing, exporting, or emailing Dashboard reports. Article title confirmed from the official Square Support Center; step-level detail and formats were not confirmed from the consulted sources — verify nav path and formats in-tenant.",
       "requires": ["Square Dashboard access with reporting permissions"],
       "rate_limits": null,
       "gotchas": [
@@ -95,5 +95,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research-environment limitation: squareup.com, developer.squareup.com, and web.archive.org were all blocked by the network egress proxy, so Square's help center, developer guides, Terms of Service, and DPA could not be fetched directly. API claims come from Square's official OpenAPI spec cloned from GitHub (strong, vendor-authored); Dashboard-export claims come from official support-article titles and search-result snippets of those articles and should be re-verified in-tenant. Known unknowns deliberately omitted rather than guessed: Customer Directory CSV export and Items Library CSV export are widely referenced but were not confirmable from a consulted source; whole-account export/backup feature — none found, but absence not proven; audit-log retention beyond the 28-day Events API window; numeric API rate limits; post-termination retrieval window; and the vendor-ticket process for migrating card-on-file data to another PCI-compliant processor (referenced in ecosystem lore, not confirmed here)."
+  "notes": "API claims come from Square's official OpenAPI spec cloned from GitHub (strong, vendor-authored); Dashboard-export claims come from official support-article titles and search-result snippets of those articles and should be re-verified in-tenant. Known unknowns deliberately omitted rather than guessed: Customer Directory CSV export and Items Library CSV export are widely referenced but were not confirmable from a consulted source; whole-account export/backup feature — none found, but absence not proven; audit-log retention beyond the 28-day Events API window; numeric API rate limits; post-termination retrieval window; and the vendor-ticket process for migrating card-on-file data to another PCI-compliant processor (referenced in ecosystem lore, not confirmed here).",
+  "research_caveats": [
+    "squareup.com, developer.squareup.com, and web.archive.org were all blocked by the research environment's egress proxy, so Square's help center, developer guides, Terms of Service, and DPA could not be fetched directly; API claims come from the vendor's OpenAPI spec on GitHub and Dashboard-export claims from support-article titles and search-result snippets."
+  ]
 }

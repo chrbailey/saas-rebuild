@@ -239,5 +239,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research caveat: direct fetches of stripe.com/docs.stripe.com/support.stripe.com were blocked by the network egress proxy in this environment, so all vendor-doc content above was obtained via web-search retrieval of the cited vendor pages rather than direct page fetches; treat exact nav labels and limits as needing on-tenant confirmation. Honest unknowns: no whole-account one-click export exists (Data Pipeline is the closest, and it is a paid add-on, as is Sigma); no documented post-termination self-service retrieval window was found (the DPA return/delete right is the only stated entitlement); activity-log retention is not stated in the consulted docs; Sigma/Data Pipeline pricing tiers and exact SKU names were not confirmed and are omitted. The task brief specified retrieved/last_reviewed = 'undefined', but the schema requires YYYY-MM-DD strings, so the actual research date 2026-08-08 is used."
+  "notes": "All vendor-doc content above was obtained via web-search retrieval of the cited vendor pages rather than direct page fetches; treat exact nav labels and limits as needing on-tenant confirmation. Honest unknowns: no whole-account one-click export exists (Data Pipeline is the closest, and it is a paid add-on, as is Sigma); no documented post-termination self-service retrieval window was found (the DPA return/delete right is the only stated entitlement); activity-log retention is not stated in the consulted docs; Sigma/Data Pipeline pricing tiers and exact SKU names were not confirmed and are omitted.",
+  "research_caveats": [
+    "Direct fetches of stripe.com, docs.stripe.com and support.stripe.com were blocked by the research environment's egress proxy, so all vendor-doc content was obtained via web-search retrieval of the cited vendor pages rather than direct page fetches."
+  ]
 }
