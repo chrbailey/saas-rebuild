@@ -1,0 +1,216 @@
+{
+  "schema_version": "0.7.0",
+  "app": "netsuite",
+  "app_name": "NetSuite",
+  "vendor": "Oracle",
+  "category": "erp-finance",
+  "export_rights": {
+    "summary": "The Subscription Services Agreement (s.5.1) states all title and IP rights in Customer Data are owned exclusively by the customer; self-service extraction tools (CSV export, saved searches, SOAP web services, SuiteAnalytics Connect) are documented in the vendor's 'Extracting Data from NetSuite' help topic, and the EU Data Act Addendum commits Oracle to self-service retrieval of exportable data in a structured, machine-readable format. Following termination Oracle deactivates the account and deletes Customer Data after the Retrieval Period defined in the Hosting and Support Delivery Policies.",
+    "tos_url": "https://www.oracle.com/a/ocom/docs/nsgbu-subscription-services-agreement-us-eng.pdf",
+    "post_termination_window": "60 days ('Retrieval Period'): Oracle provides account access for data retrieval on request within 60 days after termination; data is then queued for deletion and deleted within 10 months after the Retrieval Period expires (Hosting and Support Delivery Policies, s.I.T)"
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": [
+        "accounting-lists",
+        "classes",
+        "contacts",
+        "customers",
+        "departments",
+        "employees",
+        "expense-categories",
+        "items",
+        "memorized-transactions",
+        "notes",
+        "other-names",
+        "partners",
+        "saved-reports",
+        "ship-items",
+        "solutions",
+        "tasks",
+        "topics",
+        "transaction-detail-report",
+        "vendors"
+      ],
+      "how": "Setup > Import/Export > Export Tasks > Full CSV Export; produces CSV files for the listed record types",
+      "formats": ["csv"],
+      "requires": ["administrator-level access (exact permission not stated in consulted docs)"],
+      "rate_limits": null,
+      "gotchas": [
+        "vendor docs state Full CSV Export does NOT export all account data as CSV; transactions are represented only via a Transaction Detail Report extract",
+        "File Cabinet contents/attachments are not included",
+        "vendor's own docs recommend supplementing with saved-search exports, report exports, SOAP web services, or SuiteAnalytics Connect for complete extraction"
+      ]
+    },
+    {
+      "route_type": "bulk-api",
+      "covers": ["all-queryable-records", "transactions", "entities", "custom-records"],
+      "how": "SuiteAnalytics Connect: read-only SQL access to NetSuite data via Oracle-supplied ODBC/JDBC/ADO.NET drivers from external tools (Excel, BI, ETL); enable at Setup > Company > Enable Features > Analytics > SuiteAnalytics Connect",
+      "formats": ["sql-resultset (whatever the client tool writes, e.g. csv)"],
+      "requires": ["SuiteAnalytics Connect feature/license enabled", "Connect driver install", "user with Connect access"],
+      "rate_limits": null,
+      "gotchas": [
+        "read-only; vendor positions it explicitly for archiving/analyzing/reporting on NetSuite data",
+        "exact table coverage differs between the Connect data source options; verify in-tenant"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": ["standard-records", "custom-records", "suiteql-query-results"],
+      "how": "SuiteTalk REST web services: CRUD on standard and custom record types plus SuiteQL query execution; auth via OAuth 2.0 (vendor-preferred) or Token-Based Authentication; SOAP web services (SuiteTalk) is the older documented alternative",
+      "formats": ["json", "xml (SOAP)"],
+      "requires": ["integration record/client credentials", "REST Web Services feature enabled", "token or OAuth 2.0 setup"],
+      "rate_limits": "Concurrency-governed per account, not request-rate: base concurrent-request limit set by service tier (e.g. Tier 1 = 15, Ultimate = 20), +10 per SuiteCloud Plus license; the limit is shared across SOAP web services and RESTlet requests; requests exceeding 15 minutes time out",
+      "gotchas": [
+        "concurrency limit is shared account-wide across integrations, so extraction jobs can starve other integrations",
+        "REST record coverage is not identical for every record type; verify per record type in-tenant"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["any-searchable-record-type", "saved-search-results", "lists"],
+      "how": "Run a search or saved search (Lists/Reports > Saved Searches), then use the toolbar export buttons on the results page: Export - CSV, Export - Microsoft Excel, Export - PDF; list pages have equivalent export icons",
+      "formats": ["csv", "xls", "pdf", "tableau-workbook (if feature enabled)"],
+      "requires": ["Export Lists permission (documented for report/list export)", "Tableau export requires admin-enabled feature and permission"],
+      "rate_limits": null,
+      "gotchas": [
+        "popup searches and their results pages have no Export option",
+        "add the Internal ID column to exported results to preserve relational keys across entity exports"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["financial-reports", "saved-reports", "any-standard-report-results"],
+      "how": "Reports page > open the report > click the export-format icon in the report footer (Excel, PDF, CSV, Word); saved reports can also be exported as an Excel Web Query for refreshable pulls",
+      "formats": ["csv", "xls", "pdf", "doc", "excel-web-query", "tableau (if enabled)"],
+      "requires": ["Export Lists permission"],
+      "rate_limits": null,
+      "gotchas": [
+        "vendor docs note each export format has limitations affecting data fidelity/readability; review per format before relying on it"
+      ]
+    },
+    {
+      "route_type": "file-storage",
+      "covers": ["file-cabinet-files", "attachments", "folders"],
+      "how": "Documents > Files > File Cabinet; click Download on a file, or download an entire folder — all files and subfolders arrive as a ZIP preserving folder structure",
+      "formats": ["original-file-formats", "zip (folder download)"],
+      "requires": ["File Cabinet access permission"],
+      "rate_limits": null,
+      "gotchas": [
+        "no documented one-click export of the entire File Cabinet; downloads are per file or per folder",
+        "community guidance (Oracle NetSuite Community) is that large-volume extraction needs a SuiteScript file-search/download script; treat as unverified until exercised",
+        "transaction-attached files live in File Cabinet folders, so record exports do not carry their attachments"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["system-notes", "transaction-audit-trail", "analytics-audit-trail"],
+      "how": "System Notes search at Reports > New Search (System Note record type) captures date, user, role, change type, old/new values for record changes and supports export with advanced filters; Transaction Audit Trail is a separate documented view for transaction changes; line-level audit trail history exports via CSV/XLS buttons",
+      "formats": ["csv", "xls"],
+      "requires": ["search/audit permissions (exact permission names not stated in consulted docs)"],
+      "rate_limits": null,
+      "gotchas": [
+        "documented retention period for system notes was not found in the consulted docs — verify in-tenant before relying on historical depth",
+        "saved-search usage logs only show who ran/exported a search in the past 60 days"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["custom-record-types", "custom-fields", "custom-forms", "workflows", "scripts", "files"],
+      "how": "SuiteCloud Development Framework (SDF): use SuiteCloud SDK tools (CLI/IDE) to import account components — custom record types, customized record types, objects, files, and scripts — from the NetSuite account into a SuiteCloud account customization project as XML object definitions, which are redeployable to another account",
+      "formats": ["xml (SDF object definitions)", "suitecloud-project"],
+      "requires": ["SuiteCloud Development Framework feature enabled", "SuiteCloud SDK tooling", "developer-level permissions"],
+      "rate_limits": null,
+      "gotchas": [
+        "not every customization type is SDF-supported; the vendor maintains a 'Customizations Supported by SuiteCloud Development Framework' list — check it for gaps",
+        "SDF file import is scoped (community reports SuiteScripts folder focus), so it is not a File Cabinet backup mechanism"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "File Cabinet supports per-file and per-folder download (folder = ZIP with structure preserved) at Documents > Files > File Cabinet; no vendor-documented whole-cabinet one-click export — large volumes reportedly need a SuiteScript download script (community-sourced, unverified)",
+    "audit_log": "System Notes are exportable via a System Note search (Reports > New Search) including old/new values, user, role, and timestamp; Transaction Audit Trail and line-level audit history export as CSV/XLS. Documented retention length for system notes: not stated in consulted docs — verify in-tenant",
+    "config_artifacts": "SDF account component import pulls custom records, forms, fields, workflows, scripts, and files into a SuiteCloud project as restorable XML objects; coverage limited to SDF-supported customization types"
+  },
+  "sources": [
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_N464759.html",
+      "title": "NetSuite Applications Suite - Extracting Data from NetSuite",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_N464443.html",
+      "title": "NetSuite Applications Suite - Exporting Selected Lists and Reports as CSV Files (CSV Export)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_N663983.html",
+      "title": "NetSuite Applications Suite - Exporting Search Results",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_N736119.html",
+      "title": "NetSuite Applications Suite - Exporting a Report",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/chapter_3963845427.html",
+      "title": "NetSuite Applications Suite - SuiteAnalytics Connect",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_157780312610.html",
+      "title": "NetSuite Applications Suite - OAuth 2.0 for REST Web Services",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/bridgehead_1500275603.html",
+      "title": "NetSuite Applications Suite - Concurrency Governance Limits Based on Service Tiers and SuiteCloud Plus Licenses",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_N544050.html",
+      "title": "NetSuite Applications Suite - Downloading Files from the File Cabinet",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/chapter_4774167775.html",
+      "title": "NetSuite Applications Suite - Auditing Data Changes using Searches",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_N556825.html",
+      "title": "NetSuite Applications Suite - Using the Transaction Audit Trail",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/chapter_4702622163.html",
+      "title": "NetSuite Applications Suite - SuiteCloud Development Framework",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_4702656511.html",
+      "title": "NetSuite Applications Suite - Account Component Imports to SuiteCloud Projects",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.oracle.com/a/ocom/docs/nsgbu-subscription-services-agreement-us-eng.pdf",
+      "title": "Oracle NSGBU Subscription Services Agreement (US)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.oracle.com/contracts/docs/eu-data-act-addendum-netsuite-cloud-services.pdf",
+      "title": "EU Data Act Addendum for NetSuite Cloud Services",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.oracle.com/a/ocom/docs/corporate/netsuite-hosting-delivery-policies-v071825.pdf",
+      "title": "Oracle NetSuite Hosting and Support Delivery Policies (v071825)",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: docs.oracle.com was blocked by the research environment's egress proxy, so the NetSuite Help Center pages listed in sources were consulted via search-engine summaries of those exact vendor pages, not fetched full-text; the three Oracle contract/policy PDFs (SSA, EU Data Act Addendum, Hosting and Support Delivery Policies) WERE fetched and read in full — the 60-day Retrieval Period and Customer Data ownership clauses are quoted from the actual documents. Unknowns left open: exact REST/SuiteQL endpoint paths (not confirmed from vendor text, so omitted), system-notes retention length, precise permission names for Full CSV Export and audit searches, SuiteAnalytics Connect licensing/pricing, and whether saved-search CSV export has row caps. NetSuite has no documented single whole-tenant backup file; the practical full-fidelity route is SuiteAnalytics Connect (SQL over ODBC/JDBC) or REST/SuiteQL, supplemented by File Cabinet folder ZIP downloads and SDF for customizations."
+}

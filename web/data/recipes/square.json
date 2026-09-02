@@ -1,0 +1,99 @@
+{
+  "schema_version": "0.7.0",
+  "app": "square",
+  "app_name": "Square",
+  "vendor": "Block",
+  "category": "payments",
+  "export_rights": {
+    "summary": "Square's terms/DPA pages could not be reached from this research environment, so no contractual export-rights statement is cited here. Vendor documentation consulted does show that sellers can self-serve export their transaction data as CSV from the Square Dashboard and read essentially all business data (payments, orders, customers, catalog, inventory, payouts, invoices, disputes, team, labor) through the Square Connect v2 REST API.",
+    "tos_url": null,
+    "post_termination_window": null
+  },
+  "routes": [
+    {
+      "route_type": "api",
+      "covers": [
+        "payments",
+        "refunds",
+        "orders",
+        "customers",
+        "invoices",
+        "catalog (items, variations, categories, taxes, discounts, modifier-lists, images)",
+        "inventory-counts",
+        "payouts",
+        "disputes",
+        "dispute-evidence",
+        "gift-cards",
+        "loyalty",
+        "subscriptions",
+        "team-members",
+        "labor-timecards",
+        "cash-drawer-shifts",
+        "bank-accounts",
+        "vendors",
+        "merchants-and-locations",
+        "api-event-log"
+      ],
+      "how": "Square Connect v2 REST API at https://connect.squareup.com, per Square's official OpenAPI spec (github.com/square/connect-api-specification). Auth: Authorization: Bearer <access token> — OAuth2 authorization-code flow (authorize/token at connect.squareup.com/oauth2/...) with granular read scopes (PAYMENTS_READ, ORDERS_READ, CUSTOMERS_READ, ITEMS_READ, INVENTORY_READ, PAYOUTS_READ, INVOICES_READ, etc.), plus required Square-Version header (e.g. 2026-07-15). Key list/bulk read endpoints: GET /v2/payments (begin_time/end_time + cursor), GET /v2/refunds (via Refunds API), POST /v2/orders/search, GET /v2/customers, GET /v2/catalog/list?types=..., POST /v2/catalog/batch-retrieve, POST /v2/inventory/counts/batch-retrieve, GET /v2/payouts, GET /v2/invoices, GET /v2/disputes and GET /v2/disputes/{dispute_id}/evidence, POST /v2/team-members/search, POST /v2/events (SearchEvents).",
+      "formats": ["json"],
+      "requires": [
+        "OAuth2 access token with per-API read scopes (or a developer application's access token for the seller's own account)",
+        "Square-Version API version header"
+      ],
+      "rate_limits": "The OpenAPI spec documents 429 'Rate Limited' error responses but publishes no numeric request-rate figures.",
+      "gotchas": [
+        "Cursor pagination throughout; ListPayments and ListCatalog are capped at 100 results per page.",
+        "ListPayments results are eventually consistent — new payments or changes can take several seconds to appear.",
+        "SearchEvents (POST /v2/events) only searches Square API events within a 28-day timeframe.",
+        "Cards API never exposes full card numbers — Card objects carry only last_4, bin, brand, expiry and a fingerprint token, so card-on-file data is not extractable as usable PANs.",
+        "ListCatalog requires the types parameter to be specified explicitly; omitting types can change behavior across API versions."
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["transactions"],
+      "how": "Square Dashboard > Reports > Transactions: set the Date Range filter (optionally filter by customer), then Export > Transactions CSV to download all transactions in the period, including names of customers assigned to purchases.",
+      "formats": ["csv"],
+      "requires": ["Square Dashboard access with reporting permissions"],
+      "rate_limits": null,
+      "gotchas": [
+        "Documented via the official support article 'View and search transactions'; exact column set and any date-range/row caps were not confirmable because the help center was unreachable from this research environment."
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["sales-reports", "summaries"],
+      "how": "Square Dashboard reporting section: Square publishes a support article titled 'Print, export, or email your reports' (article 8362) covering printing, exporting, or emailing Dashboard reports. Article title confirmed from the official Square Support Center; step-level detail and formats could not be fetched from this environment — verify nav path and formats in-tenant.",
+      "requires": ["Square Dashboard access with reporting permissions"],
+      "rate_limits": null,
+      "gotchas": [
+        "Only the existence of this route is confirmed (official article title); formats and per-report coverage unverified."
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "No bulk file-export feature documented in sources consulted. Catalog item images are individual CatalogObjects (type IMAGE) whose CatalogImage.url fields are downloadable, enumerable via GET /v2/catalog/list?types=IMAGE. Dispute evidence is retrievable per dispute via GET /v2/disputes/{dispute_id}/evidence and RetrieveDisputeEvidence.",
+    "audit_log": "No admin/user audit-log export documented in sources consulted. The closest documented facility is the Events API (POST /v2/events, SearchEvents), which searches Square API events only within a 28-day timeframe.",
+    "config_artifacts": "Catalog-level configuration (categories, taxes, discounts, modifier lists) exports as JSON CatalogObjects via GET /v2/catalog/list / POST /v2/catalog/batch-retrieve and is restorable via POST /v2/catalog/batch-upsert. No documented export of account settings, device configurations, or Dashboard report definitions in sources consulted."
+  },
+  "sources": [
+    {
+      "url": "https://github.com/square/connect-api-specification",
+      "title": "square/connect-api-specification — official OpenAPI specification for Square's APIs (api.json, API version 2026-07-15)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://squareup.com/help/us/en/article/5145-transaction-search",
+      "title": "View and search transactions | Square Support Center - United States",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://squareup.com/help/us/en/article/8362-print-export-or-email-your-reports",
+      "title": "Print, export, or email your reports | Square Support Center - United States",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research-environment limitation: squareup.com, developer.squareup.com, and web.archive.org were all blocked by the network egress proxy, so Square's help center, developer guides, Terms of Service, and DPA could not be fetched directly. API claims come from Square's official OpenAPI spec cloned from GitHub (strong, vendor-authored); Dashboard-export claims come from official support-article titles and search-result snippets of those articles and should be re-verified in-tenant. Known unknowns deliberately omitted rather than guessed: Customer Directory CSV export and Items Library CSV export are widely referenced but were not confirmable from a consulted source; whole-account export/backup feature — none found, but absence not proven; audit-log retention beyond the 28-day Events API window; numeric API rate limits; post-termination retrieval window; and the vendor-ticket process for migrating card-on-file data to another PCI-compliant processor (referenced in ecosystem lore, not confirmed here)."
+}

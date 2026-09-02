@@ -1,0 +1,168 @@
+{
+  "schema_version": "0.7.0",
+  "app": "brex",
+  "app_name": "Brex",
+  "vendor": "Brex",
+  "category": "ap-ar-spend",
+  "export_rights": {
+    "summary": "Brex's account-closure documentation tells customers to export their data themselves before closing (tables in Expenses, Accounting, or Team), and states that after closure the customer keeps read-only dashboard sign-in to view historic activity and download statements and other account documents. The Brex DPA states that following termination Brex will, upon written request, delete Personal Data and certify completion within 30 days, except where retention is required by law or its standard backup/archive policies.",
+    "tos_url": "https://www.brex.com/legal/dpa",
+    "post_termination_window": "No fixed retrieval window documented; support docs state read-only dashboard access (view activity, download statements and account documents) continues after account closure"
+  },
+  "routes": [
+    {
+      "route_type": "api",
+      "covers": [
+        "expenses",
+        "card-transactions",
+        "cash-transactions",
+        "receipts",
+        "users-team",
+        "budgets-spend-limits",
+        "payments",
+        "custom-fields",
+        "travel"
+      ],
+      "how": "Brex REST API at https://api.brex.com (Expenses, Fields, Onboarding, Payments, Team, Transactions, Travel, Webhooks APIs). Auth: Bearer user token generated in dashboard.brex.com under Developer > Settings by an account or card admin; OAuth client credentials exist for registered partner apps. Transactions API reads settled card and cash transactions; Expenses API lists expenses with expand/query options including receipts.download_uris for receipt file URLs.",
+      "formats": ["json"],
+      "requires": [
+        "account admin or card admin to generate a user token",
+        "user token (expires after 90 days without use; tokens of non-active users stop working)"
+      ],
+      "rate_limits": "Per client ID and Brex account: 1,000 requests per 60 seconds; excess returns HTTP 429 with a Retry-After header. (Write-side caps also documented, e.g. 1,000 transfers/24h.)",
+      "gotchas": [
+        "Card Expenses API endpoints are deprecated in favor of consolidated Expenses API endpoints",
+        "Receipt files are fetched via download URIs per expense, not a single bulk archive"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["expenses", "card-transactions", "receipts"],
+      "how": "Dashboard > Expenses: click the gear icon to choose columns, apply filters, then Download and pick a file format; check 'Include receipts in download' to bundle receipt files (a dashboard notification signals when the download is ready). Account admins, card admins, and bookkeepers can download card expenses for the whole team.",
+      "formats": ["xlsx", "csv", "pdf", "html", "txt"],
+      "requires": ["account admin, card admin, or bookkeeper for team-wide expense downloads"],
+      "rate_limits": null,
+      "gotchas": [
+        "Receipt inclusion is an explicit checkbox at download time; a plain table export does not include receipt files"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["accounting-journal", "transactions", "custom-field-values"],
+      "how": "Dashboard > Accounting: from the Prepare, Review, or Exported tabs, select transactions and download the accounting journal. With Custom Accounting, CSV export format is managed in the CSV template editor at Custom Accounting settings > Export settings > CSV templates (rename headers, add/remove/reorder columns). Every custom field is included in CSV transaction exports.",
+      "formats": ["csv", "xlsx", "txt"],
+      "requires": ["admin, bookkeeper, or user with the specific product capability"],
+      "rate_limits": null,
+      "gotchas": [
+        "Custom fields do not sync directly to ERPs; they are only carried in the CSV exports"
+      ]
+    },
+    {
+      "route_type": "report-builder",
+      "covers": ["spend-reports", "expenses"],
+      "how": "Dashboard reporting: configure a custom spend report (filters + column selection over the transactions/expenses table), then click Download on a live spend report or a saved copy to export it.",
+      "formats": ["xlsx", "csv", "pdf", "html", "txt"],
+      "requires": ["admin or user with reporting access"],
+      "rate_limits": null,
+      "gotchas": []
+    },
+    {
+      "route_type": "entity-export",
+      "covers": ["card-statements", "banking-statements", "reimbursement-statements", "account-documents"],
+      "how": "Dashboard: click your name (top left) > Statements and documents; pick Card, Banking, or Reimbursement under Statements and click the download icon on each statement row. Statements download as PDF only; for tabular data go to Accounts > Credit > Transactions, enter a date range, and download XLSX/CSV/HTML/TXT.",
+      "formats": ["pdf", "xlsx", "csv", "html", "txt"],
+      "requires": ["admin access to the dashboard"],
+      "rate_limits": null,
+      "gotchas": [
+        "Statements are PDF-only; per-row downloads (no documented bulk-download of all statements at once)",
+        "Banking statements appear within the first week of the following month"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": ["audit-log"],
+      "how": "Dashboard > Security: view the audit trail and filter/export a CSV of events (filter by date, actor, actor type [API/support/user/system], target type, event type). Events cover policy, users, expenses, bills, accounting, reimbursements, budgets and spend limits, with event details including data modified, actor, location, IP, and timestamp.",
+      "formats": ["csv"],
+      "requires": ["admin or user with the specific product capability"],
+      "rate_limits": null,
+      "gotchas": [
+        "Docs state event types have 'at least 90 days of available data, retained indefinitely for auditing purposes' - the window exportable from the UI beyond 90 days is not precisely documented"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Receipts: check 'Include receipts in download' on the Expenses table export to bundle receipt files with the download; via API, list expenses with receipts.download_uris expanded to collect per-expense receipt file URLs. No single whole-tenant attachment archive is documented.",
+    "audit_log": "Security page audit trail exports to CSV with filters (date, actor, actor type, target type, event type). Documented retention: at least 90 days of available data per event type, retained indefinitely for auditing purposes.",
+    "config_artifacts": null
+  },
+  "sources": [
+    {
+      "url": "https://www.brex.com/support/brex-reporting",
+      "title": "Reporting for your Brex account",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.brex.com/support/documents-for-your-account",
+      "title": "Documents for your account",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.brex.com/support/brex-dashboard-accounting-page",
+      "title": "How the Accounting page works",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.brex.com/support/custom-accounting",
+      "title": "Custom accounting",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.brex.com/support/integration-exporting",
+      "title": "Exporting to your integration",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.brex.com/support/receipts-for-expenses",
+      "title": "Receipts for expenses",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.brex.com/support/account-closure",
+      "title": "Account closure",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.brex.com/support/brex-security-measures",
+      "title": "Security measures Brex takes (audit trail)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.brex.com/docs/rate_limits/",
+      "title": "Brex API - Rate Limits",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.brex.com/guides/authentication",
+      "title": "Brex API - Authentication",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.brex.com/openapi/expenses_api",
+      "title": "Brex Expenses API reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developer.brex.com/openapi/transactions_api",
+      "title": "Brex Transactions API reference",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.brex.com/legal/dpa",
+      "title": "Brex Data Processing Addendum",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "Research caveat: direct fetches of brex.com and developer.brex.com were blocked by this environment's egress proxy, so all claims above were taken from vendor-page content surfaced through web search excerpts of those exact URLs; nav paths and limits should be re-verified against the live pages/tenant. No whole-account/tenant backup export is documented - coverage is assembled from table exports plus the API. No documented export of configuration (expense policies, approval workflows, custom field definitions, CSV templates) as restorable artifacts; custom field values ride along in CSV exports only. The audit-trail support article's exact URL could not be confirmed (content attributed to the Security/'Security measures' support pages). Bill Pay (AP) invoice-document bulk export is not documented in the pages consulted. Statements remain downloadable read-only after account closure per the account-closure page."
+}

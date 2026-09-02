@@ -1,0 +1,189 @@
+{
+  "schema_version": "0.7.0",
+  "app": "dynamics-365-business-central",
+  "app_name": "Dynamics 365 Business Central",
+  "vendor": "Microsoft",
+  "category": "erp-finance",
+  "export_rights": {
+    "summary": "Microsoft's Trust Center states 'You own your data'. Under the Microsoft DPA, after subscription expiration or termination Customer Data is retained in a limited-function account for 90 days so the customer can extract it; after that the account is disabled and data (including cached/backup copies) is deleted. Business Central additionally documents a full database export for customers with a paid subscription.",
+    "tos_url": "https://www.microsoft.com/en-us/trust-center/privacy/data-management",
+    "post_termination_window": "90 days (limited-function account for data extraction, per Microsoft DPA / Trust Center)"
+  },
+  "routes": [
+    {
+      "route_type": "account-export",
+      "covers": [
+        "entire environment database: all companies, all tables",
+        "attachments/incoming-documents (stored in-database)",
+        "change-log entries",
+        "setup and configuration tables"
+      ],
+      "how": "Business Central admin center > select environment > Database > Create Database Export. Provide a file name, a Blob service SAS URL to your own Azure Standard general-purpose v2 storage account (SAS needs Read/Write/Delete/Create on Containers+Objects, minimum 72-hour expiry), and a container name. Export lands as a BACPAC in your storage container; can take minutes to hours depending on database size.",
+      "formats": ["BACPAC"],
+      "requires": [
+        "paid Business Central online subscription (not trial)",
+        "internal admin or delegated (partner) admin",
+        "D365 BACKUP/RESTORE permission set assigned to the exporting user",
+        "customer-owned Azure Standard GPv2 storage account (premium storage not supported)"
+      ],
+      "rate_limits": "Maximum 10 database exports per environment per month",
+      "gotchas": [
+        "Premium Azure storage accounts are not supported as the export target",
+        "Exported BACPAC is encrypted with the storage account's key, not the environment's customer-managed key",
+        "Export can take several minutes to several hours depending on database size"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": [
+        "companies",
+        "customers",
+        "vendors",
+        "items",
+        "sales and purchase documents (invoices, orders, quotes, credit memos)",
+        "general ledger entries",
+        "attachments (incoming documents, table 130)"
+      ],
+      "how": "REST API v2.0: GET https://api.businesscentral.dynamics.com/v2.0/<environment name>/api/v2.0/companies(<id>)/<resource>. Auth: Microsoft Entra ID OAuth2 bearer token, permission Financials.ReadWrite.All (basic auth with web service access keys is deprecated for SaaS since 2022 wave 1). OData query options and $metadata supported; attachment resource exposes attachmentContent as a stream.",
+      "formats": ["JSON (OData v4)"],
+      "requires": [
+        "Microsoft Entra ID app registration with Business Central API permissions",
+        "Business Central user permissions on the underlying data"
+      ],
+      "rate_limits": "Per user: 6,000 OData requests per 5-minute sliding window (429 beyond); max 5 concurrent requests; 100 total simultaneous processed+queued requests; max page size 20,000 entities per request (413 beyond); 8-minute operation timeout (408); requests exceeding 10 minutes return 504",
+      "gotchas": [
+        "Extending the standard APIs is not supported; custom fields need custom AL API pages",
+        "Resources are per-company - iterate the companies collection to cover a multi-company tenant",
+        "Attachments map to Incoming Documents (table 130) and hang off specific parent document types"
+      ]
+    },
+    {
+      "route_type": "api",
+      "covers": [
+        "any table reachable through a page or query object (custom and standard)"
+      ],
+      "how": "Publish custom OData endpoints: search for the Web Services page > New > object type Page or Query, assign a service name, check Published. Endpoint pattern: <base>/ODataV4/Company('<CompanyName>')/<ServiceName> (SaaS base is the api.businesscentral.dynamics.com ODataV4 endpoint for the environment). SOAP is also available for Page/Codeunit objects.",
+      "formats": ["JSON (OData v4)", "XML (SOAP)"],
+      "requires": [
+        "permission to publish web services and read the underlying object"
+      ],
+      "rate_limits": "Same OData operational limits as the standard API: 6,000 requests per 5-minute sliding window per user, 5 concurrent, 20,000 entities max page size, 8-minute timeout",
+      "gotchas": [
+        "Company names in the URL are case-sensitive",
+        "Unpublishing a web service marked for All Tenants also unpublishes other web services on the same object"
+      ]
+    },
+    {
+      "route_type": "entity-export",
+      "covers": [
+        "any list, journal, or worksheet page: chart of accounts, customers, vendors, banks, items, G/L entries, customer/vendor/bank/item ledger entries, posting setup, budgets, sales/purchase documents, contacts"
+      ],
+      "how": "Open the list page and choose Open in Excel (read-only snapshot of the current view's columns) or Edit in Excel (Excel add-in, can sync changes back). Microsoft's own pre-cancellation guidance is to export the key master and ledger-entry pages this way, company by company.",
+      "formats": ["XLSX"],
+      "requires": [
+        "permission set D365 Excel Export Action, or system permission 6110 'Allow Action Export To Excel'"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Multi-company environments require exporting each company separately",
+        "Only the columns in the current page view are included - add columns before exporting",
+        "Subject to Excel's 1,048,576-row worksheet limit; large ledger-entry exports can take several minutes"
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": [
+        "setup/master/transactional tables chosen into a configuration package (customers, vendors, items, accounts, posting groups, sales/purchase headers and lines, etc.)",
+        "configuration questionnaires, templates, and worksheet",
+        "financial report definitions (row and column definitions)"
+      ],
+      "how": "Configuration Packages page > create/select a package with the wanted tables > export as a compressed .rapidstart file, or export to Excel (one worksheet per table). Financial reports and their row/column definitions export/import as .rapidstart configuration packages. Packages are re-importable, making this the documented restorable-artifact route for setup data.",
+      "formats": [".rapidstart", "XLSX"],
+      "requires": [
+        "permissions on the Configuration Packages page and included tables"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "BLOB-type fields cannot be exported or imported via the Excel format",
+        "Do not move, change, or delete columns in exported worksheets or they cannot be re-imported"
+      ]
+    },
+    {
+      "route_type": "audit-log-export",
+      "covers": [
+        "change-log entries (who/what/when, old and new values, for the tables and fields you enabled logging on)"
+      ],
+      "how": "Enable Change Log (Change Log Setup), then view Change Log Entries (page 595). Entries are list data, so they export via the generic Open in Excel action; the Data Analysis feature can slice them in-client. Retention is customer-controlled via Retention Policies (date/time filters), not a fixed vendor window.",
+      "formats": ["XLSX"],
+      "requires": [
+        "Change Log must have been enabled beforehand - it only records changes made while active",
+        "D365 Excel Export Action permission for the Excel export"
+      ],
+      "rate_limits": null,
+      "gotchas": [
+        "Only logs the tables/fields explicitly configured for logging",
+        "A configured retention policy may already be auto-deleting older entries - check before relying on history depth"
+      ]
+    }
+  ],
+  "preservation_notes": {
+    "attachments": "Attachments/incoming documents live in the database (Incoming Documents, table 130), so the admin-center BACPAC export captures them. Individually they are retrievable via the API v2.0 attachment resource (attachmentContent stream) per parent document. No dedicated bulk attachment-only export is documented; note that configuration-package Excel export cannot carry BLOB fields.",
+    "audit_log": "Change Log Entries (page 595) export via the generic Open in Excel list action; also included in the BACPAC database export. No fixed vendor retention is documented - retention is customer-configurable via Retention Policies, which can silently delete older entries.",
+    "config_artifacts": "Configuration packages export chosen setup/master tables as re-importable .rapidstart files or Excel workbooks; financial report row/column definitions also export as .rapidstart packages. Per-tenant AL extensions are the main customization artifact, but the consulted docs do not describe downloading extension source from a tenant - verify in-tenant (Extension Management) or with the implementing partner."
+  },
+  "sources": [
+    {
+      "url": "https://github.com/MicrosoftDocs/dynamics365smb-devitpro-pb/blob/main/dev-itpro/administration/tenant-admin-center-database-export.md",
+      "title": "Exporting Databases in the Admin Center (Microsoft official docs source for learn.microsoft.com)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/MicrosoftDocs/dynamics365smb-devitpro-pb/blob/main/dev-itpro/administration/operational-limits-online.md",
+      "title": "Operational Limits for Business Central Online (Microsoft official docs source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/MicrosoftDocs/dynamics365smb-devitpro-pb/blob/main/dev-itpro/api-reference/v2.0/dynamics-current-limits.md",
+      "title": "Current API Limits in Dynamics 365 Business Central (Microsoft official docs source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/MicrosoftDocs/dynamics365smb-devitpro-pb/blob/main/dev-itpro/developer/devenv-develop-connect-apps.md",
+      "title": "Developing Connect Apps for Dynamics 365 Business Central - API endpoints and OAuth2 auth (Microsoft official docs source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/MicrosoftDocs/dynamics365smb-devitpro-pb/blob/main/dev-itpro/api-reference/v2.0/resources/dynamics_attachment.md",
+      "title": "API v2.0 attachment resource type (Microsoft official docs source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/MicrosoftDocs/dynamics365smb-devitpro-pb/blob/main/dev-itpro/webservices/publish-web-service.md",
+      "title": "Publish a Web Service - OData/SOAP endpoints (Microsoft official docs source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/MicrosoftDocs/dynamics365smb-docs/blob/main/business-central/about-export-data.md",
+      "title": "Exporting Your Business Data to Excel - including pre-cancellation export guidance (Microsoft official docs source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/MicrosoftDocs/dynamics365smb-docs/blob/main/business-central/across-log-changes.md",
+      "title": "Auditing Changes with the Change Log (Microsoft official docs source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://github.com/MicrosoftDocs/dynamics365smb-docs/blob/main/business-central/across-import-data-configuration-packages.md",
+      "title": "Import and Export Data with Configuration Packages / Excel (Microsoft official docs source)",
+      "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://www.microsoft.com/en-us/trust-center/privacy/data-management",
+      "title": "Microsoft Trust Center - Data Management (data ownership and 90-day post-termination retention)",
+      "retrieved": "2026-08-08"
+    }
+  ],
+  "verification": "doc-derived-unverified",
+  "last_reviewed": "2026-08-08",
+  "notes": "learn.microsoft.com was blocked by the research environment's egress proxy, so all Business Central doc content was read from Microsoft's official MicrosoftDocs GitHub source repositories (dynamics365smb-devitpro-pb and dynamics365smb-docs), which are the published sources of the learn.microsoft.com pages; the corresponding learn URLs mirror the cited paths. Honest unknowns: no bulk attachment-only export is documented; downloading per-tenant AL extension source from a tenant is not covered by consulted docs; report 'Send to' PDF/Word/Excel export exists per the operational-limits doc's report limits (default 500,000 rows / 6h, absolute 10,000,000 rows / 12h) but its exact UI steps were not confirmed from a fetched doc, so it is not listed as a route; the BACPAC's restorability target (e.g. local SQL Server vs. re-import to BC online) is not stated in the consulted export doc. Older per-environment API rate limits (600 req/min production, 300 req/min sandbox) surfaced in search results but the fetched operational-limits doc states the per-user 6,000-per-5-minute limit used here. The 90-day post-termination window comes from the Microsoft DPA / Trust Center (Microsoft-wide online services terms), not a Business Central-specific document."
+}

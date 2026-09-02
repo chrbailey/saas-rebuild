@@ -1,0 +1,205 @@
+[
+  {
+    "app": "asana",
+    "app_name": "Asana",
+    "vendor": "Asana",
+    "category": "project-management",
+    "routes": 5
+  },
+  {
+    "app": "bamboohr",
+    "app_name": "BambooHR",
+    "vendor": "BambooHR",
+    "category": "hr-payroll",
+    "routes": 5
+  },
+  {
+    "app": "bill-com",
+    "app_name": "BILL (Bill.com) Accounts Payable & Receivable",
+    "vendor": "BILL",
+    "category": "ap-ar-spend",
+    "routes": 8
+  },
+  {
+    "app": "brex",
+    "app_name": "Brex",
+    "vendor": "Brex",
+    "category": "ap-ar-spend",
+    "routes": 6
+  },
+  {
+    "app": "deel",
+    "app_name": "Deel",
+    "vendor": "Deel",
+    "category": "hr-payroll",
+    "routes": 4
+  },
+  {
+    "app": "dynamics-365-business-central",
+    "app_name": "Dynamics 365 Business Central",
+    "vendor": "Microsoft",
+    "category": "erp-finance",
+    "routes": 6
+  },
+  {
+    "app": "dynamics-365-sales",
+    "app_name": "Dynamics 365 Sales",
+    "vendor": "Microsoft",
+    "category": "crm",
+    "routes": 7
+  },
+  {
+    "app": "expensify",
+    "app_name": "Expensify",
+    "vendor": "Expensify",
+    "category": "ap-ar-spend",
+    "routes": 5
+  },
+  {
+    "app": "freshbooks",
+    "app_name": "FreshBooks",
+    "vendor": "FreshBooks",
+    "category": "accounting",
+    "routes": 6
+  },
+  {
+    "app": "freshsales",
+    "app_name": "Freshsales",
+    "vendor": "Freshworks",
+    "category": "crm",
+    "routes": 4
+  },
+  {
+    "app": "google-workspace",
+    "app_name": "Google Workspace",
+    "vendor": "Google",
+    "category": "productivity-suite",
+    "routes": 6
+  },
+  {
+    "app": "greenhouse",
+    "app_name": "Greenhouse Recruiting",
+    "vendor": "Greenhouse",
+    "category": "recruiting",
+    "routes": 4
+  },
+  {
+    "app": "hubspot",
+    "app_name": "HubSpot",
+    "vendor": "HubSpot",
+    "category": "crm",
+    "routes": 8
+  },
+  {
+    "app": "microsoft-365",
+    "app_name": "Microsoft 365",
+    "vendor": "Microsoft",
+    "category": "productivity-suite",
+    "routes": 8
+  },
+  {
+    "app": "microsoft-teams",
+    "app_name": "Microsoft Teams",
+    "vendor": "Microsoft",
+    "category": "communication",
+    "routes": 6
+  },
+  {
+    "app": "netsuite",
+    "app_name": "NetSuite",
+    "vendor": "Oracle",
+    "category": "erp-finance",
+    "routes": 8
+  },
+  {
+    "app": "paylocity",
+    "app_name": "Paylocity",
+    "vendor": "Paylocity",
+    "category": "hr-payroll",
+    "routes": 2
+  },
+  {
+    "app": "pipedrive",
+    "app_name": "Pipedrive",
+    "vendor": "Pipedrive",
+    "category": "crm",
+    "routes": 6
+  },
+  {
+    "app": "quickbooks-online",
+    "app_name": "QuickBooks Online",
+    "vendor": "Intuit",
+    "category": "accounting",
+    "routes": 7
+  },
+  {
+    "app": "ramp",
+    "app_name": "Ramp",
+    "vendor": "Ramp",
+    "category": "ap-ar-spend",
+    "routes": 5
+  },
+  {
+    "app": "sage-intacct",
+    "app_name": "Sage Intacct",
+    "vendor": "Sage",
+    "category": "accounting",
+    "routes": 8
+  },
+  {
+    "app": "salesforce",
+    "app_name": "Salesforce Sales Cloud",
+    "vendor": "Salesforce",
+    "category": "crm",
+    "routes": 7
+  },
+  {
+    "app": "sap-business-one",
+    "app_name": "SAP Business One",
+    "vendor": "SAP",
+    "category": "erp-finance",
+    "routes": 8
+  },
+  {
+    "app": "sap-concur",
+    "app_name": "SAP Concur",
+    "vendor": "SAP",
+    "category": "ap-ar-spend",
+    "routes": 8
+  },
+  {
+    "app": "square",
+    "app_name": "Square",
+    "vendor": "Block",
+    "category": "payments",
+    "routes": 3
+  },
+  {
+    "app": "stripe",
+    "app_name": "Stripe",
+    "vendor": "Stripe",
+    "category": "payments",
+    "routes": 8
+  },
+  {
+    "app": "xero",
+    "app_name": "Xero",
+    "vendor": "Xero",
+    "category": "accounting",
+    "routes": 6
+  },
+  {
+    "app": "zoho-books",
+    "app_name": "Zoho Books",
+    "vendor": "Zoho",
+    "category": "accounting",
+    "routes": 7
+  },
+  {
+    "app": "zoho-crm",
+    "app_name": "Zoho CRM",
+    "vendor": "Zoho",
+    "category": "crm",
+    "routes": 7
+  }
+]

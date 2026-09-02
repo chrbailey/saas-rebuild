@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SaaS Rebuild — evidence-driven teardown workspace</title>
+  <meta name="description" content="Run the SaaS Rebuild teardown protocol from your browser. Bring your own Anthropic API key — it never leaves your machine.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9633;</text></svg>">
+</head>
+<body>
+
+<header class="site">
+  <a class="brand" href="#/"><span class="tick">&#9633;</span> saas-rebuild</a>
+  <nav>
+    <a href="#/" data-view="landing">About</a>
+    <a href="#/workspace" data-view="workspace">Workspace</a>
+    <a href="#/corpus" data-view="corpus">Recipe corpus</a>
+    <a href="https://github.com/chrbailey/saas-rebuild" target="_blank" rel="noopener">GitHub &#8599;</a>
+  </nav>
+  <button class="key-state" id="key-state" title="Set your Anthropic API key">no api key</button>
+</header>
+
+<!-- ============ landing ============ -->
+<main id="view-landing" class="landing">
+  <div class="kicker">Evidence-driven system identification</div>
+  <h1>Tear down the SaaS you administer.<br>Keep only what you actually use.</h1>
+  <p class="lede">
+    SaaS Rebuild is an open, machine-checked protocol for mapping what a SaaS tenant
+    <em>actually does</em>: separate essential behavior from purchased complexity, preserve
+    every reachable data class, and derive a smaller replacement architecture from cited
+    evidence. This workspace runs the protocol in your browser, guided by Claude.
+  </p>
+  <div class="btn-row">
+    <a class="btn" href="#/workspace">Open the workspace</a>
+    <a class="btn secondary" href="#/corpus">Browse extraction recipes</a>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h3><span class="num">01</span>Bring your own key</h3>
+      <p>The app is fully static. Your Anthropic API key is stored in your browser's
+      localStorage and sent only to <span class="mono">api.anthropic.com</span> — there is
+      no backend, and the key never touches any other server.</p>
+    </div>
+    <div class="card">
+      <h3><span class="num">02</span>Feed it evidence</h3>
+      <p>Paste exports, audit-log samples, contract line items, interview notes, and
+      screenshots-as-text. The protocol classifies every feature KEEP / SIMPLIFY /
+      DROP / DEFER with typed citations — configuration alone never proves use.</p>
+    </div>
+    <div class="card">
+      <h3><span class="num">03</span>Take the artifacts</h3>
+      <p>The assistant emits <span class="mono">teardown.json</span>,
+      <span class="mono">feature-inventory.json</span>, usage analysis, preservation
+      manifests, and a rebuild plan as downloadable files, validated against the
+      project's published JSON schemas.</p>
+    </div>
+  </div>
+
+  <div class="notice">
+    <strong>Authorized use only.</strong> Run this only against software and data you own or
+    administer. The protocol's first guardrail is confirming tenant ownership; it prefers
+    official exports and documented APIs, never captures credentials, and treats extraction
+    legality as a checklist, not a vibe. See the
+    <a href="https://github.com/chrbailey/saas-rebuild#data-boundary-and-responsible-use" target="_blank" rel="noopener">responsible-use notes</a>.
+  </div>
+
+  <div class="notice">
+    <strong>Heavy LLM usage.</strong> A full teardown is a long, multi-phase conversation with
+    a large protocol prompt. The workspace enables prompt caching and lets you pick the model;
+    expect real API spend on a serious engagement. Claude Opus 5 is the default; switch to
+    Sonnet 5 or Haiku 4.5 for lighter passes.
+  </div>
+</main>
+
+<!-- ============ workspace ============ -->
+<main id="view-workspace" class="workspace hidden">
+  <aside class="panel">
+    <h2>Protocol</h2>
+    <select id="mode">
+      <option value="teardown">SaaS Rebuild teardown</option>
+      <option value="export-compliance">Export-compliance reference</option>
+    </select>
+
+    <h2>Model</h2>
+    <select id="model">
+      <option value="claude-opus-5">Claude Opus 5 (default)</option>
+      <option value="claude-sonnet-5">Claude Sonnet 5</option>
+      <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+    </select>
+
+    <h2>Reference playbooks</h2>
+    <label><input type="checkbox" id="ref-extraction"> Extraction playbook</label>
+    <label><input type="checkbox" id="ref-mining"> Process mining</label>
+    <label><input type="checkbox" id="ref-graph"> Dependency graph</label>
+    <div class="hint">Checked playbooks are appended to the system prompt. Changing them
+    mid-session invalidates the prompt cache for the next turn.</div>
+
+    <h2>Extraction recipe</h2>
+    <select id="recipe-select"><option value="">— none attached —</option></select>
+    <button class="small-btn" id="attach-recipe">Attach to conversation</button>
+    <div class="hint">Recipes are document-derived route hypotheses. Verify every route
+    against your tenant and entitlements before use.</div>
+
+    <h2>Session</h2>
+    <button class="small-btn" id="export-session">Export session</button>
+    <button class="small-btn" id="import-session">Import</button>
+    <button class="small-btn" id="export-transcript">Transcript (.md)</button>
+    <button class="small-btn" id="clear-session">Clear</button>
+    <input type="file" id="import-file" accept="application/json" class="hidden">
+    <div class="hint">Sessions autosave to this browser. Export before switching machines —
+    like <span class="mono">teardown.json</span>, the session file is your resumable state.</div>
+  </aside>
+
+  <section class="chat">
+    <div class="scroll" id="chat-scroll">
+      <div class="sysnote" id="welcome-note">
+        Loaded the SaaS Rebuild v0.7 protocol. Start by telling the assistant which
+        application you want to tear down and whether you have live tenant access or an
+        engagement-document archive. It will open with the Phase&nbsp;0 scoping questions.
+      </div>
+    </div>
+    <div class="composer">
+      <div class="inner">
+        <textarea id="input" placeholder="Describe the tenant you administer, or paste evidence (exports, audit-log samples, contract line items)&hellip;  Shift+Enter for a newline."></textarea>
+        <div class="row">
+          <div class="status" id="status">ready</div>
+          <button class="stop hidden" id="stop">stop</button>
+          <button class="send" id="send">Send</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ corpus ============ -->
+<main id="view-corpus" class="corpus hidden">
+  <h1>Extraction-recipe corpus</h1>
+  <p class="sub">Schema-validated, vendor-document-derived extraction recipes covering
+  documented export rights, API/export routes, role and SKU gates, retention clues, and
+  preservation concerns. A recipe is a route <em>hypothesis</em>, not proof about a tenant —
+  re-verify against current documentation and the live account before use.</p>
+  <input class="filter" id="recipe-filter" type="text" placeholder="filter by name, vendor, category&hellip;">
+  <div class="recipe-grid" id="recipe-grid"></div>
+  <div class="recipe-detail hidden" id="recipe-detail"></div>
+</main>
+
+<footer class="site">
+  SaaS Rebuild &middot; MIT licensed &middot;
+  <a href="https://github.com/chrbailey/saas-rebuild">chrbailey/saas-rebuild</a> &middot;
+  static app, no backend — your key and your data stay in this browser
+</footer>
+
+<!-- ============ key modal ============ -->
+<div class="modal-backdrop hidden" id="key-modal">
+  <div class="modal">
+    <h2>Anthropic API key</h2>
+    <p>Calls go directly from your browser to <span class="mono">api.anthropic.com</span>.
+    The key is stored only in this browser's localStorage — this site has no backend and
+    never sees it. Create a key in the
+    <a href="https://platform.claude.com/" target="_blank" rel="noopener">Claude Console</a>;
+    heavy LLM usage means real spend, so consider a workspace with a budget limit.</p>
+    <input type="password" id="key-input" placeholder="sk-ant-...">
+    <div class="row">
+      <button class="small-btn" id="key-clear">Forget key</button>
+      <button class="btn" id="key-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
