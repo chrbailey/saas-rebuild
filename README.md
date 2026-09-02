@@ -231,7 +231,7 @@ This repository deliberately separates claims from evidence:
   evidence, dataset lineages crossing roles, path escapes, and digest drift; a
   synthetic teardown exercises it end-to-end in CI, and the Markdown rendered
   from that teardown is tested against its JSON.
-- The reference screening engine runs 378 standard-library tests across Python
+- The reference screening engine runs 379 standard-library tests across Python
   3.11–3.14, including adversarial fail-closed cases and determinism checks.
 - Skill archives are built from sorted source bytes with fixed metadata; CI
   performs independent fresh builds and verifies source parity and SHA-256
