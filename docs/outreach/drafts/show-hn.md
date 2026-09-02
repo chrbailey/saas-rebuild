@@ -83,7 +83,7 @@ fail to export before the contract ended?
 - Every number above is pinned to the repo at v0.7: 29/100 recipes, all
   `doc-derived-unverified`. If recipes were added or promoted since, update
   both counts and the "none verified" sentence.
-- The screening engine's "302 tests" claim was deliberately left out of the
+- The screening engine's "378 tests" claim was deliberately left out of the
   post — test counts invite "tests prove nothing" derails. The assurance
   case link covers it if asked.
 - Prepare for the two predictable HN objections before posting:
