@@ -45,6 +45,13 @@ class TestPartyFileParsing(unittest.TestCase):
         subjects, _ = parse_party_file("name,aka\nAcme,Acme Co;ACME Ltd|A Corp\n")
         self.assertEqual(len(subjects[0].aliases), 3)
 
+    def test_party_type_is_case_insensitive(self):
+        # "Entity" screened as "unknown": the membership test ran on the raw
+        # value and only the result was lowered.
+        subjects, _ = parse_party_file("name,type\nA,Entity\nB,INDIVIDUAL\nC,vessel\nD,robot\nE,\n")
+        self.assertEqual([s.party_type for s in subjects],
+                         ["entity", "individual", "vessel", "unknown", "unknown"])
+
 
 class PipelineCase(unittest.TestCase):
     """Full offline run against the fixture lists."""

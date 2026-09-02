@@ -14,11 +14,13 @@ notice. Two rules keep that from becoming a silent recall failure:
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import re
 from dataclasses import dataclass, field
 
 from .models import ListedParty, PartyType
+from .names import fold
 from .sources import resolve_csl_source
 
 # OFAC uses this sentinel for empty fields in its flat files.
@@ -324,6 +326,7 @@ def parse_ofac_sdn(text: str, source_code: str = "SDN") -> ParseOutcome:
     out = ParseOutcome()
     type_seen = 0
     type_recognized = 0
+    ragged = 0
     for row in csv.reader(io.StringIO(text)):
         if not row or not any(c.strip() for c in row):
             continue
@@ -333,11 +336,16 @@ def parse_ofac_sdn(text: str, source_code: str = "SDN") -> ParseOutcome:
             out.warnings.append(f"Short OFAC row ({len(row)} cols): {row[:3]}")
             continue
         if len(row) != SDN_COLS:
-            out.warnings.append(
-                f"OFAC row had {len(row)} columns, expected {SDN_COLS}. "
-                "Layout may have changed -- verify the parser against the "
-                "current file specification."
-            )
+            # Throttled like the CSL ragged path: a layout change is one fact
+            # about the file, and one warning per row turned it into 12,000
+            # lines that buried every other warning in the manifest.
+            ragged += 1
+            if ragged <= 3:
+                out.warnings.append(
+                    f"OFAC row {out.row_count} had {len(row)} columns, expected "
+                    f"{SDN_COLS}. Layout may have changed -- verify the parser "
+                    "against the current file specification."
+                )
         ent, name, typ, program = (_clean(row[0]), _clean(row[1]), _clean(row[2]), _clean(row[3]))
         type_seen += 1
         if (row[2] or "").strip().lower() in SDN_TYPE_VOCAB:
@@ -360,6 +368,12 @@ def parse_ofac_sdn(text: str, source_code: str = "SDN") -> ParseOutcome:
                 remarks=remarks,
                 raw={"row": " | ".join(row)},
             )
+        )
+    if ragged > 3:
+        out.warnings.append(
+            f"{ragged} {source_code} rows in total had a column count other than "
+            f"{SDN_COLS}. The file layout may have changed; verify the parser "
+            "against the current file specification before trusting this snapshot."
         )
     # A column-count check cannot catch a same-width reorder, which is a real
     # historical failure mode for headerless government files. If the party-type
@@ -489,18 +503,29 @@ def parse_bis_dpl(text: str) -> ParseOutcome:
             _get(row, mapping, "state"),
             _get(row, mapping, "postal_code"),
         ]
+        address = ", ".join(p for p in addr_parts if p)
+        fr = _get(row, mapping, "federal_register")
+        effective = _get(row, mapping, "effective_date")
+        # The file has no identifier column. The uid used to be the row
+        # ordinal, so every insertion BIS made shifted every uid below it and
+        # a case keyed on DPL:417 in March referred to a different person in
+        # April. Derive it from the content that identifies a denial order
+        # instead -- name, address, FR citation, effective date -- so the id
+        # survives re-publication and only changes when the order does.
+        key = "\x1f".join((fold(name), fold(address), fold(fr), effective))
+        native = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
         out.parties.append(
             ListedParty(
-                uid=f"DPL:{i}",
+                uid=f"DPL:{native}",
                 source="DPL",
-                native_id=str(i),
+                native_id=native,
                 name=name,
                 party_type="unknown",
-                addresses=[", ".join(p for p in addr_parts if p)] if any(addr_parts) else [],
+                addresses=[address] if address else [],
                 countries=[_get(row, mapping, "countries")] if _get(row, mapping, "countries") else [],
                 remarks=_get(row, mapping, "action"),
-                federal_register=_get(row, mapping, "federal_register"),
-                effective_date=_get(row, mapping, "effective_date"),
+                federal_register=fr,
+                effective_date=effective,
                 expiration_date=_get(row, mapping, "expiration_date"),
                 raw=_safe_raw(row),
             )
@@ -564,12 +589,25 @@ PARSERS = {
 }
 
 
+def _merge_unique(into: list[str], extra: list[str]) -> None:
+    seen = {x.lower() for x in into}
+    into.extend(x for x in extra if x.lower() not in seen)
+
+
 def dedupe(parties: list[ListedParty]) -> list[ListedParty]:
-    """Collapse duplicate uids, merging alias and address sets.
+    """Collapse duplicate uids, merging every list-valued field.
 
     CSL plus the primary OFAC files legitimately describe the same party
     twice. Keeping both would double-count hits in the report; dropping one
     blindly would lose whichever file had the richer alias set.
+
+    Every list field is merged, not only the name-bearing ones. The first
+    version merged aliases, addresses and countries and silently kept the
+    first record's programs, ids and party type -- so whichever file loaded
+    first decided whether the adjudicator saw a date of birth, whether the
+    program tag that changes the legal effect (FSE, SSI) survived, and
+    whether an SDN entity was screened as "unknown" and lost its 50 Percent
+    Rule flag.
     """
     by_uid: dict[str, ListedParty] = {}
     for p in parties:
@@ -577,16 +615,13 @@ def dedupe(parties: list[ListedParty]) -> list[ListedParty]:
         if cur is None:
             by_uid[p.uid] = p
             continue
-        seen = {a.lower() for a in cur.aliases}
-        cur.aliases.extend(a for a in p.aliases if a.lower() not in seen)
-        seen_w = {a.lower() for a in cur.weak_aliases}
-        cur.weak_aliases.extend(a for a in p.weak_aliases if a.lower() not in seen_w)
-        seen_addr = {a.lower() for a in cur.addresses}
-        cur.addresses.extend(a for a in p.addresses if a.lower() not in seen_addr)
-        seen_c = {c.lower() for c in cur.countries}
-        cur.countries.extend(c for c in p.countries if c.lower() not in seen_c)
-        if not cur.remarks:
-            cur.remarks = p.remarks
-        if not cur.federal_register:
-            cur.federal_register = p.federal_register
+        for fld in ("aliases", "weak_aliases", "addresses", "countries", "programs", "ids"):
+            _merge_unique(getattr(cur, fld), getattr(p, fld))
+        # A known party type is evidence; "unknown" is the absence of it.
+        if cur.party_type == "unknown" and p.party_type != "unknown":
+            cur.party_type = p.party_type
+        for fld in ("remarks", "federal_register", "effective_date",
+                    "expiration_date", "source_url"):
+            if not getattr(cur, fld):
+                setattr(cur, fld, getattr(p, fld))
     return list(by_uid.values())

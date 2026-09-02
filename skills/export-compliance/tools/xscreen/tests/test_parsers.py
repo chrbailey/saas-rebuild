@@ -90,6 +90,22 @@ class TestOFAC(unittest.TestCase):
         merged = merge_ofac(out, {"999999": ["GHOST ENTRY"]}, {})
         self.assertTrue(any("out of sync" in w for w in merged.warnings))
 
+    def test_column_count_drift_warns_a_few_times_not_per_row(self):
+        # A 12k-row layout change used to produce 12k warnings and bury every
+        # other warning in the manifest. Throttled like the CSL ragged path.
+        rows = "\n".join(f'{i},"NAME{i}","entity","PROG",,,,,,,' for i in range(50))
+        out = parse_ofac_sdn(rows)
+        per_row = [w for w in out.warnings if "columns, expected" in w]
+        self.assertLessEqual(len(per_row), 3)
+        self.assertTrue(any("in total" in w for w in out.warnings), out.warnings)
+        self.assertEqual(len(out.parties), 50)
+
+    def test_a_few_odd_rows_are_still_reported_individually(self):
+        rows = '1,"A","entity","P",,,,,,,\n2,"B","entity","P",,,,,,,,\n'
+        out = parse_ofac_sdn(rows)
+        self.assertEqual(len([w for w in out.warnings if "columns, expected" in w]), 1)
+        self.assertFalse(any("in total" in w for w in out.warnings))
+
 
 class TestCSL(unittest.TestCase):
     def setUp(self):
@@ -170,6 +186,39 @@ class TestCSL(unittest.TestCase):
         out = parse_csl("foo,bar\n1,2\n")
         self.assertEqual(out.parties, [])
         self.assertTrue(any("no recognizable name column" in w for w in out.warnings))
+
+    def test_live_label_renderings_resolve_through_key_normalization(self):
+        """The lookup docstring promised punctuation-insensitive keys while
+        the code only lowercased, so a label differing from the table by a
+        dash rendering or a dropped parenthesis resolved UNKNOWN and
+        escalated every row on that list."""
+        from xscreen.sources import resolve_csl_source
+
+        for label, code in [
+            ("Non-SDN Menu-Based Sanctions List (NS-MBS List) - Treasury Department", "NONSDN"),
+            ("Non–SDN Menu–Based Sanctions List (NS–MBS List) — Treasury Department",
+             "NONSDN"),
+            ("Entity List (EL) – Bureau of Industry and Security", "EL"),
+            ("Denied Persons List (DPL) -- Bureau of Industry and Security", "DPL"),
+            ("Foreign Sanctions Evaders (FSE) - Treasury Department", "FSE"),
+        ]:
+            self.assertEqual(resolve_csl_source(label), code, label)
+
+    def test_key_normalization_is_not_a_substring_fallback(self):
+        # Whole-label equality only. The post-mortem in sources.py explains
+        # why a partial match here is the dangerous direction.
+        from xscreen.sources import resolve_csl_source
+
+        for label in ["SDN List", "SDN - Treasury Department",
+                      "Non-SDN Menu-Based Sanctions List (NS-MBS)", "Entity List Extended"]:
+            self.assertEqual(resolve_csl_source(label), "UNKNOWN", label)
+
+    def test_no_two_map_keys_collide_after_normalization(self):
+        from xscreen.sources import CSL_SOURCE_MAP, _source_key
+
+        seen: dict[str, str] = {}
+        for k, v in CSL_SOURCE_MAP.items():
+            self.assertEqual(seen.setdefault(_source_key(k), v), v, k)
 
 
 class TestIdentityDiscriminators(unittest.TestCase):
@@ -285,6 +334,31 @@ class TestDPL(unittest.TestCase):
         self.assertEqual(by["MERIDIAN PARTS EXPORT GMBH"].expiration_date, "2023-06-15")
         self.assertEqual(by["CASCADE AVIONICS SUPPLY INC"].federal_register, "89 FR 8123")
 
+    def test_uids_are_content_derived_not_positional(self):
+        """Regression: the uid was the row ordinal, so every insertion BIS
+        made shifted every uid below it and a case keyed on DPL:417 in March
+        referred to a different person in April."""
+        text = read("DPL.raw")
+        before = {p.name: p.uid for p in parse_bis_dpl(text).parties}
+        lines = text.splitlines()
+        new_row = ("NEWLY DENIED PERSON\t1 Main St\tReno\tNV\tUnited States\t89501\t"
+                   "2026-03-01\t2031-03-01\tY\t2026-03-02\tDenial of export privileges\t91 FR 1")
+        after = {p.name: p.uid for p in parse_bis_dpl("\n".join([lines[0], new_row, *lines[1:]])).parties}
+        for name, uid in before.items():
+            self.assertEqual(after[name], uid, name)
+        self.assertNotIn("DPL:0", before.values())
+
+    def test_uid_tracks_the_order_not_the_row(self):
+        text = read("DPL.raw")
+        a = {p.name: p.uid for p in parse_bis_dpl(text).parties}
+        b = {p.name: p.uid for p in parse_bis_dpl(text.replace("89 FR 8123", "90 FR 1")).parties}
+        self.assertNotEqual(a["CASCADE AVIONICS SUPPLY INC"], b["CASCADE AVIONICS SUPPLY INC"])
+        self.assertEqual(a["MERIDIAN PARTS EXPORT GMBH"], b["MERIDIAN PARTS EXPORT GMBH"])
+
+    def test_uid_keeps_the_source_native_id_contract(self):
+        for p in parse_bis_dpl(read("DPL.raw")).parties:
+            self.assertEqual(p.uid, f"DPL:{p.native_id}")
+
 
 class TestDedupe(unittest.TestCase):
     def test_merges_alias_sets_rather_than_dropping(self):
@@ -302,6 +376,28 @@ class TestDedupe(unittest.TestCase):
         a = ListedParty(uid="SDN:1", source="SDN", native_id="1", name="ACME", aliases=["Acme Co"])
         b = ListedParty(uid="SDN:1", source="SDN", native_id="1", name="ACME", aliases=["ACME CO"])
         self.assertEqual(len(dedupe([a, b])[0].aliases), 1)
+
+    def test_programs_ids_and_party_type_survive_the_merge(self):
+        # Regression: only aliases, addresses and countries were merged; the
+        # first record's programs, ids and party type silently won, so load
+        # order decided whether the adjudicator saw a date of birth and
+        # whether the program tag that changes the legal effect survived.
+        a = ListedParty(uid="SDN:1", source="SDN", native_id="1", name="ACME",
+                        party_type="unknown", programs=["IRAN"], ids=["POB: Tehran"])
+        b = ListedParty(uid="SDN:1", source="SDN", native_id="1", name="ACME",
+                        party_type="entity", programs=["FSE-IR", "iran"], ids=["DOB: 1970"],
+                        effective_date="2024-01-01")
+        m = dedupe([a, b])[0]
+        self.assertEqual(m.party_type, "entity")
+        self.assertEqual(m.programs, ["IRAN", "FSE-IR"])
+        self.assertEqual(sorted(m.ids), ["DOB: 1970", "POB: Tehran"])
+        self.assertEqual(m.effective_date, "2024-01-01")
+
+    def test_known_party_type_is_not_overwritten_by_unknown(self):
+        a = ListedParty(uid="SDN:1", source="SDN", native_id="1", name="X", party_type="individual")
+        b = ListedParty(uid="SDN:1", source="SDN", native_id="1", name="X", party_type="unknown")
+        self.assertEqual(dedupe([a, b])[0].party_type, "individual")
+        self.assertEqual(dedupe([b, a])[0].party_type, "individual")
 
 
 class TestAllNames(unittest.TestCase):

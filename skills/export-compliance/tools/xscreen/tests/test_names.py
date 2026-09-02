@@ -30,6 +30,21 @@ class TestFolding(unittest.TestCase):
         once = fold("Société Générale, S.A.")
         self.assertEqual(fold(once), once)
 
+    def test_stacked_diacritic_on_an_extras_letter_folds_after_nfkd(self):
+        # ǿ is ø plus an acute accent. The extras table (ø -> o) used to run
+        # BEFORE NFKD, so the precomposed form never met the table and
+        # "Sǿrensen" and "Sørensen" produced different keys -- they never
+        # blocked together.
+        self.assertEqual(fold("Sǿrensen"), fold("Sørensen"))
+        self.assertEqual(fold("Sǿrensen"), "sorensen")
+        self.assertEqual(fold("ǾRSTED"), "orsted")
+
+    def test_underscore_is_a_separator_not_glue(self):
+        # `\w` includes the underscore, so "ACME_TRADING" stayed one token
+        # and shared nothing with "ACME TRADING".
+        self.assertEqual(fold("ACME_TRADING"), "acme trading")
+        self.assertEqual(core_tokens("ACME_TRADING"), core_tokens("Acme Trading"))
+
 
 class TestTokens(unittest.TestCase):
     def test_corporate_suffix_stripped_from_core(self):

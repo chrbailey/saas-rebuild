@@ -81,7 +81,10 @@ _DIACRITIC_EXTRA = str.maketrans({
     "ð": "d", "Ð": "D", "þ": "th", "Þ": "TH", "ı": "i",
 })
 
-_PUNCT_RE = re.compile(r"[^\w\s]", re.UNICODE)
+# `\w` counts the underscore as a word character, so "ACME_TRADING" stayed
+# one token and shared nothing with "ACME TRADING". Exports that squash a
+# name into an identifier-safe field do exactly that.
+_PUNCT_RE = re.compile(r"[^\w\s]|_", re.UNICODE)
 _WS_RE = re.compile(r"\s+")
 
 
@@ -90,9 +93,14 @@ def fold(s: str) -> str:
     """Case-fold, strip diacritics and punctuation, collapse whitespace."""
     if not s:
         return ""
-    s = s.translate(_DIACRITIC_EXTRA)
+    # NFKD first, the extras table second. The table maps characters NFKD
+    # leaves alone (ø, đ, ł ...), but a precomposed letter that stacks an
+    # accent ON one of those -- ǿ is ø plus acute -- only becomes a bare ø
+    # after decomposition. Translating first let it through untouched, so
+    # fold("Sǿrensen") != fold("Sørensen") and the two never blocked together.
     s = unicodedata.normalize("NFKD", s)
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = s.translate(_DIACRITIC_EXTRA)
     s = s.casefold()
     s = _PUNCT_RE.sub(" ", s)
     return _WS_RE.sub(" ", s).strip()
@@ -145,7 +153,7 @@ def normalized(s: str) -> str:
 _DIGRAPHS: tuple[tuple[str, str], ...] = (
     ("sch", "s"), ("tch", "c"), ("sh", "s"), ("ch", "c"), ("kh", "k"),
     ("gh", "g"), ("ph", "f"), ("th", "t"), ("zh", "j"), ("dh", "d"),
-    ("ts", "c"), ("ck", "k"), ("qu", "k"), ("ough", "o"), ("x", "ks"),
+    ("ts", "c"), ("ck", "k"), ("qu", "k"), ("x", "ks"),
     ("q", "k"), ("g", "k"),
 )
 
@@ -325,26 +333,3 @@ def is_acronym_of(a: str, b_tokens: tuple[str, ...]) -> bool:
     if len(a_compact) < 3 or len(b_tokens) < 2:
         return False
     return a_compact == initials(b_tokens)
-
-
-def name_variants(name: str) -> list[str]:
-    """Ordered alternate renderings of a name to index and query against.
-
-    Includes a reversed-token form because list data and ERP data disagree
-    constantly about "Surname, Given" versus "Given Surname".
-    """
-    ts = core_tokens(name)
-    out = [normalized(name)]
-    if len(ts) > 1:
-        out.append(" ".join(reversed(ts)))
-        out.append(" ".join(sorted(ts)))
-    sk = skeleton(name)
-    if sk and sk not in out:
-        out.append(sk)
-    seen: set[str] = set()
-    uniq: list[str] = []
-    for v in out:
-        if v and v not in seen:
-            seen.add(v)
-            uniq.append(v)
-    return uniq
