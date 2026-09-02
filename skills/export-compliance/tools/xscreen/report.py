@@ -149,7 +149,7 @@ def markdown_report(results: Sequence[ScreeningResult], summary: dict) -> str:
         subj = r.subject
         a(f"### {_esc(subj.get('ref', ''))} — {_esc(subj.get('name', ''))}")
         a("")
-        a(f"**Disposition:** {r.disposition} — {r.disposition_reason}")
+        a(f"**Disposition:** {r.disposition} — {_esc(r.disposition_reason)}")
         a("")
         ctx = [f"{k}: {_esc(str(subj.get(k)))}" for k in
                ("country", "destination_country", "role", "eccn", "item_description", "end_use")

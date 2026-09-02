@@ -1,9 +1,10 @@
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
-from xscreen.audit import AuditLog
+from xscreen.audit import GENESIS, AuditLog
 
 
 class TestAuditChain(unittest.TestCase):
@@ -168,3 +169,89 @@ class TestAuditChain(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHeadTailRead(unittest.TestCase):
+    """`head()` reads the file tail; it must agree with the full scan."""
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+        self.log = AuditLog(self.dir / "audit.jsonl")
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def _scan_head(self):
+        seq, h = 0, GENESIS
+        for e in self.log.entries():
+            if not e.get("__corrupt__"):
+                seq, h = e["seq"], e["hash"]
+        return seq, h
+
+    def test_tail_read_matches_full_scan(self):
+        for i in range(25):
+            self.log.append("t", {"i": i, "pad": "x" * 300})
+        self.assertEqual(self.log.head(), self._scan_head())
+        self.assertEqual(self.log.head()[0], 25)
+
+    def test_corrupt_tail_line_falls_back_to_scan(self):
+        for i in range(3):
+            self.log.append("t", {"i": i})
+        with self.log.path.open("a", encoding="utf-8") as fh:
+            fh.write('{"seq": 99, "hash": "forged')   # torn write, no newline
+        self.assertEqual(self.log.head(), self._scan_head())
+        self.assertEqual(self.log.head()[0], 3)
+
+    def test_entry_larger_than_the_window_still_resolves(self):
+        self.log.append("t", {"blob": "y" * 200_000})
+        self.log.append("t", {"i": 1})
+        self.assertEqual(self.log.head(), self._scan_head())
+        # And a single oversized final entry -- the window cuts into it, so
+        # the tail path must refuse and the scan must answer.
+        big = AuditLog(self.dir / "big.jsonl")
+        big.append("t", {"blob": "z" * 200_000})
+        self.assertEqual(big.head()[0], 1)
+
+    def test_append_after_tail_read_keeps_the_chain_intact(self):
+        for i in range(10):
+            self.log.append("t", {"i": i})
+        intact, problems = self.log.verify()
+        self.assertTrue(intact, problems)
+
+
+class TestMarkerBehindLog(unittest.TestCase):
+    def test_entries_appended_past_the_marker_are_flagged(self):
+        d = Path(tempfile.mkdtemp())
+        try:
+            log = AuditLog(d / "audit.jsonl")
+            log.append("t", {"i": 1})
+            log.append("t", {"i": 2})
+            # Recompute a valid chain extension by hand, bypassing the writer
+            # (which would have moved the marker).
+            seq, prev = log.head()
+            entry = {"seq": seq + 1, "ts": "2026-01-01T00:00:00+00:00",
+                     "actor": "x", "event": "t", "payload": {"i": 3}, "prev_hash": prev}
+            from xscreen.audit import _hash_entry
+            entry["hash"] = _hash_entry(entry)
+            with log.path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(entry, sort_keys=True) + "\n")
+            intact, problems = log.verify()
+            self.assertFalse(intact)
+            self.assertTrue(any("appended without going through" in p for p in problems),
+                            problems)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+
+class TestRetentionFloor(unittest.TestCase):
+    def test_leap_day_does_not_crash(self):
+        from datetime import datetime, timezone
+        log = AuditLog(Path(tempfile.mkdtemp()) / "a.jsonl")
+        floor = log.retention_floor(datetime(2028, 2, 29, tzinfo=timezone.utc))
+        self.assertEqual(floor, "2023-02-28")
+
+    def test_ordinary_day(self):
+        from datetime import datetime, timezone
+        log = AuditLog(Path(tempfile.mkdtemp()) / "a.jsonl")
+        self.assertEqual(log.retention_floor(datetime(2026, 9, 1, tzinfo=timezone.utc)),
+                         "2021-09-01")

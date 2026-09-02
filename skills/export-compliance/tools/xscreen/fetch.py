@@ -139,7 +139,12 @@ def fetch_source(src: Source, dest: Path) -> FileRecord:
         rec.sha256 = hashlib.sha256(body).hexdigest()
         rec.fetched_at = datetime.now(timezone.utc).isoformat()
         dest.mkdir(parents=True, exist_ok=True)
-        (dest / f"{src.code}.raw").write_bytes(body)
+        # Atomic: a crash mid-download must leave the previous snapshot, whose
+        # manifest hash still matches, rather than a truncated file whose
+        # hash silently disagrees with the record of this fetch.
+        tmp = dest / f"{src.code}.raw.tmp"
+        tmp.write_bytes(body)
+        os.replace(tmp, dest / f"{src.code}.raw")
         return rec
     rec.error = "; ".join(errors) or "no URLs configured"
     return rec
@@ -343,6 +348,33 @@ def load_parties(data_dir: Path) -> list[ListedParty]:
     return out
 
 
+def verify_corpus(data_dir: Path, manifest: Manifest) -> tuple[bool, str]:
+    """(ok, message): does parties.jsonl match the manifest's corpus digest?
+
+    Shared by `load_corpus` (which refuses on False) and `xscreen status`
+    (which reports it), so the operator can see a tampered or torn corpus
+    before a screening run refuses it.
+    """
+    path = Path(data_dir) / "parties.jsonl"
+    if not path.exists():
+        return False, f"No party corpus at {path}. Run `xscreen refresh` first."
+    if not manifest.corpus_sha256:
+        return False, (
+            "The manifest records no corpus digest, so the party corpus cannot "
+            "be verified against it. The snapshot predates corpus binding or "
+            "the manifest was edited; run `xscreen refresh`."
+        )
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != manifest.corpus_sha256:
+        return False, (
+            "parties.jsonl does not match the digest recorded at refresh time "
+            f"(manifest {manifest.corpus_sha256[:12]}…, file {actual[:12]}…). "
+            "The corpus was modified after refresh; screening against it would "
+            "produce results the manifest cannot vouch for. Run `xscreen refresh`."
+        )
+    return True, f"parties.jsonl matches the manifest corpus digest ({actual[:12]}…)."
+
+
 def load_corpus(data_dir: Path, manifest: Manifest) -> list[ListedParty]:
     """Load parties.jsonl, verifying it against the manifest's corpus digest.
 
@@ -354,26 +386,11 @@ def load_corpus(data_dir: Path, manifest: Manifest) -> list[ListedParty]:
     cover the corpus actually used, so a mismatch here is a refusal, not a
     warning.
     """
-    path = Path(data_dir) / "parties.jsonl"
-    if not path.exists():
-        raise FileNotFoundError(
-            f"No party corpus at {path}. Run `xscreen refresh` first."
-        )
-    if not manifest.corpus_sha256:
-        raise RuntimeError(
-            "Refusing to screen: the manifest records no corpus digest, so the "
-            "party corpus cannot be verified against it. The snapshot predates "
-            "corpus binding or the manifest was edited; run `xscreen refresh`."
-        )
-    actual = hashlib.sha256(path.read_bytes()).hexdigest()
-    if actual != manifest.corpus_sha256:
-        raise RuntimeError(
-            "Refusing to screen: parties.jsonl does not match the digest "
-            f"recorded at refresh time (manifest {manifest.corpus_sha256[:12]}…, "
-            f"file {actual[:12]}…). The corpus was modified after refresh; "
-            "screening against it would produce results the manifest cannot "
-            "vouch for. Run `xscreen refresh`."
-        )
+    ok, msg = verify_corpus(data_dir, manifest)
+    if not ok:
+        if not (Path(data_dir) / "parties.jsonl").exists():
+            raise FileNotFoundError(msg)
+        raise RuntimeError(f"Refusing to screen: {msg}")
     return load_parties(data_dir)
 
 

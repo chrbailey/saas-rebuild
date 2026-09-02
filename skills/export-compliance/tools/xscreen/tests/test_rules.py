@@ -85,6 +85,35 @@ class TestDestination(unittest.TestCase):
     def test_missing_destination_is_flagged(self):
         self.assertIn("DEST.MISSING", ids(destination_rules(SubjectParty(ref="t", name="X"), self.p)))
 
+    def test_iso_official_renderings_resolve_to_the_embargo(self):
+        """ERP master data emits the ISO 3166 'official' forms and alpha-3
+        codes. They used to fall out as DEST.UNRESOLVED -- a diligence flag
+        -- on comprehensively embargoed destinations."""
+        for dest in ["Iran, Islamic Republic of", "IRAN (ISLAMIC REPUBLIC OF)",
+                     "Iran, Islamic Rep.", "IRN", "Korea, Democratic People's Republic of",
+                     "PRK", "Syrian Arab Republic", "SYR", "Cuba", "CUB", "Republic of Cuba"]:
+            f = ids(destination_rules(SubjectParty(ref="t", name="X", destination_country=dest), self.p))
+            self.assertIn("DEST.COMPREHENSIVE", f, dest)
+            self.assertNotIn("DEST.UNRESOLVED", f, dest)
+
+    def test_plain_names_alpha3_codes_and_rotated_forms_resolve(self):
+        for dest, iso in [("Germany", "DE"), ("DEU", "DE"), ("Viet Nam", "VN"),
+                          ("Russian Fed.", "RU"), ("Russian Federation", "RU"),
+                          ("Congo, Democratic Republic of the", "CD"),
+                          ("Taiwan, Province of China", "TW"), ("The Netherlands", "NL"),
+                          ("Bolivia (Plurinational State of)", "BO"),
+                          ("Hong Kong SAR, China", "HK"), ("Burma (Myanmar)", "MM")]:
+            self.assertEqual(self.p.resolve_country(dest), iso, dest)
+
+    def test_ambiguous_or_bogus_values_still_do_not_resolve(self):
+        # Bare "Korea" is ambiguous between KR and KP; resolving it to the
+        # unrestricted one would be a false clear. Unknown alpha-3 codes and
+        # made-up names stay unresolved.
+        for dest in ["Korea", "XXX", "ZZZ", "Narnia"]:
+            self.assertEqual(self.p.resolve_country(dest), "", dest)
+            self.assertIn("DEST.UNRESOLVED", ids(destination_rules(
+                SubjectParty(ref="t", name="X", destination_country=dest), self.p)), dest)
+
     def test_unverified_policy_is_marked_on_every_flag(self):
         f = destination_rules(SubjectParty(ref="t", name="X", destination_country="Cuba"), self.p)
         # The shipped policy file is unattested by design.
@@ -117,6 +146,34 @@ class TestListEffects(unittest.TestCase):
         flag = [x for x in f if x.rule_id == "LIST.NONSDN"][0]
         self.assertEqual(flag.severity, "license")
         self.assertIn("NOT a blocking designation", flag.detail)
+
+    def test_fse_is_prohibitive_not_licence_level(self):
+        """Foreign Sanctions Evaders fell through to the Non-SDN rule as
+        'generally NOT a blocking designation' at licence severity. EO 13608
+        prohibits U.S. persons from all transactions or dealings with the
+        listed person -- for a shipment decision, the prohibitive outcome."""
+        f = list_hit_rules([self._cand("FSE")], date(2026, 1, 1))
+        flag = [x for x in f if x.rule_id == "LIST.FSE"][0]
+        self.assertEqual(flag.severity, "prohibitive")
+        self.assertIn("13608", flag.basis)
+        self.assertNotIn("LIST.NONSDN", ids(f))
+
+    def test_fse_program_tag_inside_the_nonsdn_file_is_prohibitive(self):
+        # OFAC's consolidated Non-SDN file carries FSE parties as NONSDN rows
+        # tagged FSE-IR / FSE-SY.
+        f = list_hit_rules([self._cand("NONSDN", programs=["FSE-IR"])], date(2026, 1, 1))
+        self.assertIn("LIST.FSE", ids(f))
+        self.assertNotIn("LIST.NONSDN", ids(f))
+
+    def test_other_nonsdn_programs_keep_the_licence_nuance(self):
+        for program in ("SSI", "CAPTA", "NS-CMIC", "UKRAINE-EO13662"):
+            f = list_hit_rules([self._cand("NONSDN", programs=[program])], date(2026, 1, 1))
+            self.assertIn("LIST.NONSDN", ids(f), program)
+            self.assertNotIn("LIST.FSE", ids(f), program)
+
+    def test_fse_source_has_a_recorded_legal_effect(self):
+        from xscreen.sources import legal_effect_for
+        self.assertNotIn("UNKNOWN LIST", legal_effect_for("FSE"))
 
     def test_entity_list_points_back_at_the_entry(self):
         f = list_hit_rules([self._cand("EL")], date(2026, 1, 1))

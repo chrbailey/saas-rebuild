@@ -15,6 +15,7 @@ be confirmed against the primary list and the Federal Register notice. See
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -149,7 +150,7 @@ NONSDN = Source(
     parser="ofac_sdn",
     legal_effect=(
         "Program-specific and generally NARROWER than blocking. Covers SSI "
-        "(debt/equity restrictions), FSE, CAPTA, NS-PLC, NS-MBS, NS-CMIC and "
+        "(debt/equity restrictions), CAPTA, NS-PLC, NS-MBS, NS-CMIC and "
         "others. A hit here is usually NOT a full prohibition on dealing -- "
         "read the program tag and the governing directive."
     ),
@@ -158,6 +159,40 @@ NONSDN = Source(
         "Treating a Non-SDN hit as a blocking hit is a common and expensive "
         "error in both directions: it over-blocks lawful business and it "
         "masks the specific restriction that does apply.",
+        "The exception is a row tagged FSE-IR / FSE-SY: Foreign Sanctions "
+        "Evaders are carried in this file but are subject to a general "
+        "transaction prohibition under EO 13608. See the FSE entry.",
+    ),
+)
+
+FSE = Source(
+    code="FSE",
+    name="Foreign Sanctions Evaders List",
+    agency="Treasury/OFAC",
+    # Extracted from the CSL by source label. OFAC also carries FSE parties
+    # in the consolidated Non-SDN file (program tags FSE-IR / FSE-SY); the
+    # rules engine recognizes them there as well.
+    urls=(
+        "https://data.trade.gov/downloadable_consolidated_screening_list/v1/consolidated.csv",
+    ),
+    fmt="csv",
+    parser="csl_subset",
+    legal_effect=(
+        "U.S. persons are PROHIBITED from all transactions or dealings, direct "
+        "or indirect, involving the listed person that are in or related to "
+        "goods, services or technology in or intended for the United States, "
+        "or provided by or to U.S. persons wherever located, absent an OFAC "
+        "license. This is not a blocking action -- property is not frozen -- "
+        "but the dealing itself is prohibited."
+    ),
+    authority="Executive Order 13608 (May 1, 2012), sec. 1",
+    caveats=(
+        "Not a Non-SDN 'narrower than blocking' listing despite being "
+        "published alongside them. Confirm the current entry: the Syria leg "
+        "(FSE-SY) was affected by the 2025 revocation of the Syria sanctions "
+        "program, and the implementing framework may have moved.",
+        "Many FSE parties are also SDNs. Where both apply the SDN blocking "
+        "effect governs; check for a parallel SDN entry.",
     ),
 )
 
@@ -307,7 +342,7 @@ ISN = Source(
 
 
 ALL_SOURCES: tuple[Source, ...] = (
-    CSL, SDN, SDN_ALT, SDN_ADD, NONSDN, DPL, ENTITY, UVL, MEU, DDTC, ISN,
+    CSL, SDN, SDN_ALT, SDN_ADD, NONSDN, FSE, DPL, ENTITY, UVL, MEU, DDTC, ISN,
 )
 
 BY_CODE: dict[str, Source] = {s.code: s for s in ALL_SOURCES}
@@ -321,7 +356,9 @@ DEFAULT_REFRESH: tuple[str, ...] = ("CSL", "SDN", "SDN_ALT", "NONSDN", "DPL")
 MAX_LIST_AGE_DAYS = 7
 
 # CSL `source` values mapped to the list code whose legal effect governs.
-# Keys are lowercased and stripped of punctuation for robust lookup.
+# Keys are compared through `_source_key`: lowercased, every run of
+# non-alphanumerics (hyphens, en/em dashes, parentheses, periods, spaces)
+# collapsed to one space. Whole-label equality only -- see resolve_csl_source.
 CSL_SOURCE_MAP: dict[str, str] = {
     "denied persons list (dpl) - bureau of industry and security": "DPL",
     "denied persons list": "DPL",
@@ -336,21 +373,43 @@ CSL_SOURCE_MAP: dict[str, str] = {
     "sdn": "SDN",
     "sectoral sanctions identifications list (ssi) - treasury department": "NONSDN",
     "non-sdn menu-based sanctions list (ns-mbs list)": "NONSDN",
+    "non-sdn menu-based sanctions list (ns-mbs list) - treasury department": "NONSDN",
     "non-sdn chinese military-industrial complex companies list (ns-cmic)": "NONSDN",
+    "non-sdn chinese military-industrial complex companies list (ns-cmic list) - treasury department": "NONSDN",
     "non-sdn palestinian legislative council list (ns-plc)": "NONSDN",
-    "foreign sanctions evaders (fse) - treasury department": "NONSDN",
+    "non-sdn palestinian legislative council list (ns-plc) - treasury department": "NONSDN",
+    "foreign sanctions evaders (fse) - treasury department": "FSE",
+    "foreign sanctions evaders list (fse) - treasury department": "FSE",
     "capta list": "NONSDN",
+    "capta list (capta) - treasury department": "NONSDN",
     "itar debarred (dtc) - state department": "DTC",
     "nonproliferation sanctions (isn) - state department": "ISN",
 }
+
+_KEY_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _source_key(raw: str) -> str:
+    """Punctuation- and dash-insensitive form of a CSL source label.
+
+    The lookup docstring promised "lowercased and stripped of punctuation"
+    while the code only lowercased, so a live label that differed from the
+    table by an en dash or a dropped parenthesis resolved UNKNOWN and
+    escalated every row on that list.
+    """
+    return " ".join(_KEY_RE.sub(" ", (raw or "").lower()).split())
+
+
+_CSL_SOURCE_KEYS: dict[str, str] = {_source_key(k): v for k, v in CSL_SOURCE_MAP.items()}
 
 
 def resolve_csl_source(raw: str) -> str:
     """Map a CSL `source` label to the governing list code.
 
-    Exact match only. Returns "UNKNOWN" rather than guessing when the label is
-    unrecognized -- an unrecognized source must surface as an explicit gap,
-    never be silently absorbed into a neighbouring list's legal effect.
+    Whole-label equality only, on the normalized key. Returns "UNKNOWN" rather
+    than guessing when the label is unrecognized -- an unrecognized source
+    must surface as an explicit gap, never be silently absorbed into a
+    neighbouring list's legal effect.
 
     There used to be a substring fallback here, and it was actively dangerous.
     Because the bare key "sdn" is a substring of every "Non-SDN ..." label, a
@@ -360,9 +419,10 @@ def resolve_csl_source(raw: str) -> str:
     securities-investment restriction. That is precisely the error the Non-SDN
     caveats above exist to prevent, and returning UNKNOWN (which routes to
     LIST.UNKNOWN_SOURCE and escalates) is strictly safer than a good guess.
+    Key normalization is not a fallback: it changes how two whole labels are
+    compared, never which labels are consulted.
     """
-    key = " ".join((raw or "").lower().split())
-    return CSL_SOURCE_MAP.get(key, "UNKNOWN")
+    return _CSL_SOURCE_KEYS.get(_source_key(raw), "UNKNOWN")
 
 
 def legal_effect_for(code: str) -> str:

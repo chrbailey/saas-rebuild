@@ -23,9 +23,9 @@ string similarity and starts being identity.
 ## Pipeline
 
 ```
-name -> fold -> tokens -> core tokens -> {normalized, sorted, skeleton}
+name -> fold -> tokens -> core tokens -> {normalized, sorted, skeleton, compact}
                                               |
-                            inverted index (token + skeleton postings)
+                       inverted index (token + skeleton + compact postings)
                                               |
                          blocking (rarest token first, capped)
                                               |
@@ -34,16 +34,33 @@ name -> fold -> tokens -> core tokens -> {normalized, sorted, skeleton}
 
 ### Normalization
 
-**Fold.** Unicode NFKD, strip combining marks, casefold, punctuation to
-whitespace, collapse runs. Note punctuation becomes *separation*, not deletion:
-"A.B.C." folds to `a b c`, not `abc`, so initialisms cannot collide with real
-words. Extra mappings cover characters NFKD leaves alone (ø, đ, ł, æ, ß, þ).
+**Fold.** Unicode NFKD, strip combining marks, then the extra mappings for
+characters NFKD leaves alone (ø, đ, ł, æ, ß, þ), casefold, punctuation to
+whitespace, collapse runs. The order matters: a precomposed ǿ is ø plus an
+acute accent, and the ø mapping only sees it after decomposition — applied
+first, it let `Sǿrensen` and `Sørensen` fold to different keys. Note
+punctuation becomes *separation*, not deletion: "A.B.C." folds to `a b c`, not
+`abc`, so initialisms cannot collide with real words. The underscore counts as
+punctuation here, so `ACME_TRADING` folds to two tokens rather than one. The
+one exception is an apostrophe *inside* a word: it marks an elision or a
+glottal stop, not a boundary, so `Sa'id` folds to `said` and `O'Brien` to
+`obrien`. Treated as separation it split the token, and `Sa'id al-Harbi`
+scored a 0.70 ceiling against a listed `Said al-Harbi` — an early exit and
+no candidate (the benchmark's internal-apostrophe class measured 20.9%).
 
 **Tokens.** Word-level equivalences (`company`→`co`, `technologies`→`tech`,
 `brothers`→`bros`) and noise removal (`the`, `of`, `and`, romance articles).
+A run of single letters that spells a known legal form is rejoined here —
+`L.L.C.` folds to `l l c` and becomes `llc`, `S.A.` becomes `sa` — so the
+dotted spelling strips like the plain one. Before this, those letters stayed
+in the name: `Alpha Precision S.A.` was only STRONG against `Alpha Precision
+LLC`, and two unrelated "… Trading L.L.C." companies banded WEAK on the
+shared `l l c`. A run that does not spell a suffix (`A.B.C.`) stays as
+separate letters.
 
-**Core tokens.** Legal-form suffixes stripped — some 80 of them across
-jurisdictions (LLC, Ltd, GmbH, OAO, ZAO, PJSC, KK, Sdn Bhd, doo, kft…). "Acme
+**Core tokens.** Legal-form suffixes stripped — some 100 of them across
+jurisdictions (LLC, Ltd, GmbH, OAO, ZAO, PJSC, KK, Sdn Bhd, doo, kft, FZE,
+WLL, EOOD, UAB…). "Acme
 Precision LLC" and "Acme Precision GmbH" produce the same key, which is right:
 the legal form carries almost no discriminating power but wrecks edit distance.
 Only true legal forms are stripped. Organizational nouns — trust, fund,
@@ -64,14 +81,22 @@ converge. `Petrov`/`Ivanov` and `Northwind`/`Southwind` do not.
 ### Blocking
 
 An inverted index over every name and alias of every listed party, plus a
-skeleton index and an acronym index (the initials of every multi-token listed
-name, three letters or longer). Query tokens expand **rarest first**, capped
-at `MAX_BLOCK_ENTRIES`. The acronym index exists because an initialism shares
-no token and no skeleton with its expansion: without it, "IRGC" pulled zero
-candidates against a list carrying only "Islamic Revolutionary Guard Corps",
-and the acronym band rule below was unreachable. Both directions are indexed —
-a compact query token is looked up against listed initials, and a multi-token
-query's initials are looked up against listed names.
+skeleton index, an acronym index (the initials of every multi-token listed
+name, three letters or longer) and a compact index (every normalized name with
+its whitespace removed, six characters or longer). Query tokens expand
+**rarest first**, capped at `MAX_BLOCK_ENTRIES`. The acronym index exists
+because an initialism shares no token and no skeleton with its expansion:
+without it, "IRGC" pulled zero candidates against a list carrying only
+"Islamic Revolutionary Guard Corps", and the acronym band rule below was
+unreachable. Both directions are indexed — a compact query token is looked up
+against listed initials, and a multi-token query's initials are looked up
+against listed names. A query made entirely of single letters (`R.R.M.`,
+`R R M`) is looked up as its joined initialism, because the dotted and
+spaced spellings fold to single-letter tokens that matched no posting at
+all — the benchmark's acronym class lost every such case at blocking. The compact index exists for the same reason: a token
+split — an OCR artefact or a keying slip, "Ga zprom Neft" — shares no token
+and no skeleton with "GAZPROM NEFT", and without it that pair was a complete
+miss.
 
 The safety argument for capping at all: an exact match shares *every* token
 with the query, so it necessarily appears in the postings of the query's rarest
@@ -110,14 +135,26 @@ Rule-based, first match wins:
    behind the gate the rule was dead for the 3-letter initialisms that
    dominate real trade documents
 4. Either name under 4 folded characters → **NONE** (exact only)
-5. Full token containment plus skeleton equality → **STRONG**
-6. Full skeleton containment with ≥2 skeleton tokens → **STRONG**
-7. Full containment of a discriminating (list-rare) token → **STRONG**
-8. score ≥ 0.90 → **STRONG**; ≥ 0.78 → **WEAK**; else **NONE**
+5. `compact_equal` (the normalized forms differ only in where the token
+   boundaries fall; six or more characters) → **STRONG** — not EXACT, because
+   a split name is degraded evidence and EXACT auto-confirms
+6. Full token containment plus skeleton equality → **STRONG**
+7. Full skeleton containment with ≥2 skeleton tokens → **STRONG**
+8. Full containment of a discriminating (list-rare) token → **STRONG**
+9. One whitespace-stripped form inside the other, with a shared
+   discriminating token → **STRONG**
+10. score ≥ 0.90 → **STRONG**; ≥ 0.78 → **WEAK**; else **NONE**
 
-Rule 6 is the dropped-name-part case: "Vasiliy Petroff" against "PETROV,
+Rule 7 is the dropped-name-part case: "Vasiliy Petroff" against "PETROV,
 Vasiliy Ivanovich". Every skeleton token of the shorter name is present in the
 longer one. The two-token floor stops generic single words from firing it.
+
+Rules 5 and 9 are the token-split case. "Ga zprom Neft" against "GAZPROM
+NEFT" is identical once the spaces are removed; "Ga zprom Neft Trading" is
+not, but contains it, and the two share the list-rare token "neft". The
+discriminating guard on rule 9 is what stops "Gene ral Trading" from sitting
+inside every "General Trading Company N" on the list, and the six-character
+floor is what stops "A C ME" from uniting with "ACME".
 
 An EXACT hit normally floors the disposition at CONFIRMED_HIT. The one
 exception: when every EXACT candidate matched only through an OFAC **weak
@@ -136,9 +173,10 @@ w_jw*1 + w_ts*ts + w_cont*cont + w_lev*1 + w_skel*skel_containment  <  WEAK_FLOO
 ```
 
 the pair cannot band on score, because both string metrics are bounded by 1.0.
-But three band rules bypass the score entirely, so each independently
-suppresses the exit: an acronym relationship, full token containment, or full
-skeleton containment with two or more tokens.
+But several band rules bypass the score entirely, so each independently
+suppresses the exit: an acronym relationship, full token containment, full
+skeleton containment with two or more tokens, and the two compact
+(whitespace-stripped) relationships.
 
 That last condition is not decoration. The first version of this optimization
 omitted it, and the brute-force equivalence test in `test_match.py` caught it
@@ -165,6 +203,11 @@ number of *candidates*, not the number of parties.
 be the SDN listed at a Moscow address — list addresses are sparse and often
 historical. `country_evidence` (`agrees` / `differs` / `insufficient`) is
 recorded for the adjudicator and is never allowed to clear a name hit.
+Agreement is equality after both sides resolve through the policy file's
+country tables (alpha-2 and alpha-3 codes, official long forms in either
+order, plain names), falling back to folded string equality when a value does
+not resolve. It was once a substring test, under which `US` "agreed" with
+`Russia`.
 
 **Short names match only exactly.** Fuzzy-matching 2–3 character strings
 generates noise that buries real hits.

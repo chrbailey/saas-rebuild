@@ -11,6 +11,7 @@ from conftest import (
     PLUGIN_MANIFEST,
     REPO_ROOT,
     SKILL_DIR,
+    repo_files,
 )
 
 
@@ -28,14 +29,14 @@ def marketplace_entry(marketplace_manifest, plugin_manifest):
 
 
 def test_all_json_files_parse():
-    paths = sorted(REPO_ROOT.rglob("*.json"))
+    paths = repo_files("*.json")
     assert paths
     for path in paths:
         json.loads(path.read_text(encoding="utf-8"))
 
 
 def test_all_json_schemas_are_valid():
-    paths = sorted(REPO_ROOT.rglob("*.schema.json"))
+    paths = repo_files("*.schema.json")
     assert len(paths) >= 5
     ids = []
     for path in paths:
@@ -122,3 +123,86 @@ def test_external_actions_are_pinned_to_full_commit_shas():
             if action.startswith("./"):
                 continue
             assert re.fullmatch(r"[a-f0-9]{40}", ref), f"mutable action ref {action}@{ref} in {path.name}"
+
+
+def workflow_jobs():
+    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for job_name, job in parsed["jobs"].items():
+            yield path.name, parsed, job_name, job
+
+
+def test_checkouts_never_persist_credentials():
+    # Test suites and build steps execute code from the tree; a persisted
+    # token in .git/config would be readable by all of it.
+    checkouts = 0
+    for workflow, _, job_name, job in workflow_jobs():
+        for step in job["steps"]:
+            if str(step.get("uses", "")).startswith("actions/checkout@"):
+                checkouts += 1
+                assert step.get("with", {}).get("persist-credentials") is False, (
+                    f"{workflow}:{job_name} checkout persists credentials"
+                )
+    assert checkouts >= 3
+
+
+def test_release_write_permissions_are_scoped_to_the_release_job():
+    release = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "release.yml").read_text())
+    assert release["permissions"] == {}, "release.yml must not grant workflow-level permissions"
+    jobs = release["jobs"]
+    assert set(jobs) == {"test", "release"}
+    assert jobs["test"]["permissions"] == {"contents": "read"}
+    assert jobs["release"]["needs"] == "test"
+    assert jobs["release"]["permissions"]["contents"] == "write"
+    assert jobs["release"]["permissions"]["id-token"] == "write"
+    # Any job that executes the test suites runs code from the tree and must
+    # hold a read-only token, whichever workflow it lives in.
+    suite_jobs = 0
+    for workflow, parsed, job_name, job in workflow_jobs():
+        runs = " ".join(str(step.get("run", "")) for step in job["steps"])
+        if "pytest" not in runs and "unittest" not in runs:
+            continue
+        suite_jobs += 1
+        grants = {**(parsed.get("permissions") or {}), **(job.get("permissions") or {})}
+        assert "write" not in grants.values(), f"{workflow}:{job_name} runs tests with a write token"
+    assert suite_jobs >= 3
+
+
+def codeowners_rules():
+    rules = []
+    for line in (REPO_ROOT / ".github" / "CODEOWNERS").read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            pattern, *owners = line.split()
+            rules.append((pattern, owners))
+    return rules
+
+
+def covered_by(path, rules):
+    return [
+        owners
+        for pattern, owners in rules
+        if (pattern.endswith("/") and path.startswith(pattern.lstrip("/")))
+        or path == pattern.lstrip("/")
+    ]
+
+
+def test_codeowners_covers_the_enforcement_layer():
+    rules = codeowners_rules()
+    maintainers = {tuple(owners) for pattern, owners in rules if pattern == "/.github/workflows/"}
+    assert maintainers, "workflows have no designated owner"
+    for path in (
+        ".github/CODEOWNERS",
+        ".github/workflows/release.yml",
+        "skills/saas-rebuild/templates/pairs.schema.json",
+        "skills/saas-rebuild/tools/validate_artifacts.py",
+        "skills/saas-rebuild/tools/run_evals.py",
+        "scripts/validate_artifacts.py",
+        "scripts/package_skills.py",
+        "tests/test_structure.py",
+        "tests/fixtures/valid-full.json",
+    ):
+        assert (REPO_ROOT / path).is_file(), path
+        owners = covered_by(path, rules)
+        assert owners, f"{path} has no code owner"
+        assert {tuple(item) for item in owners} <= maintainers, f"{path} owner differs from workflows"

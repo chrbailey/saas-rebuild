@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from xscreen.match import ListIndex, assign_band, score_pair, screen_name
+from xscreen.match import ListIndex, assign_band, geo_signals, score_pair, screen_name
 from xscreen.models import ListedParty, SubjectParty
 from xscreen.normalize import merge_ofac, parse_csl, parse_ofac_add, parse_ofac_alt, parse_ofac_sdn
 
@@ -263,6 +263,89 @@ class TestWeakAliases(unittest.TestCase):
         self.assertEqual(provisional_disposition(r)[0], "CONFIRMED_HIT")
 
 
+class TestTokenSplitRobustness(unittest.TestCase):
+    """Regression: an OCR split or keying slip that moves a token boundary
+    was a COMPLETE miss. "Ga zprom Neft" shares no token and no skeleton with
+    "GAZPROM NEFT", so blocking never surfaced it and the score sat in the
+    0.5s -- yet compared with the spaces removed the two are identical."""
+
+    @staticmethod
+    def _idx(*names):
+        idx = ListIndex()
+        for i, n in enumerate(names, 1):
+            idx.add(ListedParty(uid=f"SDN:{i}", source="SDN", native_id=str(i), name=n))
+        return idx.build()
+
+    def test_split_name_is_found_and_banded_strong(self):
+        cands = screen_name(SubjectParty(ref="t", name="Ga zprom Neft"),
+                            self._idx("GAZPROM NEFT"))
+        self.assertEqual([(c.listed_uid, c.band) for c in cands], [("SDN:1", "STRONG")])
+        self.assertTrue(cands[0].signals["compact_equal"])
+
+    def test_split_is_strong_not_exact(self):
+        # EXACT auto-confirms; a split name is degraded evidence and must
+        # still pass through adjudication.
+        self.assertEqual(bands(self._idx("GAZPROM NEFT"), "Gazprom Neft").get("SDN:1"), "EXACT")
+        self.assertEqual(bands(self._idx("GAZPROM NEFT"), "Gaz prom Neft").get("SDN:1"), "STRONG")
+
+    def test_split_with_extra_qualifier_is_found_through_a_shared_rare_token(self):
+        b = bands(self._idx("GAZPROM NEFT", "Beacon Optics"), "Ga zprom Neft Trading")
+        self.assertEqual(b.get("SDN:1"), "STRONG")
+
+    def test_short_strings_are_not_compared_compactly(self):
+        # "A C ME" / "ACME" would unite on the squashed form; below the
+        # length gate that comparison is noise, exactly like fuzzy matching.
+        from xscreen.match import COMPACT_MIN_CHARS
+        self.assertLess(len("acme"), COMPACT_MIN_CHARS)
+        self.assertEqual(bands(self._idx("ACME"), "A C ME"), {})
+
+    def test_containment_alone_does_not_fire_without_a_discriminating_token(self):
+        # "generaltrade" sits inside every "generaltradecompanyN"; the only
+        # shared token is "trade", which is common across the list.
+        idx = self._idx(*[f"General Trading Company{i}" for i in range(60)])
+        self.assertEqual(bands(idx, "Gene ral Trading"), {})
+
+
+class TestGeoSignals(unittest.TestCase):
+    """Regression: agreement was a substring test, and "us" is a substring of
+    "rUSsia" -- a U.S.-addressed subject was reported as AGREEING with a
+    Moscow listing, and an adjudicator reads "agrees" as corroboration."""
+
+    @staticmethod
+    def _party(*countries):
+        return ListedParty(uid="SDN:1", source="SDN", native_id="1", name="X",
+                           countries=list(countries))
+
+    def _ev(self, subject_country, *listed):
+        subj = SubjectParty(ref="t", name="X", country=subject_country)
+        return geo_signals(subj, self._party(*listed))["country_evidence"]
+
+    def test_us_does_not_agree_with_russia(self):
+        self.assertEqual(self._ev("US", "Russia"), "differs")
+        self.assertEqual(self._ev("United States", "Russia"), "differs")
+
+    def test_renderings_of_the_same_country_agree(self):
+        self.assertEqual(self._ev("RU", "Russia"), "agrees")
+        self.assertEqual(self._ev("Russian Federation", "Russia"), "agrees")
+        self.assertEqual(self._ev("DEU", "Germany"), "agrees")
+        self.assertEqual(self._ev("Iran, Islamic Republic of", "IR"), "agrees")
+
+    def test_unresolvable_values_fall_back_to_folded_equality(self):
+        self.assertEqual(self._ev("Narnia", "NARNIA"), "agrees")
+        self.assertEqual(self._ev("Narnia", "Narnian Empire"), "differs")
+
+    def test_missing_geography_is_insufficient(self):
+        self.assertEqual(self._ev("", "Russia"), "insufficient")
+        self.assertEqual(self._ev("US"), "insufficient")
+
+    def test_geography_still_never_demotes(self):
+        idx = build_index()
+        subj = SubjectParty(ref="t", name="Northwind Heavy Machinery OAO", country="US")
+        cand = [c for c in screen_name(subj, idx) if c.listed_uid == "SDN:1001"][0]
+        self.assertEqual(cand.band, "EXACT")
+        self.assertEqual(cand.signals["country_evidence"], "differs")
+
+
 class TestPrecisionGuards(unittest.TestCase):
     def setUp(self):
         self.idx = build_index()
@@ -401,6 +484,9 @@ class TestBlocking(unittest.TestCase):
             "Sunny Day Bakery LLC", "Quarry Holdings", "Zebra Fund",
             "Vasiliy Petroff", "ZPI", "Northwind", "Trading Company",
             "Al Farqad", "Helios Semiconductor", "SU", "Boreal Optics Mfg Co",
+            # Token-split forms: the compact rules bypass the score too.
+            "Nort hwind Heavy Machinery", "Northwind Heavy Machi nery Trading",
+            "Ga zprom Neft", "Zen ith Precision",
         ]
         compared = 0
         for entry in idx.entries:
@@ -430,3 +516,37 @@ class TestBlocking(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBenchmarkFoundBlocking(unittest.TestCase):
+    """Reachability defects the synthetic benchmark surfaced."""
+
+    @staticmethod
+    def _idx(*names):
+        idx = ListIndex()
+        for i, n in enumerate(names, 1):
+            idx.add(ListedParty(uid=f"SDN:{i}", source="SDN", native_id=str(i), name=n))
+        return idx.build()
+
+    def test_dotted_and_spaced_initialisms_reach_the_listing(self):
+        idx = self._idx("Roschai Radar Machinery PJSC")
+        for q in ("R.R.M.", "R R M", "RRM"):
+            self.assertEqual(bands(idx, q).get("SDN:1"), "STRONG", q)
+
+    def test_initialism_letters_that_are_noise_words_still_reach_the_listing(self):
+        # "a" and "e" are noise tokens (romance articles); an initialism must
+        # keep them. "S S E" lost its E and matched nothing.
+        idx = self._idx("Sharikat Sablid Electronics WLL", "Jewen Siaokia Aviation Industry Co Ltd")
+        self.assertEqual(bands(idx, "S S E").get("SDN:1"), "STRONG")
+        self.assertEqual(bands(idx, "J.S.A.I.").get("SDN:2"), "STRONG")
+
+    def test_apostrophe_variant_is_an_exact_hit(self):
+        self.assertEqual(bands(self._idx("Said al-Harbi"), "Sa'id al-Harbi").get("SDN:1"), "EXACT")
+
+    def test_unrelated_dotted_llcs_do_not_band_on_the_suffix_letters(self):
+        idx = self._idx("Sunrise General Trading L.L.C.")
+        self.assertEqual(bands(idx, "Mountain General Trading L.L.C."), {})
+
+    def test_free_zone_legal_form_swap_is_exact(self):
+        self.assertEqual(bands(self._idx("Al-Mukrir Contracting EOOD"),
+                               "Al-Mukrir Contracting FZE").get("SDN:1"), "EXACT")

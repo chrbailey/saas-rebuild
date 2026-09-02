@@ -24,7 +24,7 @@ from pathlib import Path
 
 from . import __version__
 from .audit import AuditLog
-from .fetch import age_days, load_manifest, refresh, staleness_check
+from .fetch import age_days, corpus_check, load_manifest, refresh, staleness_check, verify_corpus
 from .llm import BackendError, get_backend, is_offline
 from .models import ScreeningResult
 from .pipeline import build_index, parse_party_file, run, screen_subject
@@ -63,6 +63,7 @@ def cmd_refresh(args) -> int:
 
     AuditLog(audit_path).append("lists.refresh", {
         "digest": manifest.digest,
+        "corpus_sha256": manifest.corpus_sha256,
         "total_parties": manifest.total_parties,
         "degraded": manifest.degraded,
         "degraded_reason": manifest.degraded_reason,
@@ -85,6 +86,8 @@ def cmd_status(args) -> int:
         print(str(e), file=sys.stderr)
         return 1
     ok, msg = staleness_check(manifest)
+    complete, corpus_msg = corpus_check(manifest)
+    bound, bound_msg = verify_corpus(data_dir, manifest)
     policy = load_policy()
     log = AuditLog(audit_path)
     seq, head = log.head()
@@ -95,6 +98,8 @@ def cmd_status(args) -> int:
     print(f"listed parties: {manifest.total_parties}")
     print(f"list age:       {age_days(manifest):.1f} days")
     print(f"freshness:      {'OK' if ok else 'STALE/DEGRADED'} — {msg}")
+    print(f"coverage:       {'OK' if complete else 'INCOMPLETE'} — {corpus_msg}")
+    print(f"corpus:         {'VERIFIED' if bound else 'MISMATCH'} — {bound_msg}")
     print(f"manifest:       {manifest.digest}")
     print(f"policy as_of:   {policy.as_of} "
           f"({'verified' if policy.verified else 'NOT VERIFIED — run: xscreen policy verify'})")
@@ -107,7 +112,10 @@ def cmd_status(args) -> int:
         print(f"model backend:  {getattr(be, 'name', '?')}")
     except BackendError as e:
         print(f"model backend:  unavailable — {e}")
-    return 0 if (ok and intact) else 1
+    # Status is a health check: any condition that would make `screen` refuse
+    # is reported as unhealthy here, so an operator learns about a tampered
+    # corpus from the dashboard, not from a failed run.
+    return 0 if (ok and complete and bound and intact) else 1
 
 
 def read_party_file(path: Path) -> tuple[str, list[str]]:
@@ -208,7 +216,12 @@ def cmd_screen(args) -> int:
     def progress(i: int, n: int, name: str) -> None:
         print(f"  [{i}/{n}] {name[:60]}", file=sys.stderr)
 
-    as_of = date.fromisoformat(args.as_of) if args.as_of else date.today()
+    try:
+        as_of = date.fromisoformat(args.as_of) if args.as_of else date.today()
+    except ValueError:
+        print(f"--as-of must be a date in YYYY-MM-DD form, got {args.as_of!r}.",
+              file=sys.stderr)
+        return 1
     try:
         results, summary = run(
             subjects, data_dir, audit_path,
@@ -242,7 +255,16 @@ def cmd_screen(args) -> int:
 def cmd_explain(args) -> int:
     _, data_dir, _ = _paths(args)
     from .models import SubjectParty
-    index, manifest = build_index(data_dir)
+    try:
+        index, manifest = build_index(data_dir)
+    except (RuntimeError, FileNotFoundError) as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    fresh, staleness_msg = staleness_check(manifest)
+    if not fresh:
+        # explain is a diagnostic, so a stale list is allowed -- but the
+        # reader must know the answer describes an old snapshot.
+        print(f"! {staleness_msg}", file=sys.stderr)
     policy = load_policy()
     subject = SubjectParty(
         ref="explain", name=args.name, country=args.country or "",
