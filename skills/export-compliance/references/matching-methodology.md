@@ -41,13 +41,26 @@ acute accent, and the ø mapping only sees it after decomposition — applied
 first, it let `Sǿrensen` and `Sørensen` fold to different keys. Note
 punctuation becomes *separation*, not deletion: "A.B.C." folds to `a b c`, not
 `abc`, so initialisms cannot collide with real words. The underscore counts as
-punctuation here, so `ACME_TRADING` folds to two tokens rather than one.
+punctuation here, so `ACME_TRADING` folds to two tokens rather than one. The
+one exception is an apostrophe *inside* a word: it marks an elision or a
+glottal stop, not a boundary, so `Sa'id` folds to `said` and `O'Brien` to
+`obrien`. Treated as separation it split the token, and `Sa'id al-Harbi`
+scored a 0.70 ceiling against a listed `Said al-Harbi` — an early exit and
+no candidate (the benchmark's internal-apostrophe class measured 20.9%).
 
 **Tokens.** Word-level equivalences (`company`→`co`, `technologies`→`tech`,
 `brothers`→`bros`) and noise removal (`the`, `of`, `and`, romance articles).
+A run of single letters that spells a known legal form is rejoined here —
+`L.L.C.` folds to `l l c` and becomes `llc`, `S.A.` becomes `sa` — so the
+dotted spelling strips like the plain one. Before this, those letters stayed
+in the name: `Alpha Precision S.A.` was only STRONG against `Alpha Precision
+LLC`, and two unrelated "… Trading L.L.C." companies banded WEAK on the
+shared `l l c`. A run that does not spell a suffix (`A.B.C.`) stays as
+separate letters.
 
-**Core tokens.** Legal-form suffixes stripped — some 80 of them across
-jurisdictions (LLC, Ltd, GmbH, OAO, ZAO, PJSC, KK, Sdn Bhd, doo, kft…). "Acme
+**Core tokens.** Legal-form suffixes stripped — some 100 of them across
+jurisdictions (LLC, Ltd, GmbH, OAO, ZAO, PJSC, KK, Sdn Bhd, doo, kft, FZE,
+WLL, EOOD, UAB…). "Acme
 Precision LLC" and "Acme Precision GmbH" produce the same key, which is right:
 the legal form carries almost no discriminating power but wrecks edit distance.
 Only true legal forms are stripped. Organizational nouns — trust, fund,
@@ -77,7 +90,10 @@ without it, "IRGC" pulled zero candidates against a list carrying only
 "Islamic Revolutionary Guard Corps", and the acronym band rule below was
 unreachable. Both directions are indexed — a compact query token is looked up
 against listed initials, and a multi-token query's initials are looked up
-against listed names. The compact index exists for the same reason: a token
+against listed names. A query made entirely of single letters (`R.R.M.`,
+`R R M`) is looked up as its joined initialism, because the dotted and
+spaced spellings fold to single-letter tokens that matched no posting at
+all — the benchmark's acronym class lost every such case at blocking. The compact index exists for the same reason: a token
 split — an OCR artefact or a keying slip, "Ga zprom Neft" — shares no token
 and no skeleton with "GAZPROM NEFT", and without it that pair was a complete
 miss.
