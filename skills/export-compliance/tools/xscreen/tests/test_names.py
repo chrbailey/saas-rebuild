@@ -172,3 +172,30 @@ class TestDeterminism(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBenchmarkFoundFolds(unittest.TestCase):
+    """Fixes for defects the synthetic benchmark surfaced (references/benchmark.md)."""
+
+    def test_inner_apostrophe_is_elision_not_separation(self):
+        self.assertEqual(fold("Sa'id al-Harbi"), "said al harbi")
+        self.assertEqual(fold("O’Brien"), "obrien")
+        # A leading or trailing apostrophe is still just punctuation.
+        self.assertEqual(fold("'Abd al-Rahman"), "abd al rahman")
+
+    def test_dotted_legal_form_collapses_to_the_suffix(self):
+        self.assertEqual(core_tokens("Alpha Precision L.L.C."), ("alpha", "precision"))
+        self.assertEqual(core_tokens("Alpha Precision S.A."), ("alpha", "precision"))
+        self.assertEqual(normalized("Alpha Precision L.L.C."), normalized("Alpha Precision LLC"))
+
+    def test_dotted_initialism_still_stays_separated(self):
+        # Only runs that spell a KNOWN suffix rejoin; "A.B.C." must not
+        # collide with a real word.
+        self.assertEqual(fold("A.B.C."), "a b c")
+        # ("a" is a noise token; the point is that "b c" survive as letters.)
+        self.assertEqual(core_tokens("X.B.C. Trading"), ("x", "b", "c", "trade"))
+
+    def test_gulf_and_balkan_legal_forms_are_suffixes(self):
+        bare = core_tokens("Al-Mukrir Contracting")
+        for form in ("FZE", "FZCO", "WLL", "EOOD", "UAB", "SIA"):
+            self.assertEqual(core_tokens(f"Al-Mukrir Contracting {form}"), bare, form)

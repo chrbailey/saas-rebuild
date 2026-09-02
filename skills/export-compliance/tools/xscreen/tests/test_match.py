@@ -516,3 +516,30 @@ class TestBlocking(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBenchmarkFoundBlocking(unittest.TestCase):
+    """Reachability defects the synthetic benchmark surfaced."""
+
+    @staticmethod
+    def _idx(*names):
+        idx = ListIndex()
+        for i, n in enumerate(names, 1):
+            idx.add(ListedParty(uid=f"SDN:{i}", source="SDN", native_id=str(i), name=n))
+        return idx.build()
+
+    def test_dotted_and_spaced_initialisms_reach_the_listing(self):
+        idx = self._idx("Roschai Radar Machinery PJSC")
+        for q in ("R.R.M.", "R R M", "RRM"):
+            self.assertEqual(bands(idx, q).get("SDN:1"), "STRONG", q)
+
+    def test_apostrophe_variant_is_an_exact_hit(self):
+        self.assertEqual(bands(self._idx("Said al-Harbi"), "Sa'id al-Harbi").get("SDN:1"), "EXACT")
+
+    def test_unrelated_dotted_llcs_do_not_band_on_the_suffix_letters(self):
+        idx = self._idx("Sunrise General Trading L.L.C.")
+        self.assertEqual(bands(idx, "Mountain General Trading L.L.C."), {})
+
+    def test_free_zone_legal_form_swap_is_exact(self):
+        self.assertEqual(bands(self._idx("Al-Mukrir Contracting EOOD"),
+                               "Al-Mukrir Contracting FZE").get("SDN:1"), "EXACT")

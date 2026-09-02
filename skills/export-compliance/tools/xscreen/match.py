@@ -229,6 +229,17 @@ class ListIndex:
         for t in set(toks):
             if len(t) >= 3 and t in self._acronym_postings:
                 keys.append((len(self._acronym_postings[t]), t, "acronym"))
+        # A dotted or spaced initialism ("R.R.M.", "R R M") folds to single
+        # letters and reached no posting at all, while the scoring rule would
+        # have accepted it: the benchmark's acronym class lost every such
+        # case at blocking. Treat an all-single-letter query as its joined
+        # initialism.
+        if len(toks) >= 3 and all(len(t) == 1 for t in toks):
+            joined = "".join(toks)
+            if joined in self._acronym_postings:
+                keys.append((len(self._acronym_postings[joined]), joined, "acronym"))
+            if joined in self._token_postings:
+                keys.append((self._df.get(joined, 0), joined, "token"))
         if len(toks) >= 2:
             acro = initials(toks)
             if len(acro) >= 3 and acro in self._token_postings:

@@ -43,6 +43,7 @@ CORPORATE_SUFFIXES: frozenset[str] = frozenset(
     kk yk gk kabushiki gaisha kaisha yugen godo
     sdn bhd berhad tbk pt persero
     lda unipessoal eirl srlcv
+    fze fzco fzc fzllc wll saog saoc kscc bsc eood ood ead uab sia sasu eurl
     """.split()
 )
 
@@ -86,6 +87,12 @@ _DIACRITIC_EXTRA = str.maketrans({
 # name into an identifier-safe field do exactly that.
 _PUNCT_RE = re.compile(r"[^\w\s]|_", re.UNICODE)
 _WS_RE = re.compile(r"\s+")
+# An apostrophe INSIDE a word marks an elision or a glottal stop, not a word
+# boundary: "Sa'id" is "Said", "O'Brien" is "OBrien" on the next system over.
+# Treating it as separation split the token, and "Sa'id al-Harbi" scored a
+# 0.70 ceiling against a listed "Said al-Harbi" -- an early exit, no
+# candidate. The benchmark's internal_apostrophe class measured 20.9%.
+_INNER_APOSTROPHE_RE = re.compile(r"(?<=\w)['\u2019\u02bc\u2018`](?=\w)")
 
 
 @lru_cache(maxsize=200_000)
@@ -102,15 +109,44 @@ def fold(s: str) -> str:
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
     s = s.translate(_DIACRITIC_EXTRA)
     s = s.casefold()
+    s = _INNER_APOSTROPHE_RE.sub("", s)
     s = _PUNCT_RE.sub(" ", s)
     return _WS_RE.sub(" ", s).strip()
+
+
+def _collapse_dotted_suffixes(raw: list[str]) -> list[str]:
+    """Rejoin a run of single letters that spells a legal-form suffix.
+
+    fold() keeps "L.L.C." as three tokens on purpose (initialisms must not
+    collide with real words), but that left "Alpha Precision L.L.C." with
+    the tokens ('l', 'l', 'c'): never stripped as a suffix, and shared with
+    every other dotted L.L.C. in the list -- two unrelated "... Trading
+    L.L.C." companies banded WEAK on those three letters while the same pair
+    spelled "LLC" returned nothing. The run is rejoined only when the joined
+    form is a known suffix, so "A.B.C." stays three tokens.
+    """
+    out: list[str] = []
+    i = 0
+    while i < len(raw):
+        if len(raw[i]) == 1:
+            j = i
+            while j < len(raw) and len(raw[j]) == 1:
+                j += 1
+            joined = "".join(raw[i:j])
+            if j - i >= 2 and joined in CORPORATE_SUFFIXES:
+                out.append(joined)
+                i = j
+                continue
+        out.append(raw[i])
+        i += 1
+    return out
 
 
 @lru_cache(maxsize=200_000)
 def tokens(s: str) -> tuple[str, ...]:
     """Folded tokens with word equivalences applied, noise removed."""
     out: list[str] = []
-    for t in fold(s).split():
+    for t in _collapse_dotted_suffixes(fold(s).split()):
         t = WORD_EQUIV.get(t, t)
         if not t or t in NOISE_TOKENS:
             continue
