@@ -7,7 +7,7 @@ Goal: extend the extraction-recipe corpus (see
 ## Setup — read before writing anything
 
 1. `skills/saas-rebuild/templates/extraction-recipe.schema.json` — the
-   contract. Requires `schema_version: "0.7.0"`; additionalProperties is
+   contract. Requires `schema_version: "0.8.0"`; additionalProperties is
    false everywhere; sources must be unique https URLs with ISO retrieved
    dates; a non-null `export_rights.tos_url` must also appear in sources.
 2. `skills/saas-rebuild/corpus/README.md` — the corpus philosophy.
@@ -42,7 +42,7 @@ working date. Honest unknowns go in `notes`.
 ## Before pushing
 
 - Validate every file against the schema with jsonschema.
-- Update the "v0.7, N" recipe count in BOTH `README.md` and
+- Update the "v0.8, N" recipe count in BOTH `README.md` and
   `skills/saas-rebuild/corpus/README.md` to match the number of files in
   `extraction-recipes/` in your tree (a test pins this).
 - Run the full suite green:

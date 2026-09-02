@@ -1,6 +1,6 @@
 # Synthetic CRM teardown
 
-This directory is a fictional, internally consistent example of the v0.7
+This directory is a fictional, internally consistent example of the v0.8
 artifact contracts. It is not evidence from a customer engagement.
 
 The example deliberately includes four different conclusions:

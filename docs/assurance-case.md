@@ -6,7 +6,7 @@ public description from outrunning the repository's actual enforcement.
 | Claim | Enforced or demonstrated by | Residual limitation |
 |---|---|---|
 | Claude Code can discover the plugin and its two skills | Official manifest field shapes, schema URLs, marketplace-source tests, documented namespaced invocation | Full install smoke test requires a current Claude Code binary and network access |
-| Extraction recipes are structurally reviewable | Draft 2020-12 schema, 100-entry backlog checks, filename/index parity, HTTPS/date/uniqueness bibliography tests | v0.7 does not fetch sources, type their authority, map individual claims to sources, or prove a route in any tenant |
+| Extraction recipes are structurally reviewable | Draft 2020-12 schema, 100-entry backlog checks, filename/index parity, HTTPS/date/uniqueness bibliography tests | v0.8 does not fetch sources, type their authority, map individual claims to sources, or prove a route in any tenant |
 | A non-unknown usage or verdict has cited evidence | JSON Schema conditionals and invalid fixtures | Schema validates presence/shape, not whether the citation is true or sufficient |
 | Evidence lineage is explicit | Stable evidence IDs, `derived_from`, evidence class, coverage horizon, support scope | Independence and source correctness still require review |
 | Every citation outside the feature inventory resolves to it | The validator resolves graph-edge, teardown-decision, and pair evidence IDs against the inventory, requires a pair's copy of a citation to equal its inventory definition field for field, and resolves `derived_from` parents; one negative test per rule | Resolution proves the citation was recorded, not that it is true or sufficient |

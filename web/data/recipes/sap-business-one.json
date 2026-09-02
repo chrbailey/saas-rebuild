@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "sap-business-one",
   "app_name": "SAP Business One",
   "vendor": "SAP",
@@ -231,5 +231,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "SAP Business One is primarily an on-premise/partner-hosted product, so the strongest extraction route is a full database backup the customer can take themselves — unlike pure SaaS, the tenant usually owns the DBMS. Research caveat: help.sap.com, learning.sap.com and community.sap.com were blocked for direct fetch from the research environment; all claims derive from search-indexed content of the vendor pages cited, not full-page reads, and should be re-verified against the live docs/tenant. Unresolved specifics: default audit-log retention value (Administrator's Guide has a retention-period section, value not retrieved); exact Service Layer attachment endpoint names; whether Data Transfer Workbench supports export (it is documented mainly as an import tool, so it was omitted); post-termination terms for partner-hosted B1 Cloud (governed by the partner's contract, not SAP's GTC)."
+  "notes": "SAP Business One is primarily an on-premise/partner-hosted product, so the strongest extraction route is a full database backup the customer can take themselves — unlike pure SaaS, the tenant usually owns the DBMS. All claims derive from search-indexed content of the vendor pages cited, not full-page reads, and should be re-verified against the live docs/tenant. Unresolved specifics: default audit-log retention value (Administrator's Guide has a retention-period section, value not retrieved); exact Service Layer attachment endpoint names; whether Data Transfer Workbench supports export (it is documented mainly as an import tool, so it was omitted); post-termination terms for partner-hosted B1 Cloud (governed by the partner's contract, not SAP's GTC).",
+  "research_caveats": [
+    "help.sap.com, learning.sap.com and community.sap.com were blocked for direct fetch from the research environment, so all claims derive from search-indexed content of the cited vendor pages rather than full-page reads."
+  ]
 }

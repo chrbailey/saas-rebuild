@@ -53,7 +53,7 @@ Example:
 
 ```json
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "nodes": [
     {"id":"invoice","type":"entity","label":"Invoice"},
     {"id":"aging-report","type":"report","label":"AR aging","verdict":"KEEP"},

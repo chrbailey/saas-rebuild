@@ -3,7 +3,7 @@
   "name": "saas-rebuild",
   "displayName": "SaaS Rebuild",
   "description": "Evidence-driven SaaS teardown and replacement planning: inventory a tenant you administer, start from cited extraction recipes, join structural and runtime evidence, preserve every data class or record accepted gaps, select the right target architecture, and verify covered behavior by replay. Includes a tested export-compliance reference implementation.",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "skills": "./skills/",
   "author": {
     "name": "Chris Bailey",

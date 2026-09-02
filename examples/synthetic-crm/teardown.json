@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "teardown_id": "synthetic-crm-2026",
   "app": {
     "name": "SYNTHETIC CRM FIXTURE",

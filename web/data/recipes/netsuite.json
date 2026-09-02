@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "netsuite",
   "app_name": "NetSuite",
   "vendor": "Oracle",
@@ -212,5 +212,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research caveat: docs.oracle.com was blocked by the research environment's egress proxy, so the NetSuite Help Center pages listed in sources were consulted via search-engine summaries of those exact vendor pages, not fetched full-text; the three Oracle contract/policy PDFs (SSA, EU Data Act Addendum, Hosting and Support Delivery Policies) WERE fetched and read in full — the 60-day Retrieval Period and Customer Data ownership clauses are quoted from the actual documents. Unknowns left open: exact REST/SuiteQL endpoint paths (not confirmed from vendor text, so omitted), system-notes retention length, precise permission names for Full CSV Export and audit searches, SuiteAnalytics Connect licensing/pricing, and whether saved-search CSV export has row caps. NetSuite has no documented single whole-tenant backup file; the practical full-fidelity route is SuiteAnalytics Connect (SQL over ODBC/JDBC) or REST/SuiteQL, supplemented by File Cabinet folder ZIP downloads and SDF for customizations."
+  "notes": "The NetSuite Help Center pages listed in sources were consulted via search-engine summaries of those exact vendor pages, not fetched full-text; the three Oracle contract/policy PDFs (SSA, EU Data Act Addendum, Hosting and Support Delivery Policies) WERE fetched and read in full — the 60-day Retrieval Period and Customer Data ownership clauses are quoted from the actual documents. Unknowns left open: exact REST/SuiteQL endpoint paths (not confirmed from vendor text, so omitted), system-notes retention length, precise permission names for Full CSV Export and audit searches, SuiteAnalytics Connect licensing/pricing, and whether saved-search CSV export has row caps. NetSuite has no documented single whole-tenant backup file; the practical full-fidelity route is SuiteAnalytics Connect (SQL over ODBC/JDBC) or REST/SuiteQL, supplemented by File Cabinet folder ZIP downloads and SDF for customizations.",
+  "research_caveats": [
+    "docs.oracle.com was blocked by the research environment's egress proxy, so NetSuite Help Center pages were consulted via search-engine summaries of those exact pages rather than full-text fetches; the three Oracle contract/policy PDFs were fetched and read in full."
+  ]
 }

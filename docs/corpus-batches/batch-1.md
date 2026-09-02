@@ -42,7 +42,7 @@ working date. Honest unknowns go in `notes`.
 ## Before pushing
 
 - Validate every file against the schema with jsonschema.
-- Update the "v0.7, N" recipe count in BOTH `README.md` and
+- Update the "v0.8, N" recipe count in BOTH `README.md` and
   `skills/saas-rebuild/corpus/README.md` to match the number of files in
   `extraction-recipes/` in your tree (a test pins this).
 - Run the full suite green:

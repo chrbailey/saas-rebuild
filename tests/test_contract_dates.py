@@ -95,7 +95,7 @@ def test_replay_as_of_is_anchored_at_the_end():
 def test_preservation_date_range_rejects_free_text_after_t():
     schema = load_schema("preservation-manifest.schema.json")
     manifest = {
-        "schema_version": "0.7.0",
+        "schema_version": "0.8.0",
         "teardown_id": "t",
         "generated_at": "2026-08-01T16:45:00Z",
         "artifacts": [

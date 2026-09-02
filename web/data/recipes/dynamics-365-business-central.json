@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "dynamics-365-business-central",
   "app_name": "Dynamics 365 Business Central",
   "vendor": "Microsoft",
@@ -185,5 +185,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "learn.microsoft.com was blocked by the research environment's egress proxy, so all Business Central doc content was read from Microsoft's official MicrosoftDocs GitHub source repositories (dynamics365smb-devitpro-pb and dynamics365smb-docs), which are the published sources of the learn.microsoft.com pages; the corresponding learn URLs mirror the cited paths. Honest unknowns: no bulk attachment-only export is documented; downloading per-tenant AL extension source from a tenant is not covered by consulted docs; report 'Send to' PDF/Word/Excel export exists per the operational-limits doc's report limits (default 500,000 rows / 6h, absolute 10,000,000 rows / 12h) but its exact UI steps were not confirmed from a fetched doc, so it is not listed as a route; the BACPAC's restorability target (e.g. local SQL Server vs. re-import to BC online) is not stated in the consulted export doc. Older per-environment API rate limits (600 req/min production, 300 req/min sandbox) surfaced in search results but the fetched operational-limits doc states the per-user 6,000-per-5-minute limit used here. The 90-day post-termination window comes from the Microsoft DPA / Trust Center (Microsoft-wide online services terms), not a Business Central-specific document."
+  "notes": "All Business Central doc content was read from Microsoft's official MicrosoftDocs GitHub source repositories (dynamics365smb-devitpro-pb and dynamics365smb-docs), which are the published sources of the learn.microsoft.com pages; the corresponding learn URLs mirror the cited paths. Honest unknowns: no bulk attachment-only export is documented; downloading per-tenant AL extension source from a tenant is not covered by consulted docs; report 'Send to' PDF/Word/Excel export exists per the operational-limits doc's report limits (default 500,000 rows / 6h, absolute 10,000,000 rows / 12h) but its exact UI steps were not confirmed from a fetched doc, so it is not listed as a route; the BACPAC's restorability target (e.g. local SQL Server vs. re-import to BC online) is not stated in the consulted export doc. Older per-environment API rate limits (600 req/min production, 300 req/min sandbox) surfaced in search results but the fetched operational-limits doc states the per-user 6,000-per-5-minute limit used here. The 90-day post-termination window comes from the Microsoft DPA / Trust Center (Microsoft-wide online services terms), not a Business Central-specific document.",
+  "research_caveats": [
+    "learn.microsoft.com was blocked by the research environment's egress proxy, so the Business Central documentation was read from Microsoft's MicrosoftDocs GitHub source repositories (dynamics365smb-devitpro-pb and dynamics365smb-docs, the published sources of the learn.microsoft.com pages) rather than the rendered Learn pages."
+  ]
 }

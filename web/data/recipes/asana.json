@@ -1,11 +1,11 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "asana",
   "app_name": "Asana",
   "vendor": "Asana",
   "category": "project-management",
   "export_rights": {
-    "summary": "Asana's developer documentation states that an organization_export request 'starts a job to export the complete data of the given Organization' in JSON format, available to Service Accounts of Enterprise organizations, and that 'admins can export subsets of organization data as CSV, such as tasks in a project'. The customer-facing terms/DPA could not be reached from this environment, so the contractual statement of export rights was not consulted.",
+    "summary": "Asana's developer documentation states that an organization_export request 'starts a job to export the complete data of the given Organization' in JSON format, available to Service Accounts of Enterprise organizations, and that 'admins can export subsets of organization data as CSV, such as tasks in a project'. The customer-facing terms/DPA were not consulted, so no contractual statement of export rights is documented here.",
     "tos_url": null,
     "post_termination_window": null
   },
@@ -39,7 +39,7 @@
     {
       "route_type": "entity-export",
       "covers": ["project tasks (CSV)", "workspace members (CSV)", "teams (CSV)", "search report results (CSV)"],
-      "how": "Admin/UI CSV exports. Developer docs confirm these exist ('admins can export subsets of organization data as CSV, such as tasks in a project') and the audit-log event catalog enumerates project_csv_export_started, workspace_members_export_started, workspace_teams_export_started, division_teams_export_started and search_report_export_started — but the consulted docs give no UI navigation steps; verify paths in-tenant (help.asana.com was unreachable from this environment).",
+      "how": "Admin/UI CSV exports. Developer docs confirm these exist ('admins can export subsets of organization data as CSV, such as tasks in a project') and the audit-log event catalog enumerates project_csv_export_started, workspace_members_export_started, workspace_teams_export_started, division_teams_export_started and search_report_export_started — but the consulted docs give no UI navigation steps; verify paths in-tenant (help.asana.com was not consulted for this recipe).",
       "formats": ["CSV"],
       "requires": ["admin role for workspace-level exports (per docs wording 'admins can export')"],
       "rate_limits": null,
@@ -114,5 +114,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research constraints: asana.com, help.asana.com, developers.asana.com and web.archive.org were all blocked by the network egress proxy, and the web-search budget was exhausted, so this recipe is built entirely from a local clone of Asana's official developer-docs GitHub repository — vendor-authored, but a snapshot last committed 2024-09-11; live docs may have newer limits, plan names (e.g. Advanced/Enterprise+ SKUs are not reflected), or endpoints. Not confirmable from consulted sources and therefore omitted: UI navigation paths for project CSV/JSON export and admin-console exports; whether project export offers JSON as well as CSV; report/dashboard (Universal Reporting) export capability; terms-of-service/DPA export-rights language and any post-termination retrieval window; whether the org export JSON contains attachment binaries. The schema's date patterns for 'retrieved' and 'last_reviewed' reject the literal 'undefined' requested by the tasking, so the actual consultation date 2026-08-08 is recorded instead. Verify all routes in-tenant before relying on them."
+  "notes": "This recipe is built entirely from a local clone of Asana's official developer-docs GitHub repository — vendor-authored, but a snapshot last committed 2024-09-11; live docs may have newer limits, plan names (e.g. Advanced/Enterprise+ SKUs are not reflected), or endpoints. Not confirmable from consulted sources and therefore omitted: UI navigation paths for project CSV/JSON export and admin-console exports; whether project export offers JSON as well as CSV; report/dashboard (Universal Reporting) export capability; terms-of-service/DPA export-rights language and any post-termination retrieval window; whether the org export JSON contains attachment binaries. Verify all routes in-tenant before relying on them.",
+  "research_caveats": [
+    "asana.com, help.asana.com, developers.asana.com and web.archive.org were all blocked by the research environment's network egress proxy, and the web-search budget was exhausted, so this recipe was built entirely from a local clone of Asana's official developer-docs GitHub repository (snapshot last committed 2024-09-11) rather than the live vendor pages; UI navigation steps on help.asana.com and the customer-facing terms/DPA were not consulted."
+  ]
 }

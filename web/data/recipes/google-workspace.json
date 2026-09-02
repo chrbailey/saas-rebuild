@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "google-workspace",
   "app_name": "Google Workspace",
   "vendor": "Google",
@@ -47,7 +47,7 @@
       "gotchas": [
         "users.messages.list returns at most 500 messages per page (default 100); paginate via nextPageToken",
         "format=raw returns the message base64url-encoded inside a JSON envelope; decode to get the .eml content",
-        "Org-wide (other users') mailbox access requires admin-side authorization; the mechanism (domain-wide delegation) is not documented in the sources reachable from this environment"
+        "Org-wide (other users') mailbox access requires admin-side authorization; the mechanism (domain-wide delegation) is not documented in the sources consulted"
       ]
     },
     {
@@ -93,7 +93,7 @@
       "gotchas": [
         "maxResults is capped at 1000 activity records per page",
         "For the gmail application, startTime and endTime are mandatory and may span at most 30 days per request",
-        "Overall audit-log retention periods are documented on support.google.com, which was unreachable from this environment — verify retention in-tenant before relying on this route for history"
+        "Overall audit-log retention periods are documented on support.google.com, which was not consulted — verify retention in-tenant before relying on this route for history"
       ]
     },
     {
@@ -106,14 +106,14 @@
       ],
       "rate_limits": null,
       "gotchas": [
-        "API returns JSON event resources, not ICS; Vault's Calendar export and end-user Takeout are the documented ICS-producing routes (Takeout docs unreachable from this environment)"
+        "API returns JSON event resources, not ICS; Vault's Calendar export and end-user Takeout are the documented ICS-producing routes (Takeout docs not consulted)"
       ]
     }
   ],
   "preservation_notes": {
     "attachments": "Drive files bulk-extract via Drive API files.list + files.get (alt=media); Google-native docs must go through files.export, which is limited to 10 MB per file. Gmail attachments come out inside raw RFC 822 messages (Gmail API format=raw) or via Vault Gmail exports (MBOX/PST), with linked Drive files optionally included via exportLinkedDriveFiles.",
-    "audit_log": "Exportable as JSON via Admin SDK Reports API activities.list per application (admin, login, drive, gmail, token, etc.), paginated at 1000 records/page; gmail activity queries limited to 30-day windows. Documented retention periods live on support.google.com, which was unreachable from this environment — retention unconfirmed.",
-    "config_artifacts": "Org structure (users, groups, members, org units, roles, aliases) is readable as JSON via the Admin SDK Directory API, but no restorable whole-tenant export of Admin console settings/policies was documented in the sources reachable from this environment."
+    "audit_log": "Exportable as JSON via Admin SDK Reports API activities.list per application (admin, login, drive, gmail, token, etc.), paginated at 1000 records/page; gmail activity queries limited to 30-day windows. Documented retention periods live on support.google.com, which was not consulted — retention unconfirmed.",
+    "config_artifacts": "Org structure (users, groups, members, org units, roles, aliases) is readable as JSON via the Admin SDK Directory API, but no restorable whole-tenant export of Admin console settings/policies was documented in the sources consulted."
   },
   "sources": [
     {
@@ -159,5 +159,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research constraint: this environment's egress proxy blocks support.google.com, developers.google.com, workspace.google.com, and other Google doc hosts; only cloud.google.com and googleapis.com (API Discovery Service) were reachable, and the web-search budget was exhausted. Consequently several well-known routes are deliberately omitted rather than described from memory: the Admin console Data Export tool ('Takeout for organizations', support.google.com/a/answer/100458), end-user Google Takeout (MBOX/ICS/HTML archives), Google Chat/Groups UI exports, and any edition/SKU gating (e.g. which editions include Vault). API quota/rate-limit pages were also unreachable, so all rate_limits are null — quotas exist and must be checked before bulk extraction. The Admin SDK Data Transfer API (admin.googleapis.com/admin/datatransfer/v1/transfers) transfers Drive/Calendar ownership between users at offboarding; it moves data rather than exporting it, so it is not listed as a route. Retrieved dates use the actual consultation date (2026-08-08) because the schema requires a YYYY-MM-DD value."
+  "notes": "Several well-known routes are deliberately omitted rather than described from memory because their documentation was not consulted: the Admin console Data Export tool ('Takeout for organizations', support.google.com/a/answer/100458), end-user Google Takeout (MBOX/ICS/HTML archives), Google Chat/Groups UI exports, and any edition/SKU gating (e.g. which editions include Vault). API quota/rate-limit pages were not consulted, so all rate_limits are null — quotas exist and must be checked before bulk extraction. The Admin SDK Data Transfer API (admin.googleapis.com/admin/datatransfer/v1/transfers) transfers Drive/Calendar ownership between users at offboarding; it moves data rather than exporting it, so it is not listed as a route.",
+  "research_caveats": [
+    "The research environment's egress proxy blocked support.google.com, developers.google.com, workspace.google.com, and other Google doc hosts; only cloud.google.com and googleapis.com (API Discovery Service) were reachable, and the web-search budget was exhausted. The Admin console Data Export tool, end-user Takeout, Chat/Groups UI exports, edition/SKU gating, API quota pages, domain-wide delegation, and audit-log retention periods are therefore omitted or unconfirmed rather than described from memory."
+  ]
 }

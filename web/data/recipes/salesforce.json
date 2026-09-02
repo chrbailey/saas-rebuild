@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "salesforce",
   "app_name": "Salesforce Sales Cloud",
   "vendor": "Salesforce",
@@ -206,5 +206,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research caveats: help.salesforce.com, developer.salesforce.com, and www.salesforce.com were blocked by this environment's egress proxy for direct page fetches, so all claims were derived from vendor-doc content surfaced through web-search excerpts of the cited pages rather than full page fetches; verify each route in-tenant before relying on it. Unknowns left out on purpose: concrete daily API request allocation numbers per edition were not captured; field-history/Field Audit Trail retention was not researched; the exact name of the profile permission gating Setup -> Data Export was not confirmed; Data Export FAQ (help article 000383962) exists but its full text did not load. The 30-day post-termination export window was quoted from the Developer Services MSA PDF; the mainline Sales Cloud MSA is expected to carry the same clause but was not directly retrieved."
+  "notes": "All claims were derived from vendor-doc content surfaced through web-search excerpts of the cited pages rather than full page fetches; verify each route in-tenant before relying on it. Unknowns left out on purpose: concrete daily API request allocation numbers per edition were not captured; field-history/Field Audit Trail retention was not researched; the exact name of the profile permission gating Setup -> Data Export was not confirmed; Data Export FAQ (help article 000383962) exists but its full text did not load. The 30-day post-termination export window was quoted from the Developer Services MSA PDF; the mainline Sales Cloud MSA is expected to carry the same clause but was not directly retrieved.",
+  "research_caveats": [
+    "help.salesforce.com, developer.salesforce.com, and www.salesforce.com were blocked by the research environment's egress proxy for direct page fetches, so all claims were derived from vendor-doc content surfaced through web-search excerpts of the cited pages."
+  ]
 }

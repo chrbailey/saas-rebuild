@@ -95,6 +95,7 @@ def test_readme_quickstart_shows_the_validator_output_it_gets():
 def test_readme_keeps_migration_note_and_responsible_use():
     text = README.read_text(encoding="utf-8")
     assert "docs/migration-v0.7.md" in text
+    assert "docs/migration-v0.8.md" in text
     assert "Use this only on software and data you are authorized to administer" in text
     assert "artifact distribution label" in text
 

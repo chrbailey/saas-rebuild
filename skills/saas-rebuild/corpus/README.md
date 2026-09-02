@@ -6,7 +6,7 @@ not tenant evidence.
 
 `apps.json` is a curated research backlog of 100 B2B SaaS applications across
 roughly 30 categories. Its `rank` is prioritization metadata, not a measured
-market-adoption result. At v0.7, 29 entries have recipes; the
+market-adoption result. At v0.8, 29 entries have recipes; the
 [covered applications](#covered-applications) table below lists them. For
 each implemented entry, `extraction-recipes/<app>.json` records, per
 `../templates/extraction-recipe.schema.json`:
@@ -51,7 +51,7 @@ worked, what differed, vendor documentation links, and the date.
 filename, the target list, and bibliography URL/date/uniqueness constraints,
 and checks that research-session language stays out of `export_rights.summary`
 and `notes`. It does **not** fetch URLs, prove that a source supports a
-sentence, or establish tenant completeness. The v0.7 bibliography is
+sentence, or establish tenant completeness. The v0.8 bibliography is
 recipe-level rather than claim-addressable; that is a declared assurance
 limitation, not hidden provenance.
 

@@ -53,7 +53,7 @@ def test_recipe_corpus_is_nonempty():
     ids=["repository-readme", "corpus-readme"],
 )
 def test_documented_recipe_count_matches_corpus(path):
-    assert f"v0.7, {len(RECIPES)}" in path.read_text()
+    assert f"v0.8, {len(RECIPES)}" in path.read_text()
 
 
 def test_recipe_schema_itself_is_valid(recipe_schema):

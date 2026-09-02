@@ -141,7 +141,7 @@ starts with what one tenant *uses* and can prove.
 
 Day-one discovery can start from the
 [extraction-recipe corpus](skills/saas-rebuild/corpus/README.md). Its target
-index names 100 B2B applications; at v0.7, 29 have schema-validated recipes
+index names 100 B2B applications; at v0.8, 29 have schema-validated recipes
 covering documented export rights, routes, role/SKU gates, retention clues,
 and preservation concerns, listed in its
 [covered applications](skills/saas-rebuild/corpus/README.md#covered-applications)
@@ -211,9 +211,10 @@ not a universal connector or one-click crawler. Platform APIs, permissions,
 retention windows, and data models differ; the agent follows the protocol
 using the authorized tools available for that tenant.
 
-Version 0.7 changes the artifact contracts. Existing users should read the
-[v0.6 → v0.7 migration guide](docs/migration-v0.7.md) rather than changing the
-version field on old outputs.
+Version 0.8 tightens the artifact contracts again. Existing users should read
+the [v0.7 → v0.8 migration guide](docs/migration-v0.8.md) (and, for older
+outputs, the [v0.6 → v0.7 migration guide](docs/migration-v0.7.md)) rather
+than changing the version field on old outputs.
 
 ## Proof surfaces
 
@@ -224,7 +225,7 @@ This repository deliberately separates claims from evidence:
 - Extraction recipes are schema-checked against the 100-entry research
   backlog, with HTTPS/date/uniqueness checks on each bibliography, and a test
   keeps research-session caveats in their own `research_caveats` field rather
-  than in reader-facing prose. They remain documented route hypotheses; v0.7
+  than in reader-facing prose. They remain documented route hypotheses; v0.8
   does not machine-map individual claims to sources or prove that a route
   works in a tenant.
 - The cross-artifact validator rejects duplicate identities, unresolved graph
@@ -316,7 +317,7 @@ SaaS replacement has the same shape.
 public teardown report that predates the v0.7 contracts. Its verdict taxonomy,
 evidence language, and skill-only target framing are legacy rather than
 normative. The repository links to that source record for transparency but
-does not republish derived engagement material as part of the v0.7 evidence
+does not republish derived engagement material as part of the v0.8 evidence
 base.
 
 ## Research lineage
