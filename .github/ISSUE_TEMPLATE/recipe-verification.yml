@@ -1,0 +1,97 @@
+name: Recipe verification
+description: Verify an extraction recipe against a tenant you administer — confirm the routes, or correct them
+title: "[Recipe] <app>"
+labels: ["recipe-verification"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks. Every recipe in `skills/saas-rebuild/corpus/extraction-recipes/`
+        starts `doc-derived-unverified`: researched from vendor documents,
+        never exercised against a live tenant. A report from someone who
+        administers a real tenant is what moves a recipe to
+        `community-verified`, and corrections are worth as much as
+        confirmations.
+
+        **Sanitize first**: no record contents, exports, customer or employee
+        names, API keys, tenant identifiers, or internal URLs. Route names,
+        menu paths, HTTP status codes, role names, plan names, and public
+        vendor documentation links are what we need.
+
+        One tenant does not establish behavior across regions, SKUs, or
+        future vendor versions — say which one you tested, and we will record
+        it that way.
+  - type: input
+    id: app
+    attributes:
+      label: App
+      description: The recipe slug (the filename without `.json`) or the product name
+      placeholder: "e.g. quickbooks-online"
+    validations:
+      required: true
+  - type: input
+    id: tenant-context
+    attributes:
+      label: Tenant context
+      description: Region or data center, plan/SKU or edition, and the role you tested with — no tenant identifiers
+      placeholder: "e.g. US region, Advanced plan, company admin role"
+  - type: textarea
+    id: routes-tried
+    attributes:
+      label: Routes tried
+      description: Which of the recipe's routes you exercised (route_type and what it covers), plus any route the recipe does not list
+      placeholder: |
+        entity-export (customers, invoices) — UI export
+        api (invoices) — REST list endpoint
+        audit-log-export — not attempted
+    validations:
+      required: true
+  - type: textarea
+    id: worked
+    attributes:
+      label: What worked
+      description: Routes that behaved as the recipe describes — nav path, formats, role, rate limit, and any caveat that held
+    validations:
+      required: true
+  - type: textarea
+    id: failed
+    attributes:
+      label: What failed or differed
+      description: Routes that no longer exist, wrong nav labels, gated SKUs, different limits, missing fields, silent truncation. Write "none observed" if everything matched.
+    validations:
+      required: true
+  - type: textarea
+    id: docs-links
+    attributes:
+      label: Vendor documentation links
+      description: Public vendor pages that confirm or contradict what you saw, so the recipe's bibliography can be updated with a retrieval date
+      placeholder: "https://help.example.com/articles/export-data"
+  - type: input
+    id: date
+    attributes:
+      label: Date tested
+      description: The day you exercised the routes, as YYYY-MM-DD; it becomes the recipe's `last_reviewed`
+      placeholder: "2026-09-01"
+    validations:
+      required: true
+  - type: dropdown
+    id: proposed-status
+    attributes:
+      label: Proposed verification status
+      description: The maintainers decide; this is your recommendation
+      options:
+        - Keep doc-derived-unverified (corrections only)
+        - Promote to community-verified
+        - Promote to tenant-verified (routes exercised end-to-end in an authorized teardown)
+        - Not sure
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I administer, or am authorized to administer, the tenant I tested against
+          required: true
+        - label: I confirm this report contains no record contents, credentials, tenant identifiers, internal URLs, or confidential tenant material
+          required: true
+        - label: I understand this issue is public
+          required: true

@@ -5,7 +5,7 @@
   "vendor": "Deel",
   "category": "hr-payroll",
   "export_rights": {
-    "summary": "Deel's terms of service and DPA were unreachable in this research pass, so the contractual export-rights statement and any post-termination retrieval window are undocumented here. Deel's own API documentation (consulted via mirrors and its official SDK) shows that a tenant admin can generate scoped bearer tokens and programmatically retrieve the organization's people, contract, timesheet, payroll, invoice, and document data via the public REST API.",
+    "summary": "Deel's terms of service and DPA were not consulted, so the contractual export-rights statement and any post-termination retrieval window are undocumented here. Deel's own API documentation (consulted via mirrors and its official SDK) shows that a tenant admin can generate scoped bearer tokens and programmatically retrieve the organization's people, contract, timesheet, payroll, invoice, and document data via the public REST API.",
     "tos_url": null,
     "post_termination_window": null
   },
@@ -35,7 +35,7 @@
         "organization admin access to Developer Center to generate an API token",
         "token scopes per endpoint family, e.g. people:read, contracts:read, timesheets:read, time-off:read, accounting:read, payslips:read, global-payroll:read, invoice-adjustments:read, benefits:read, worker:read"
       ],
-      "rate_limits": "Not numerically documented in consulted sources. Mirrored API metadata reports per-token limits returning HTTP 429 with a Retry-After header and cites a vendor rate-limit docs page (developer.deel.com/docs/rate-limit), which was unreachable in this pass — verify live headers.",
+      "rate_limits": "Not numerically documented in consulted sources. Mirrored API metadata reports per-token limits returning HTTP 429 with a Retry-After header and cites a vendor rate-limit docs page (developer.deel.com/docs/rate-limit), which was not consulted — verify live headers.",
       "gotchas": [
         "JSON responses only; no whole-tenant bulk-export endpoint appears anywhere in the consulted API specs",
         "list endpoints paginate (limit/offset or cursor style depending on endpoint) — iterate to exhaustion per entity",
@@ -54,7 +54,7 @@
       "rate_limits": null,
       "gotchas": [
         "the CSV download is the only CSV-format export found in the consulted API specs; all other report data returns as JSON",
-        "in-app admin report builder / UI CSV exports could not be researched (help center unreachable) — verify in tenant"
+        "in-app admin report builder / UI CSV exports could not be researched (help center not consulted) — verify in tenant"
       ]
     },
     {
@@ -124,5 +124,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research constraint: all Deel-owned domains (developer.deel.com, help.deel.com, deel.com legal pages) were blocked by the network egress policy and the web-search budget was exhausted, so this recipe is built from Deel's own OpenAPI specifications and SDK obtained via mirrors (api-evangelist, jentic) and Deel's official npm package and GitHub samples — vendor-authored text, but not fetched from the live vendor portal. Consequently the following are honest unknowns, not absences in the product: (1) admin-UI per-entity CSV exports and any in-app report builder; (2) any whole-account export/backup feature; (3) audit-log export and its retention; (4) ToS/DPA export-rights language and post-termination retrieval window; (5) numeric API rate limits (a vendor page developer.deel.com/docs/rate-limit exists per mirror metadata). Verify all five against developer.deel.com and help.deel.com from an unrestricted network, and check the live tenant. SCIM-style /Users endpoints appear under the same REST base in the consulted specs."
+  "notes": "This recipe is built from Deel's own OpenAPI specifications and SDK obtained via mirrors (api-evangelist, jentic) and Deel's official npm package and GitHub samples — vendor-authored text, but not fetched from the live vendor portal. The following are honest unknowns, not absences in the product: (1) admin-UI per-entity CSV exports and any in-app report builder; (2) any whole-account export/backup feature; (3) audit-log export and its retention; (4) ToS/DPA export-rights language and post-termination retrieval window; (5) numeric API rate limits (a vendor page developer.deel.com/docs/rate-limit exists per mirror metadata). Verify all five against developer.deel.com and help.deel.com, and check the live tenant. SCIM-style /Users endpoints appear under the same REST base in the consulted specs.",
+  "research_caveats": [
+    "All Deel-owned domains (developer.deel.com, help.deel.com, deel.com legal pages) were blocked by the research environment's network egress policy and the web-search budget was exhausted, so nothing was fetched from the live vendor portal; the recipe rests on Deel's OpenAPI specifications and SDK obtained via mirrors (api-evangelist, jentic) plus Deel's official npm package and GitHub samples. Re-verify the five listed unknowns and the vendor rate-limit page against developer.deel.com and help.deel.com from an unrestricted network."
+  ]
 }

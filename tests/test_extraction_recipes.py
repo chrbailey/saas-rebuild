@@ -7,6 +7,7 @@ route works in a particular tenant.
 
 from datetime import date
 import json
+import re
 
 import jsonschema
 import pytest
@@ -90,3 +91,81 @@ def test_recipe_bibliography_integrity(path):
 
     reviewed = date.fromisoformat(recipe["last_reviewed"])
     assert reviewed <= date.today(), f"{path.name}: future review date"
+
+
+# Language that describes the research session rather than the vendor or the
+# tenant. It belongs in research_caveats, never in reader-facing prose.
+SESSION_PHRASES = (
+    "research environment",
+    "egress proxy",
+    "task brief",
+    "the tasking",
+    "web-search budget",
+    "websearch budget",
+)
+
+
+def string_leaves(value, path=()):
+    if isinstance(value, str):
+        yield path, value
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            yield from string_leaves(item, path + (key,))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            yield from string_leaves(item, path + (index,))
+
+
+@pytest.mark.parametrize("path", RECIPES, ids=lambda p: p.stem)
+def test_recipe_prose_does_not_describe_the_research_session(path):
+    recipe = json.loads(path.read_text())
+    offenders = []
+    for leaf_path, text in string_leaves(recipe):
+        if leaf_path[:1] == ("research_caveats",):
+            continue
+        lowered = text.lower()
+        for phrase in SESSION_PHRASES:
+            if phrase in lowered:
+                offenders.append(("/".join(map(str, leaf_path)), phrase))
+    assert not offenders, f"{path.name}: move these into research_caveats: {offenders}"
+
+
+@pytest.mark.parametrize("path", RECIPES, ids=lambda p: p.stem)
+def test_research_caveats_are_distinct_nonempty_sentences(path):
+    recipe = json.loads(path.read_text())
+    caveats = recipe.get("research_caveats", [])
+    assert all(caveat.strip() == caveat and caveat for caveat in caveats), path.name
+    assert len(caveats) == len(set(caveats)), f"{path.name}: duplicate caveat"
+    for caveat in caveats:
+        assert caveat.endswith("."), f"{path.name}: caveat should be a sentence: {caveat[:60]!r}"
+
+
+def covered_applications_rows():
+    text = (CORPUS_DIR / "README.md").read_text()
+    section = text.split("## Covered applications", 1)[1]
+    pattern = re.compile(
+        r"^\| (?P<app_name>[^|]+?) \| \[`(?P<slug>[a-z0-9-]+)`\]\(extraction-recipes/(?P<file>[a-z0-9-]+)\.json\)"
+        r" \| (?P<category>[^|]+?) \| (?P<verification>[^|]+?) \| (?P<last_reviewed>\d{4}-\d{2}-\d{2}) \|$",
+        re.MULTILINE,
+    )
+    return [match.groupdict() for match in pattern.finditer(section)]
+
+
+def test_covered_applications_table_lists_exactly_the_recipe_files():
+    rows = covered_applications_rows()
+    assert rows, "corpus README has no covered-applications table"
+    slugs = [row["slug"] for row in rows]
+    assert len(slugs) == len(set(slugs)), "duplicate rows"
+    assert set(slugs) == {path.stem for path in RECIPES}
+    for row in rows:
+        assert row["slug"] == row["file"]
+        recipe = json.loads((RECIPES_DIR / f"{row['slug']}.json").read_text())
+        assert row["app_name"] == recipe["app_name"], row["slug"]
+        assert row["category"] == recipe["category"], row["slug"]
+        assert row["verification"] == recipe["verification"], row["slug"]
+        assert row["last_reviewed"] == recipe["last_reviewed"], row["slug"]
+
+
+def test_covered_applications_table_follows_backlog_rank(apps_index):
+    ranks = [apps_index[row["slug"]]["rank"] for row in covered_applications_rows()]
+    assert ranks == sorted(ranks)
