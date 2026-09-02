@@ -45,6 +45,11 @@ To add one:
 - Honesty outranks completeness: never invent endpoints, nav paths, SKU
   names, or limits. `null` means "the docs don't say" — it is not a claim of
   absence.
+- Put research-process caveats (a vendor page that could not be fetched, a
+  limit read from a secondary source) in the structured `research_caveats`
+  array, never in `export_rights.summary` or `notes`. Those fields are the
+  data a reader acts on; a test rejects session or environment language in
+  them.
 - Before pushing, validate against the schema, update the "v0.7, N" recipe
   count in both `README.md` and the corpus README (a test pins this), and run
   `python -m pytest tests/ -q`.
@@ -60,7 +65,9 @@ when people who administer real tenants confirm or correct the routes:
   authorized tenant.
 
 A promotion PR changes the `verification` field and must link the evidence
-that motivated it — typically your Teardown Report issue. Corrections
+that motivated it — typically a
+[Recipe Verification](https://github.com/chrbailey/saas-rebuild/issues/new?template=recipe-verification.yml)
+or Teardown Report issue. Corrections
 (a route that no longer exists, a limit that changed, a gated SKU) are just
 as valuable as confirmations; include the same kind of evidence. One tenant
 does not establish behavior across regions, SKUs, or future vendor versions,
@@ -120,7 +127,12 @@ boundary changes.
 
 - Keep `SKILL.md` procedural and below 500 lines.
 - Put detailed techniques in one-level `references/` files.
-- Add or update a fresh-session case in `evals/evals.json`.
+- Add or update a fresh-session case in `evals/evals.json`. Declare any
+  machine-checkable expectation in the case's `machine_checks`;
+  `python skills/saas-rebuild/tools/run_evals.py` validates the spec, prints
+  every case for a reviewer, and runs only those declared checks against an
+  output directory (`--case N --check <dir>`). Prose expectations are graded
+  by a person; the runner never grades them.
 - Do not report an eval improvement without a with-skill versus prior-version
   comparison on the same cases.
 
