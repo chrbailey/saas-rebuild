@@ -59,7 +59,7 @@ Extraction recipes sit outside this tenant evidence model. They are priors
 about where authorized evidence may be acquired, based on a dated
 bibliography. A recipe becomes evidence only when a route is re-verified and
 the resulting artifact receives a tenant evidence ID, coverage horizon, and
-acquisition record. The v0.7 recipe format does not yet encode claim-level
+acquisition record. The v0.8 recipe format does not yet encode claim-level
 source references; the assurance case records that limitation.
 
 ### Absence is bounded

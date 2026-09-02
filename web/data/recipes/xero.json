@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "xero",
   "app_name": "Xero",
   "vendor": "Xero",
@@ -163,5 +163,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Honest unknowns: (1) Audit trail - Xero's Assurance dashboard and per-transaction History & notes show organisation activity by user, but no vendor-documented bulk export of the audit trail or a documented retention period was found; verify in-tenant. (2) Post-termination retention - third-party sources claim archived-organisation data stays reactivatable for ~7 years, but that figure was not confirmed on a Xero-owned page, so only the terms' 'archived, retained per data retention policy, reactivation restores access' language is asserted. (3) Uncertified-app tenant caps and exact Files API scopes were not verified. Research caveat: the network egress proxy blocked direct fetches of central.xero.com and developer.xero.com, so all claims derive from vendor-page content surfaced through web search of those official pages; nav paths and limits should be re-verified against the live tenant/docs before entering an evidence base. Regional editions (US/UK/AU/CA) vary slightly in menu naming (e.g. Business vs Sales menu, Export accounting data location)."
+  "notes": "Honest unknowns: (1) Audit trail - Xero's Assurance dashboard and per-transaction History & notes show organisation activity by user, but no vendor-documented bulk export of the audit trail or a documented retention period was found; verify in-tenant. (2) Post-termination retention - third-party sources claim archived-organisation data stays reactivatable for ~7 years, but that figure was not confirmed on a Xero-owned page, so only the terms' 'archived, retained per data retention policy, reactivation restores access' language is asserted. (3) Uncertified-app tenant caps and exact Files API scopes were not verified. All claims derive from vendor-page content surfaced through web search of the official pages cited, not full-page reads; nav paths and limits should be re-verified against the live tenant/docs before entering an evidence base. Regional editions (US/UK/AU/CA) vary slightly in menu naming (e.g. Business vs Sales menu, Export accounting data location).",
+  "research_caveats": [
+    "The research environment's egress proxy blocked direct fetches of central.xero.com and developer.xero.com, so all claims derive from vendor-page content surfaced through web search of those official pages."
+  ]
 }

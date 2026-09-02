@@ -101,7 +101,7 @@
     }
   ],
   "properties": {
-    "schema_version": { "const": "0.7.0" },
+    "schema_version": { "const": "0.8.0" },
     "pair_id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"

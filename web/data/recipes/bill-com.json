@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "bill-com",
   "app_name": "BILL (Bill.com) Accounts Payable & Receivable",
   "vendor": "BILL",
@@ -188,5 +188,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research constraint: all *.bill.com domains (help.bill.com, developer.bill.com, vendorpayhelp.bill.com, www.bill.com) were blocked by the research environment's egress proxy, so vendor pages could not be fetched directly; every claim here comes from vendor-doc excerpts surfaced through web search of those official pages. Treat nav paths and numbers as needing in-tenant confirmation. Honest unknowns: no whole-account one-click backup/export exists in the docs consulted (closest are per-entity CSV exports plus the paid Box/DVD document records request); no export of configuration artifacts (approval policies, custom fields, user roles, workflows) as restorable files was found; audit-trail retention and any UI audit export are undocumented; Spend & Expense statements are separately downloadable per the help center but details were not confirmed. The schema requires date-formatted 'retrieved'/'last_reviewed' values, so the tasking's literal 'undefined' placeholder was replaced with the research date 2026-08-08."
+  "notes": "Every claim here comes from vendor-doc excerpts surfaced through web search of the official pages cited, not full-page reads; treat nav paths and numbers as needing in-tenant confirmation. Honest unknowns: no whole-account one-click backup/export exists in the docs consulted (closest are per-entity CSV exports plus the paid Box/DVD document records request); no export of configuration artifacts (approval policies, custom fields, user roles, workflows) as restorable files was found; audit-trail retention and any UI audit export are undocumented; Spend & Expense statements are separately downloadable per the help center but details were not confirmed.",
+  "research_caveats": [
+    "All *.bill.com domains (help.bill.com, developer.bill.com, vendorpayhelp.bill.com, www.bill.com) were blocked by the research environment's egress proxy, so vendor pages could not be fetched directly; every claim comes from vendor-doc excerpts surfaced through web search of those official pages."
+  ]
 }

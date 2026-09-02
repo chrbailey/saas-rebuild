@@ -40,7 +40,7 @@ To add one:
   cover the 71 apps without recipes and spell out the whole workflow).
 - Follow the contract in
   [`skills/saas-rebuild/templates/extraction-recipe.schema.json`](skills/saas-rebuild/templates/extraction-recipe.schema.json):
-  `schema_version: "0.7.0"`, unique HTTPS sources with ISO retrieval dates,
+  `schema_version: "0.8.0"`, unique HTTPS sources with ISO retrieval dates,
   `verification: "doc-derived-unverified"`.
 - Honesty outranks completeness: never invent endpoints, nav paths, SKU
   names, or limits. `null` means "the docs don't say" — it is not a claim of
@@ -50,7 +50,7 @@ To add one:
   array, never in `export_rights.summary` or `notes`. Those fields are the
   data a reader acts on; a test rejects session or environment language in
   them.
-- Before pushing, validate against the schema, update the "v0.7, N" recipe
+- Before pushing, validate against the schema, update the "v0.8, N" recipe
   count in both `README.md` and the corpus README (a test pins this), and run
   `python -m pytest tests/ -q`.
 

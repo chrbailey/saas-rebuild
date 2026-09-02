@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "teardown_id": "synthetic-crm-2026",
   "generated_at": "2026-08-01T16:45:00Z",
   "artifacts": [
@@ -11,10 +11,17 @@
       "route": "built-in CSV export",
       "sensitivity": "public",
       "files": [
-        {"path": "exports/customers.csv", "sha256": "533f0b590d0978143d042d969a94fbbf87b34593aa957cb7584ccfc1617e611e", "bytes": 119}
+        {
+          "path": "exports/customers.csv",
+          "sha256": "533f0b590d0978143d042d969a94fbbf87b34593aa957cb7584ccfc1617e611e",
+          "bytes": 119
+        }
       ],
       "record_count": 3,
-      "date_range": {"start": null, "end": "2026-07-30"},
+      "date_range": {
+        "start": null,
+        "end": "2026-07-30"
+      },
       "encrypted": false,
       "backed_up": true,
       "verified_at": "2026-08-01T16:40:00Z"
@@ -27,10 +34,17 @@
       "route": "API export",
       "sensitivity": "public",
       "files": [
-        {"path": "audit/events.csv", "sha256": "3e2b34227cb969c6a8e317ed37608663a06d212ab797c92b0861de2b18de7743", "bytes": 233}
+        {
+          "path": "audit/events.csv",
+          "sha256": "3e2b34227cb969c6a8e317ed37608663a06d212ab797c92b0861de2b18de7743",
+          "bytes": 233
+        }
       ],
       "record_count": 3,
-      "date_range": {"start": "2026-06-01", "end": "2026-07-30"},
+      "date_range": {
+        "start": "2026-06-01",
+        "end": "2026-07-30"
+      },
       "encrypted": false,
       "backed_up": true,
       "verified_at": "2026-08-01T16:41:00Z"
@@ -43,7 +57,11 @@
       "route": "metadata API",
       "sensitivity": "public",
       "files": [
-        {"path": "config/workflows.json", "sha256": "2bda19bf246c2e45816a22ff68778f0eca7cfaf91cb2a2f0ec74bbf8a65a7e8f", "bytes": 218}
+        {
+          "path": "config/workflows.json",
+          "sha256": "2bda19bf246c2e45816a22ff68778f0eca7cfaf91cb2a2f0ec74bbf8a65a7e8f",
+          "bytes": 218
+        }
       ],
       "record_count": null,
       "encrypted": false,
@@ -58,7 +76,11 @@
       "route": "local JSONL generation",
       "sensitivity": "public",
       "files": [
-        {"path": "pairs.jsonl", "sha256": "a037c21aecad735c081c2c6186a3bbdc34431645bb69b9c32d2cd9ac9c2dd00c", "bytes": 3649}
+        {
+          "path": "pairs.jsonl",
+          "sha256": "204bbee2f20c627301b315f6b5a2d6070c461679bb0293fd2b3da836c3dad1e5",
+          "bytes": 3649
+        }
       ],
       "record_count": 4,
       "encrypted": false,

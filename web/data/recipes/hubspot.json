@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "hubspot",
   "app_name": "HubSpot",
   "vendor": "HubSpot",
@@ -146,5 +146,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research caveat: hubspot.com domains (knowledge.hubspot.com, developers.hubspot.com, legal.hubspot.com) were blocked by this environment's egress proxy, so vendor pages could not be fetched directly; all claims derive from search-engine result content quoting/summarizing the vendor pages listed in sources. Numeric limits (rate limits, 30-exports/24h cap, ZIP-split thresholds, ~90-day audit retention) should be re-verified against the live docs and tenant before entering an evidence base. HubSpot has NO single whole-account export or backup — the 'Export your content and data' KB page is a catalog of per-asset export routes, so a full teardown is an enumeration exercise across CRM records, files, content, and logs. Property history export, list exports, and form-submission exports are believed to exist but were not confirmed from a consulted source and are therefore omitted from routes."
+  "notes": "All claims derive from search-engine result content quoting/summarizing the vendor pages listed in sources, not full-page reads. Numeric limits (rate limits, 30-exports/24h cap, ZIP-split thresholds, ~90-day audit retention) should be re-verified against the live docs and tenant before entering an evidence base. HubSpot has NO single whole-account export or backup — the 'Export your content and data' KB page is a catalog of per-asset export routes, so a full teardown is an enumeration exercise across CRM records, files, content, and logs. Property history export, list exports, and form-submission exports are believed to exist but were not confirmed from a consulted source and are therefore omitted from routes.",
+  "research_caveats": [
+    "hubspot.com domains (knowledge.hubspot.com, developers.hubspot.com, legal.hubspot.com) were blocked by the research environment's egress proxy, so vendor pages could not be fetched directly; all claims derive from search-engine result content quoting or summarizing the cited pages."
+  ]
 }

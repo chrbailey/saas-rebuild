@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "dynamics-365-sales",
   "app_name": "Dynamics 365 Sales",
   "vendor": "Microsoft",
@@ -166,5 +166,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Dynamics 365 Sales data lives in Microsoft Dataverse, so all Dataverse export routes apply. learn.microsoft.com was unreachable through this session's egress proxy; most Learn pages were consulted via their public source files in the MicrosoftDocs GitHub repos (identical vendor content), and two (api-limits, export-options) via search-result excerpts of the Learn pages. Honest unknowns: no whole-tenant self-service export/download was found (Power Platform environment backups were not confirmed as customer-downloadable); no documented bulk attachment export; Word/Excel templates, Power Automate, and SSRS/Power BI reporting exist as additional export paths per the training module but their specifics were not researched, so no report-builder route is claimed. The 90-day post-termination window comes from the Microsoft DPA/Product Terms as summarized on the Trust Center data-management page; the DPA document itself was not fetched directly. The task template requested retrieved/last_reviewed = 'undefined', but the schema requires YYYY-MM-DD, so today's date is used."
+  "notes": "Dynamics 365 Sales data lives in Microsoft Dataverse, so all Dataverse export routes apply. Most Learn pages were consulted via their public source files in the MicrosoftDocs GitHub repos (identical vendor content), and two (api-limits, export-options) via search-result excerpts of the Learn pages. Honest unknowns: no whole-tenant self-service export/download was found (Power Platform environment backups were not confirmed as customer-downloadable); no documented bulk attachment export; Word/Excel templates, Power Automate, and SSRS/Power BI reporting exist as additional export paths per the training module but their specifics were not researched, so no report-builder route is claimed. The 90-day post-termination window comes from the Microsoft DPA/Product Terms as summarized on the Trust Center data-management page; the DPA document itself was not fetched directly.",
+  "research_caveats": [
+    "learn.microsoft.com was unreachable through the research environment's egress proxy; most Learn pages were consulted via their public source files in the MicrosoftDocs GitHub repos, and two (api-limits, export-options) only via search-result excerpts of the Learn pages."
+  ]
 }

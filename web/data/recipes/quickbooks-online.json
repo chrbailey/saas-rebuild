@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "quickbooks-online",
   "app_name": "QuickBooks Online",
   "vendor": "Intuit",
@@ -180,5 +180,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research constraint: all Intuit domains (quickbooks.intuit.com, developer.intuit.com, blogs.intuit.com, intuit.com) were blocked by the network egress proxy for direct fetch, so every claim here derives from search-engine extracts of the cited vendor pages rather than full-page reads — treat nav paths and numeric limits as needing in-tenant confirmation. Known open questions: (1) batch-endpoint throttle is variously reported as 40 or 120 requests/min per realm; (2) one search extract of a current audit-log writeup mentioned an 'Export to CSV' button, but that claim could not be tied to a vendor page (Intuit community answers say Excel export is unavailable), so it is omitted from routes; (3) the concurrent-request cap for the API (10 vs 40) differed between sources; (4) the ToS deletion-timeline extract ('permanently deleted after 30 days') may come from a non-US ToS variant and conflicts with the US help article's 1-year read-only window, which is the figure used above; (5) whether the QBO-to-Desktop migration tool carries attachments and all config was not documented in the extracts consulted."
+  "notes": "Every claim here derives from search-engine extracts of the cited vendor pages rather than full-page reads — treat nav paths and numeric limits as needing in-tenant confirmation. Known open questions: (1) batch-endpoint throttle is variously reported as 40 or 120 requests/min per realm; (2) one search extract of a current audit-log writeup mentioned an 'Export to CSV' button, but that claim could not be tied to a vendor page (Intuit community answers say Excel export is unavailable), so it is omitted from routes; (3) the concurrent-request cap for the API (10 vs 40) differed between sources; (4) the ToS deletion-timeline extract ('permanently deleted after 30 days') may come from a non-US ToS variant and conflicts with the US help article's 1-year read-only window, which is the figure used above; (5) whether the QBO-to-Desktop migration tool carries attachments and all config was not documented in the extracts consulted.",
+  "research_caveats": [
+    "All Intuit domains (quickbooks.intuit.com, developer.intuit.com, blogs.intuit.com, intuit.com) were blocked by the research environment's egress proxy for direct fetch, so every claim derives from search-engine extracts of the cited vendor pages rather than full-page reads."
+  ]
 }

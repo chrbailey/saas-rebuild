@@ -46,7 +46,7 @@ most, who are the users (names/roles count), and whether an admin/audit-log
 area is accessible. Create the output dir and `teardown.json` state file:
 
 ```json
-{"schema_version":"0.7.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Dev/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl"},"extraction":[],"decisions":[],"action_log":[]}
+{"schema_version":"0.8.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Dev/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl"},"extraction":[],"decisions":[],"action_log":[]}
 ```
 
 State is resumable — on re-invocation, read `teardown.json` and continue from

@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "nodes": [
     {"id": "customer-search", "type": "feature", "label": "Customer search", "verdict": "KEEP"},
     {"id": "bulk-customer-import", "type": "feature", "label": "Bulk customer import", "verdict": "SIMPLIFY"},

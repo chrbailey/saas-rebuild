@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "bill-com",
   "app_name": "BILL (Bill.com) Accounts Payable & Receivable",
   "vendor": "BILL",

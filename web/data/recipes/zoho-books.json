@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "zoho-books",
   "app_name": "Zoho Books",
   "vendor": "Zoho",
@@ -161,5 +161,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research caveat: direct HTTPS access to zoho.com was blocked by the research environment's egress proxy, so all vendor-page content above was gathered from search-engine renderings/summaries of the listed official Zoho pages rather than full page fetches — nav paths and limits should be re-verified in-tenant. No explicit post-termination data-retrieval window is documented; the Zoho ToS instead documents deletion timing (terminated-account data removed from the active database during a clean-up that occurs once in 6 months, and from backups ~3 months after that) and states that for inactive unpaid accounts Zoho gives prior notice and an option to back up data before deletion. Audit-trail retention is undocumented. No bulk-read API is documented for Zoho Books, so the admin Data Backup (all records as CSV/XLS) is the primary whole-account route, supplemented by the incremental Backup Documents run for attachments."
+  "notes": "All vendor-page content above was gathered from search-engine renderings/summaries of the listed official Zoho pages rather than full page fetches — nav paths and limits should be re-verified in-tenant. No explicit post-termination data-retrieval window is documented; the Zoho ToS instead documents deletion timing (terminated-account data removed from the active database during a clean-up that occurs once in 6 months, and from backups ~3 months after that) and states that for inactive unpaid accounts Zoho gives prior notice and an option to back up data before deletion. Audit-trail retention is undocumented. No bulk-read API is documented for Zoho Books, so the admin Data Backup (all records as CSV/XLS) is the primary whole-account route, supplemented by the incremental Backup Documents run for attachments.",
+  "research_caveats": [
+    "Direct HTTPS access to zoho.com was blocked by the research environment's egress proxy, so all vendor-page content was gathered from search-engine renderings/summaries of the listed official Zoho pages rather than full page fetches."
+  ]
 }

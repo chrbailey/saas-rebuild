@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "brex",
   "app_name": "Brex",
   "vendor": "Brex",
@@ -164,5 +164,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research caveat: direct fetches of brex.com and developer.brex.com were blocked by this environment's egress proxy, so all claims above were taken from vendor-page content surfaced through web search excerpts of those exact URLs; nav paths and limits should be re-verified against the live pages/tenant. No whole-account/tenant backup export is documented - coverage is assembled from table exports plus the API. No documented export of configuration (expense policies, approval workflows, custom field definitions, CSV templates) as restorable artifacts; custom field values ride along in CSV exports only. The audit-trail support article's exact URL could not be confirmed (content attributed to the Security/'Security measures' support pages). Bill Pay (AP) invoice-document bulk export is not documented in the pages consulted. Statements remain downloadable read-only after account closure per the account-closure page."
+  "notes": "All claims above were taken from vendor-page content surfaced through web search excerpts of the exact URLs cited, not full-page reads; nav paths and limits should be re-verified against the live pages/tenant. No whole-account/tenant backup export is documented - coverage is assembled from table exports plus the API. No documented export of configuration (expense policies, approval workflows, custom field definitions, CSV templates) as restorable artifacts; custom field values ride along in CSV exports only. The audit-trail support article's exact URL could not be confirmed (content attributed to the Security/'Security measures' support pages). Bill Pay (AP) invoice-document bulk export is not documented in the pages consulted. Statements remain downloadable read-only after account closure per the account-closure page.",
+  "research_caveats": [
+    "Direct fetches of brex.com and developer.brex.com were blocked by the research environment's egress proxy, so all claims were taken from vendor-page content surfaced through web search excerpts of those exact URLs rather than full-page reads."
+  ]
 }

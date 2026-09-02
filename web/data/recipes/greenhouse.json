@@ -1,11 +1,11 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "app": "greenhouse",
   "app_name": "Greenhouse Recruiting",
   "vendor": "Greenhouse",
   "category": "recruiting",
   "export_rights": {
-    "summary": "Greenhouse's own Harvest API documentation states the API 'was designed to allow our customers to export their data from Greenhouse', giving tenant admins programmatic access to most recruiting data. Contractual export terms (MSA/DPA) could not be consulted from this environment, so no contractual entitlement or termination window is documented here.",
+    "summary": "Greenhouse's own Harvest API documentation states the API 'was designed to allow our customers to export their data from Greenhouse', giving tenant admins programmatic access to most recruiting data. Contractual export terms (MSA/DPA) were not consulted, so no contractual entitlement or termination window is documented here.",
     "tos_url": null,
     "post_termination_window": null
   },
@@ -159,5 +159,8 @@
   ],
   "verification": "doc-derived-unverified",
   "last_reviewed": "2026-08-08",
-  "notes": "Research constraint: greenhouse web properties (support.greenhouse.io, developers.greenhouse.io, greenhouse.com/greenhouse.io legal pages) and web.archive.org were egress-blocked from this environment and the web-search budget was exhausted, so all claims derive from Greenhouse's official open-source API docs repo grnhse/greenhouse-api-docs (last commit 2026-07-30), which is the published source of developers.greenhouse.io. Consequently the following are honest unknowns, NOT absences in the product: admin-UI per-entity exports and bulk candidate export, the report builder as a CSV/Excel export route, any whole-account export/backup or BI/flat-file connector, plan/SKU gating of these features, and the MSA/DPA export-rights language and post-termination retrieval window. The audit log help article support.greenhouse.io/hc/en-us/articles/15074318933275 is referenced by the vendor docs but could not be fetched. The task template requested retrieved/last_reviewed = 'undefined', but the schema's YYYY-MM-DD pattern makes that unvalidatable; actual retrieval date used instead."
+  "notes": "All claims derive from Greenhouse's official open-source API docs repo grnhse/greenhouse-api-docs (last commit 2026-07-30), which is the published source of developers.greenhouse.io. The following are honest unknowns, NOT absences in the product: admin-UI per-entity exports and bulk candidate export, the report builder as a CSV/Excel export route, any whole-account export/backup or BI/flat-file connector, plan/SKU gating of these features, and the MSA/DPA export-rights language and post-termination retrieval window. The audit log help article support.greenhouse.io/hc/en-us/articles/15074318933275 is referenced by the vendor docs but could not be fetched.",
+  "research_caveats": [
+    "Greenhouse web properties (support.greenhouse.io, developers.greenhouse.io, greenhouse.com/greenhouse.io legal pages) and web.archive.org were egress-blocked from the research environment and the web-search budget was exhausted, so the recipe rests entirely on the grnhse/greenhouse-api-docs repository; the audit-log help article and the MSA/DPA could not be fetched."
+  ]
 }
