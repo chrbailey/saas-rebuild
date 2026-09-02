@@ -16,7 +16,7 @@ import hashlib
 from dataclasses import dataclass, field, asdict
 from typing import Any, Literal
 
-SCHEMA_VERSION = "1.2.0"
+SCHEMA_VERSION = "1.3.0"
 
 PartyType = Literal["individual", "entity", "vessel", "aircraft", "unknown"]
 

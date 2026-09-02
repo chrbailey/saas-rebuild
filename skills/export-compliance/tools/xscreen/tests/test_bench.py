@@ -15,34 +15,32 @@ Four things are under test here, in order of how much they matter:
 4. **The harness itself runs end-to-end fast** at a size small enough for
    the default suite, and the `--baseline` mode fails when it should.
 
-Measured on engine 1.1.0 (tuning digest 2003aab9..., corpus digest 7ac77ad0...), seed 7, size 400,
-negatives 400, 2026-09-02:
+Measured on engine 1.3.0 (seed 7, size 400, negatives 400, 2026-09-02).
+Engine 1.1.0 values are kept in the right-hand column so the effect of the
+1.2.0/1.3.0 matcher changes (compact key, apostrophes, dotted forms, extra
+legal forms, acronym blocking) stays on the record:
 
-    class                  n    >=EXACT  >=STRONG  >=WEAK
-    identity             400    100.0%    100.0%   100.0%
-    legal_form_swap      217     63.1%     93.6%    97.2%
-    token_reorder        145    100.0%    100.0%   100.0%
-    translit_drift       398      1.0%     77.4%    83.2%
-    diacritics_toggle    400    100.0%    100.0%   100.0%
-    typo_substitution    400      0.0%     14.0%    53.8%
-    typo_transposition   400      0.0%     65.5%    81.8%
-    typo_deletion        400      1.5%     49.0%    75.8%
-    dropped_middle        66      0.0%    100.0%   100.0%
-    truncated_name       255      0.0%    100.0%   100.0%
-    added_qualifier      400      0.0%    100.0%   100.0%
-    acronym              147      0.0%     61.9%    61.9%
-    ocr_space_insertion  398      2.3%      7.5%    23.9%
-    missing_space        400      0.0%      0.3%     5.0%
-    weak_alias            26    100.0%    100.0%   100.0%
-    punctuation_noise    400    100.0%    100.0%   100.0%
-    internal_apostrophe  400      0.0%      5.0%    22.5%
-    stacked_pair         400      0.0%     22.3%    26.5%
-    overall (micro)     5652     27.0%     59.2%    68.7%
-
-    false positives (400 negatives): 1.5% @>=WEAK, 0.25% @>=STRONG, 0.0% @EXACT
-
-The size-5000 scorecard is in references/benchmark.md; the per-class
-numbers there agree with these to within about two points.
+    class                  n    >=EXACT  >=STRONG  >=WEAK   (1.1.0 >=WEAK)
+    identity             400    100.0%    100.0%   100.0%   100.0%
+    legal_form_swap      217     80.7%     99.1%    99.5%    97.2%
+    token_reorder        145    100.0%    100.0%   100.0%   100.0%
+    translit_drift       398      1.0%     77.9%    82.9%    83.2%
+    diacritics_toggle    400    100.0%    100.0%   100.0%   100.0%
+    typo_substitution    400      0.0%     14.8%    50.7%    53.8%
+    typo_transposition   400      0.0%     66.8%    80.8%    81.8%
+    typo_deletion        400      1.5%     50.0%    74.8%    75.8%
+    dropped_middle        66      0.0%    100.0%   100.0%   100.0%
+    truncated_name       255      5.5%    100.0%   100.0%   100.0%
+    added_qualifier      400      0.0%    100.0%   100.0%   100.0%
+    acronym              133      0.0%     82.0%    82.0%    61.9%
+    ocr_space_insertion  398      1.5%     94.5%    95.0%    23.9%
+    missing_space        400      0.0%     87.0%    88.8%     5.0%
+    weak_alias            26    100.0%    100.0%   100.0%   100.0%
+    punctuation_noise    400    100.0%    100.0%   100.0%   100.0%
+    internal_apostrophe  400    100.0%    100.0%   100.0%    22.5%
+    stacked_pair         400      0.0%     41.5%    45.2%    26.5%
+    overall >=WEAK                                  86.7%    68.7%
+    FP @>=WEAK 1.0%, @>=STRONG 0.25%, @EXACT 0.0%
 """
 
 from __future__ import annotations
@@ -67,24 +65,24 @@ PIN_SIZE = 400
 # Floors at >=WEAK: measured value (above) minus a margin. Classes measured
 # at 100% are pinned at 98% except identity, which must never miss.
 RECALL_FLOORS_WEAK: dict[str, float] = {
-    "identity": 1.00,           # measured 1.000
-    "legal_form_swap": 0.93,    # measured 0.972
-    "token_reorder": 0.98,      # measured 1.000
-    "translit_drift": 0.78,     # measured 0.832
-    "diacritics_toggle": 0.98,  # measured 1.000
-    "typo_substitution": 0.48,  # measured 0.538
-    "typo_transposition": 0.76, # measured 0.818
-    "typo_deletion": 0.70,      # measured 0.758
-    "dropped_middle": 0.98,     # measured 1.000
-    "truncated_name": 0.98,     # measured 1.000
-    "added_qualifier": 0.98,    # measured 1.000
-    "acronym": 0.56,            # measured 0.619
-    "ocr_space_insertion": 0.18,  # measured 0.239
-    "missing_space": 0.02,      # measured 0.050
-    "weak_alias": 0.98,         # measured 1.000
-    "punctuation_noise": 0.98,  # measured 1.000
-    "internal_apostrophe": 0.17,  # measured 0.225
-    "stacked_pair": 0.23,       # measured 0.265
+    "identity": 1.00,             # measured 1.000
+    "legal_form_swap": 0.94,      # measured 0.995
+    "token_reorder": 0.98,        # measured 1.000
+    "translit_drift": 0.78,       # measured 0.829
+    "diacritics_toggle": 0.98,    # measured 1.000
+    "typo_substitution": 0.45,    # measured 0.507
+    "typo_transposition": 0.76,   # measured 0.808
+    "typo_deletion": 0.70,        # measured 0.748
+    "dropped_middle": 0.98,       # measured 1.000
+    "truncated_name": 0.98,       # measured 1.000
+    "added_qualifier": 0.98,      # measured 1.000
+    "acronym": 0.76,              # measured 0.820
+    "ocr_space_insertion": 0.90,  # measured 0.950
+    "missing_space": 0.84,        # measured 0.888
+    "weak_alias": 0.98,           # measured 1.000
+    "punctuation_noise": 0.98,    # measured 1.000
+    "internal_apostrophe": 0.98,  # measured 1.000
+    "stacked_pair": 0.40,         # measured 0.452
 }
 
 # Floors at >=STRONG for the classes the band rules are *designed* to
@@ -95,12 +93,16 @@ RECALL_FLOORS_STRONG: dict[str, float] = {
     "dropped_middle": 0.98,     # skeleton-containment rule
     "truncated_name": 0.98,     # containment rules
     "added_qualifier": 0.98,    # containment rules
-    "legal_form_swap": 0.88,    # measured 0.936
-    "translit_drift": 0.72,     # measured 0.774
+    "legal_form_swap": 0.94,    # measured 0.991 (dotted forms + Gulf/Balkan suffixes)
+    "translit_drift": 0.72,     # measured 0.779
+    "acronym": 0.76,            # measured 0.820 (acronym postings, dotted/spaced forms)
+    "ocr_space_insertion": 0.90,  # measured 0.945 (compact-key rule)
+    "missing_space": 0.82,      # measured 0.870 (compact-key rule)
+    "internal_apostrophe": 0.98,  # measured 1.000 (inner apostrophe is elision)
 }
 
-OVERALL_FLOOR_WEAK = 0.64       # measured 0.687
-FP_CEILING_WEAK = 0.06          # measured 0.015
+OVERALL_FLOOR_WEAK = 0.82       # measured 0.867
+FP_CEILING_WEAK = 0.06          # measured 0.010
 FP_CEILING_STRONG = 0.02        # measured 0.0025
 FP_CEILING_EXACT = 0.005        # measured 0.000
 
