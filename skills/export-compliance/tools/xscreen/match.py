@@ -234,8 +234,13 @@ class ListIndex:
         # have accepted it: the benchmark's acronym class lost every such
         # case at blocking. Treat an all-single-letter query as its joined
         # initialism.
-        if len(toks) >= 3 and all(len(t) == 1 for t in toks):
-            joined = "".join(toks)
+        # Taken from the folded letters, not the noise-stripped tokens: the
+        # single letters "a" and "e" are romance articles in NOISE_TOKENS,
+        # so "J.S.A.I." lost its A and "S S E" its E on the way to the
+        # posting and neither matched anything.
+        letters = fold(name).split()
+        if len(letters) >= 3 and all(len(t) == 1 for t in letters):
+            joined = "".join(letters)
             if joined in self._acronym_postings:
                 keys.append((len(self._acronym_postings[joined]), joined, "acronym"))
             if joined in self._token_postings:

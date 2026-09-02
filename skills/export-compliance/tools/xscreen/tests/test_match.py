@@ -533,6 +533,13 @@ class TestBenchmarkFoundBlocking(unittest.TestCase):
         for q in ("R.R.M.", "R R M", "RRM"):
             self.assertEqual(bands(idx, q).get("SDN:1"), "STRONG", q)
 
+    def test_initialism_letters_that_are_noise_words_still_reach_the_listing(self):
+        # "a" and "e" are noise tokens (romance articles); an initialism must
+        # keep them. "S S E" lost its E and matched nothing.
+        idx = self._idx("Sharikat Sablid Electronics WLL", "Jewen Siaokia Aviation Industry Co Ltd")
+        self.assertEqual(bands(idx, "S S E").get("SDN:1"), "STRONG")
+        self.assertEqual(bands(idx, "J.S.A.I.").get("SDN:2"), "STRONG")
+
     def test_apostrophe_variant_is_an_exact_hit(self):
         self.assertEqual(bands(self._idx("Said al-Harbi"), "Sa'id al-Harbi").get("SDN:1"), "EXACT")
 

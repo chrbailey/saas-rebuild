@@ -32,7 +32,7 @@ legal forms, acronym blocking) stays on the record:
     dropped_middle        66      0.0%    100.0%   100.0%   100.0%
     truncated_name       255      5.5%    100.0%   100.0%   100.0%
     added_qualifier      400      0.0%    100.0%   100.0%   100.0%
-    acronym              133      0.0%     82.0%    82.0%    61.9%
+    acronym              133      0.0%    100.0%   100.0%    61.9%
     ocr_space_insertion  398      1.5%     94.5%    95.0%    23.9%
     missing_space        400      0.0%     87.0%    88.8%     5.0%
     weak_alias            26    100.0%    100.0%   100.0%   100.0%
@@ -76,7 +76,7 @@ RECALL_FLOORS_WEAK: dict[str, float] = {
     "dropped_middle": 0.98,       # measured 1.000
     "truncated_name": 0.98,       # measured 1.000
     "added_qualifier": 0.98,      # measured 1.000
-    "acronym": 0.76,              # measured 0.820
+    "acronym": 0.98,              # measured 1.000
     "ocr_space_insertion": 0.90,  # measured 0.950
     "missing_space": 0.84,        # measured 0.888
     "weak_alias": 0.98,           # measured 1.000
@@ -95,7 +95,7 @@ RECALL_FLOORS_STRONG: dict[str, float] = {
     "added_qualifier": 0.98,    # containment rules
     "legal_form_swap": 0.94,    # measured 0.991 (dotted forms + Gulf/Balkan suffixes)
     "translit_drift": 0.72,     # measured 0.779
-    "acronym": 0.76,            # measured 0.820 (acronym postings, dotted/spaced forms)
+    "acronym": 0.98,            # measured 1.000 (acronym postings; dotted/spaced/noise-letter forms)
     "ocr_space_insertion": 0.90,  # measured 0.945 (compact-key rule)
     "missing_space": 0.82,      # measured 0.870 (compact-key rule)
     "internal_apostrophe": 0.98,  # measured 1.000 (inner apostrophe is elision)
