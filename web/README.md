@@ -28,9 +28,12 @@ Anthropic API key, and start.
   category, with no API key required. Each recipe page shows the export-rights
   summary and the routes, and offers the full recipe JSON, bibliography
   included, for download.
-- **Pause and resume.** Sessions autosave to the browser and can be exported
-  and re-imported as JSON, the web analog of the protocol's resumable
-  `teardown.json`. A transcript can be downloaded as Markdown.
+- **Pause and resume.** Sessions autosave to the browser and the conversation
+  can be exported and re-imported as JSON, the web analog of the protocol's
+  resumable `teardown.json`. The export carries the messages only; the
+  protocol, model, and playbook selections are saved in this browser, so
+  reselect them after importing on another machine. A transcript can be
+  downloaded as Markdown.
 
 What it cannot do: it has no connector into your tenant and no filesystem.
 You run the exports and queries yourself and paste sanitized results; the

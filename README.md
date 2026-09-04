@@ -67,8 +67,9 @@ you decide to.
    instructs it never to ask for credentials.
 
 Every artifact below arrives as a fenced block with a download button.
-Sessions autosave in the browser and can be exported and re-imported, so a
-teardown can pause and resume. Expect real API spend on a serious engagement;
+Sessions autosave in the browser and the conversation can be exported and
+re-imported, so a teardown can pause and resume (reselect the protocol,
+model, and playbooks after importing on another machine). Expect real API spend on a serious engagement;
 the protocol prompt is large, and prompt caching is on to reduce it. Want to
 look before you paste a key? The [recipe corpus](#every-documented-way-to-get-your-data-out-of-29-b2b-apps)
 is browsable at `#/corpus` without one.
@@ -120,10 +121,11 @@ the same sentence without the slash command):
 /saas-rebuild:saas-rebuild Tear down the CRM tenant I administer and tell me what we actually use.
 ```
 
-If the application is one of the
+In Claude Code, if the application is one of the
 [29 covered applications](skills/saas-rebuild/corpus/README.md#covered-applications),
-the protocol starts from that recipe's documented export routes. Every route
-is a hypothesis to verify in your tenant, not a promise.
+the protocol starts from that recipe's documented export routes; in the
+workspace, attach the recipe in step 3 to give the assistant the same start.
+Every route is a hypothesis to verify in your tenant, not a promise.
 
 ### Manual skill install
 
