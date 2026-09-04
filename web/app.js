@@ -638,6 +638,9 @@ async function showRecipe(slug) {
   route();
   try {
     await loadData();
+    // Re-run the router now that data is loaded: a direct load or refresh of
+    // #/corpus routed before recipeIndex existed, so renderCorpus() bailed.
+    route();
     restoreSession();
   } catch (e) {
     note("Failed to load protocol data: " + e.message, true);
