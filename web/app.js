@@ -34,6 +34,7 @@ const state = {
   exportCompliance: null,
   references: {},        // name -> text
   recipeIndex: [],
+  versions: null,        // web/data/version.json, keyed by skill name
 };
 
 const $ = (id) => document.getElementById(id);
@@ -109,6 +110,7 @@ async function loadData() {
     graph: refGraph,
   };
   state.recipeIndex = idx;
+  showProtocolVersion();
   const sel = $("recipe-select");
   for (const r of idx) {
     const o = document.createElement("option");
@@ -116,6 +118,34 @@ async function loadData() {
     o.textContent = `${r.app_name} (${r.category})`;
     sel.appendChild(o);
   }
+}
+
+// The served protocol versions come from web/data/version.json, which
+// scripts/sync_web_data.py generates from skill-versions.json, so the welcome
+// note cannot drift from the SKILL.md files that are actually loaded. A
+// missing or malformed file leaves the note unversioned rather than failing
+// the boot.
+async function showProtocolVersion() {
+  try {
+    const r = await fetch(dataUrl("version.json"));
+    if (!r.ok) return;
+    const v = await r.json();
+    if (v && typeof v === "object") state.versions = v;
+  } catch (_) { /* leave the note unversioned */ }
+  renderProtocolLabel();
+}
+
+// The welcome note names the protocol the selected mode actually serves.
+const PROTOCOL_LABELS = {
+  teardown: ["SaaS Rebuild protocol", "saas-rebuild"],
+  "export-compliance": ["export-compliance reference", "export-compliance"],
+};
+
+function renderProtocolLabel() {
+  const [name, key] = PROTOCOL_LABELS[$("mode").value] || PROTOCOL_LABELS.teardown;
+  const v = state.versions && state.versions[key];
+  $("protocol-label").textContent =
+    typeof v === "string" && v ? `${name} (skill ${v})` : name;
 }
 
 /* ------------------------------------------------ system prompt */
@@ -628,6 +658,7 @@ async function showRecipe(slug) {
 /* ------------------------------------------------ settings change hooks */
 
 ["mode", "model"].forEach((id) => $(id).addEventListener("change", persistSession));
+$("mode").addEventListener("change", renderProtocolLabel);
 ["ref-extraction", "ref-mining", "ref-graph"].forEach((id) =>
   $(id).addEventListener("change", persistSession));
 
@@ -642,6 +673,7 @@ async function showRecipe(slug) {
     // #/corpus routed before recipeIndex existed, so renderCorpus() bailed.
     route();
     restoreSession();
+    renderProtocolLabel();
   } catch (e) {
     note("Failed to load protocol data: " + e.message, true);
   }
