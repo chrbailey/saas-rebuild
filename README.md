@@ -58,7 +58,7 @@ recipes. Serve it locally with one command:
 cd web && python3 -m http.server 8080   # then open http://localhost:8080
 ```
 
-<!-- Hosted copy: add the deployed URL here once the Vercel project is live. -->
+A hosted copy of the same workspace runs at [saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app), deployed automatically from `main` on Vercel.
 
 **Door 2 — the Claude Code plugin.** Inside Claude Code:
 
