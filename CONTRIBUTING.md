@@ -3,6 +3,16 @@
 Contributions are welcome when they strengthen evidence quality, portability,
 failure behavior, reproducibility, or the honesty of public claims.
 
+New here? You do not need a development setup to get a feel for the project.
+The [hosted browser workspace](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app)
+runs the protocol as a chat with your own Anthropic API key and nothing to
+install (it has no connector into a tenant and no filesystem, so you run the
+exports yourself and paste sanitized results), and its `#/corpus` view shows
+every extraction recipe without a key.
+The [synthetic worked example](examples/synthetic-crm/README.md) shows a
+finished teardown. Most contributions below start from one of those two
+places rather than from code.
+
 ## Three ways to contribute
 
 You do not need to touch code to make this project more useful. The three
@@ -10,7 +20,8 @@ lanes, in rough order of effort:
 
 ### 1. Share a teardown report (no PR needed)
 
-Ran a teardown — or even a partial one — on a tenant you administer? File a
+Ran a teardown — or even a partial one — on a tenant you administer, whether
+in the hosted workspace or through the Claude Code plugin? File a
 [Teardown Report](https://github.com/chrbailey/saas-rebuild/issues/new?template=teardown-report.yml)
 issue. The form asks for structure only: verdict counts, the KEEP set,
 coverage and blind spots, preservation status, and what the pipeline missed.
@@ -76,8 +87,10 @@ and the recipe's notes should keep saying so.
 ## A good first contribution
 
 Verify one recipe against a tenant you administer. Pick any
-`doc-derived-unverified` recipe for an app you run
-([`skills/saas-rebuild/corpus/extraction-recipes/`](skills/saas-rebuild/corpus/extraction-recipes/)),
+`doc-derived-unverified` recipe for an app you run (browse them in the
+[hosted workspace's corpus view](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app/#/corpus)
+or under
+[`skills/saas-rebuild/corpus/extraction-recipes/`](skills/saas-rebuild/corpus/extraction-recipes/)),
 try its main export routes against your live account — UI export paths,
 API endpoints, rate limits, role requirements — and PR the result:
 

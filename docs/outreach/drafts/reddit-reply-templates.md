@@ -31,8 +31,10 @@ Optional second paragraph (only if the thread is tool-friendly):
 
 I got tired of doing this ad hoc, so I open-sourced the protocol I use —
 schemas that reject verdicts without evidence attached, plus documented
-export routes for ~29 common B2B apps (disclosure: I built it; MIT;
-saas-rebuild on GitHub).
+export routes for 29 common B2B apps (disclosure: I built it; MIT;
+saas-rebuild on GitHub). It runs in the browser with your own Anthropic
+API key, nothing to install, if you want to look before committing to it:
+https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app
 
 ## Archetype B — "We're leaving [vendor], how do we get our data out?" (r/Netsuite, r/salesforce, r/smallbusiness, r/msp)
 
@@ -55,7 +57,9 @@ dates (disclosure: mine, MIT — saas-rebuild on GitHub, recipes under
 skills/saas-rebuild/corpus/). The [vendor] recipe lists the routes in
 preference order with rate limits and gotchas. It's doc-derived and
 marked unverified — if you actually run this export, filing what matched
-reality (or didn't) makes the recipe trustworthy for the next person.
+reality (or didn't) makes the recipe trustworthy for the next person. The
+recipes are readable without cloning anything at
+https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app/#/corpus
 
 ## Archetype C — "Client SaaS spend is out of control" (r/msp — comments only, disclosed, after building history)
 

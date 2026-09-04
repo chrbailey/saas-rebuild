@@ -10,7 +10,7 @@
     {
       "name": "saas-rebuild",
       "displayName": "SaaS Rebuild",
-      "description": "Evidence-cited usage verdicts for every feature of a SaaS tenant you administer, a checksummed export of everything you can reach, and a replay-validated rebuild plan. Starts from documented export routes for 29 common B2B apps.",
+      "description": "Evidence-cited KEEP / SIMPLIFY / DROP / DEFER verdicts for every feature of a SaaS or ERP tenant you administer, a checksummed export of everything you can reach, and a rebuild plan validated by replaying your own history. Starts from documented (not yet tenant-verified) export routes for 29 common B2B apps. The same protocol also runs with no install in a hosted browser workspace with your own Anthropic API key.",
       "source": "./",
       "category": "development",
       "tags": [

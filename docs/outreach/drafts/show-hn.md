@@ -50,6 +50,14 @@ runs a teardown of a tenant you administer:
   can't leak into development examples, and an explicit register separating
   intended improvements from unexplained divergence.
 
+You can try it without installing anything: there's a hosted browser
+workspace (static, no backend, bring your own Anthropic API key — the key
+stays in localStorage and goes only to api.anthropic.com) that runs the
+same protocol as a chat and hands back every artifact as a download. It has
+no connector into your tenant; you run the exports and paste sanitized
+results:
+https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app
+
 The repo also ships a synthetic worked example (so you can see every
 artifact without anyone's tenant data), a cross-artifact validator that runs
 in CI, and a reference rebuild — a restricted-party screening engine where
@@ -71,6 +79,7 @@ claim-addressable. And a replay suite is only as good as its case coverage,
 which the contracts make you state rather than solve.
 
 Repo: https://github.com/chrbailey/saas-rebuild
+Try it in the browser: https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app
 
 I'd especially like to hear from people who've done a SaaS exit or ERP
 de-implementation: what evidence did you wish you'd had, and what did you
@@ -80,9 +89,11 @@ fail to export before the contract ended?
 
 ## Reviewer notes (delete before posting)
 
-- Every number above is pinned to the repo at v0.7: 29/100 recipes, all
-  `doc-derived-unverified`. If recipes were added or promoted since, update
-  both counts and the "none verified" sentence.
+- Every number above is pinned to the repo at v0.8 (skill 0.8.0): 29/100
+  recipes, all `doc-derived-unverified`. If recipes were added or promoted
+  since, update both counts and the "none verified" sentence.
+- The hosted workspace URL is the Vercel deployment that auto-deploys from
+  `main`; open it and confirm it loads before posting.
 - The screening engine's "379 tests" claim was deliberately left out of the
   post — test counts invite "tests prove nothing" derails. The assurance
   case link covers it if asked.

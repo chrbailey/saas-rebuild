@@ -1,7 +1,18 @@
 # Synthetic CRM teardown
 
-This directory is a fictional, internally consistent example of the v0.8
-artifact contracts. It is not evidence from a customer engagement.
+This is what a finished teardown looks like, on a fictional CRM tenant, so
+you can read every artifact the protocol produces without anyone's real data
+and before pasting an API key anywhere. Start with
+[`usage-analysis.md`](usage-analysis.md): four features, four verdicts, and
+the evidence behind each. The same JSON and Markdown artifacts are what the
+[hosted workspace](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app)
+and the Claude Code plugin emit for a tenant you administer; the preserved
+export files and their digests come from exports you run yourself, since the
+workspace has no connector into a tenant.
+
+The directory is an internally consistent example of the v0.8 artifact
+contracts. It is not evidence from a customer engagement, and every number in
+it was invented to exercise the rules.
 
 The example deliberately includes four different conclusions:
 
@@ -26,9 +37,10 @@ Start with the human artifacts, then open the JSON they are rendered from:
 | [`extraction-runbook.md`](extraction-runbook.md) | `teardown.json`, `preservation-manifest.json`, the preserved files | Route and status per entity, expected fields, and the checksummed preservation record including the accepted gap |
 | [`REBUILD_PLAN.md`](REBUILD_PLAN.md) | all of the above | Target selection, dependency-derived milestones, replay criteria, and cutover gates |
 
-The three rendered Markdown files are derived from the JSON, never the other
-way round. `tests/test_synthetic_markdown.py` fails if a verdict, evidence id,
-count, or digest in the Markdown stops matching the JSON. The JSON itself is
+The rendered Markdown files are derived from the JSON, never the other way
+round. `tests/test_synthetic_markdown.py` fails if a verdict, evidence id,
+count, or digest in `usage-analysis.md`, `inventory.md`, or
+`extraction-runbook.md` stops matching the JSON. The JSON itself is
 checked by `tests/test_synthetic_example.py` and by the validator:
 
 ```bash

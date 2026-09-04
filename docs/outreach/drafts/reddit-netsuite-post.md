@@ -33,8 +33,8 @@ Customer Data, s.5.1) and eight documented extraction routes in preference
 order — full account CSV export, bulk analytics access, REST/SuiteQL,
 saved-search exports, report builder, file cabinet, system-notes/audit
 trail, and configuration/customization export — each with roles, rate
-limits, formats, and gotchas, every claim cited to vendor documentation
-with a retrieval date.
+limits, formats, and gotchas, backed by a recipe-level bibliography of
+vendor documentation with retrieval dates.
 
 That recipe is one of 29 (Salesforce, QuickBooks, Sage Intacct, Dynamics,
 SAP B1…) in a corpus inside a larger open protocol for evidence-based
@@ -44,7 +44,12 @@ preservation (export everything reachable, checksum it, record accepted
 gaps) is deliberately decoupled from the verdicts.
 
 Repo: https://github.com/chrbailey/saas-rebuild — the NetSuite recipe is
-`skills/saas-rebuild/corpus/extraction-recipes/netsuite.json`.
+`skills/saas-rebuild/corpus/extraction-recipes/netsuite.json`. If you'd
+rather read it than clone anything, the same recipe is browsable (no
+account, no API key) at https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app/#/corpus
+— that's also where the protocol itself runs in the browser, with your own
+Anthropic API key, if you want to try a teardown without installing a
+thing.
 
 The honest catch, and the ask: every recipe is marked
 `doc-derived-unverified` — researched from docs, never yet exercised
@@ -66,6 +71,9 @@ checklist of what to export before any migration conversation gets real.
   file-storage, audit-log-export, config-export). Re-check if the recipe
   changes before posting.
 - Verify sidebar rules and whether tool posts need mod pre-approval.
+- Numbers pinned to v0.8 (skill 0.8.0): 29/100 recipes, all
+  `doc-derived-unverified`. Open the hosted workspace URL and confirm the
+  NetSuite recipe renders before posting.
 - If a launch post feels too promotional for the sub's mood that week,
   the fallback is the same content as a comment in a live
   "leaving NetSuite / export" thread (see reddit-reply-templates.md).
