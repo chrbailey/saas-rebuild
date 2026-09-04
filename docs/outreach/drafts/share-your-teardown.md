@@ -32,9 +32,10 @@ publishable through the form as long as you state the coverage honestly.
 The contracts are built to record uncertainty, not hide it.
 
 If you haven't run one yet and want to see what the form is asking about,
-the hosted workspace runs the protocol in your browser with your own
-Anthropic API key and nothing to install (the key stays in your browser and
-goes only to Anthropic; expect real API spend on a full teardown):
+the hosted workspace runs the protocol as a chat in your browser with your
+own Anthropic API key and nothing to install (the key stays in your browser
+and goes only to Anthropic; it has no connector into your tenant, so you
+paste sanitized exports; expect real API spend on a full teardown):
 https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app
 
 ## Shorter variant (for tight comment threads)

@@ -53,7 +53,9 @@ runs a teardown of a tenant you administer:
 You can try it without installing anything: there's a hosted browser
 workspace (static, no backend, bring your own Anthropic API key — the key
 stays in localStorage and goes only to api.anthropic.com) that runs the
-same protocol as a chat and hands back every artifact as a download:
+same protocol as a chat and hands back every artifact as a download. It has
+no connector into your tenant; you run the exports and paste sanitized
+results:
 https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app
 
 The repo also ships a synthetic worked example (so you can see every

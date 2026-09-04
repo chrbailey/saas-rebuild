@@ -23,8 +23,8 @@ for auditing a SaaS or ERP tenant you administer, with tooling that makes
 the audit checkable. You walk away with three things:
 
 - **An evidence-cited verdict for every feature**, KEEP / SIMPLIFY / DROP /
-  DEFER. The schemas reject a verdict with no cited evidence, and a quiet
-  30-day log is never allowed to prove a year-end feature unused.
+  DEFER. The schemas reject a verdict with no cited evidence, and the
+  validator never lets a quiet 30-day log prove a year-end feature unused.
 - **A checksummed export of everything you can reach**, whether or not you
   keep the feature, so the migration starts with the data already safe.
 - **A rebuild plan validated by replaying your own history**, not by a
@@ -177,7 +177,7 @@ the DROP and the DEFER differ only in how far the evidence reaches:
 `ev-enrich-runtime` has `all-time` coverage, so zero executions can support a
 DROP. `ev-tax-window` covers 60 days that exclude year end, so zero runs
 cannot demote an annual obligation, and the feature is DEFER with usage
-`unknown`. That asymmetry is the rule the schemas enforce: configuration
+`unknown`. That asymmetry is the rule the validator enforces: configuration
 alone does not prove use, and a short window does not prove non-use.
 
 ## Every documented way to get your data out of 29 B2B apps
@@ -195,7 +195,7 @@ source. Browse it in the
 [`skills/saas-rebuild/corpus/extraction-recipes/`](skills/saas-rebuild/corpus/extraction-recipes/).
 
 Covered today (accounting, ERP, CRM, HR and payroll, spend, payments,
-productivity, recruiting, and project management):
+productivity, communication, recruiting, and project management):
 
 Asana · BambooHR · BILL · Brex · Deel · Dynamics 365 Business Central ·
 Dynamics 365 Sales · Expensify · FreshBooks · Freshsales · Google Workspace ·

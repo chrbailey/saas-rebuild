@@ -33,8 +33,8 @@ Customer Data, s.5.1) and eight documented extraction routes in preference
 order — full account CSV export, bulk analytics access, REST/SuiteQL,
 saved-search exports, report builder, file cabinet, system-notes/audit
 trail, and configuration/customization export — each with roles, rate
-limits, formats, and gotchas, every claim cited to vendor documentation
-with a retrieval date.
+limits, formats, and gotchas, backed by a recipe-level bibliography of
+vendor documentation with retrieval dates.
 
 That recipe is one of 29 (Salesforce, QuickBooks, Sage Intacct, Dynamics,
 SAP B1…) in a corpus inside a larger open protocol for evidence-based

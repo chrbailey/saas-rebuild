@@ -33,14 +33,15 @@ for the features you drop. You keep the data either way.
 
 → It ships with documented extraction routes for 29 common B2B apps
 (NetSuite, Salesforce, QuickBooks, Dynamics…) — export rights, API routes,
-rate limits, retention windows, all cited to vendor docs and marked
-unverified until someone proves them against a real tenant.
+rate limits, retention windows, each with a dated vendor-doc bibliography
+and marked unverified until someone proves them against a real tenant.
 
 → If you rebuild, the replacement is validated by replaying historical
 behavior, not by a demo.
 
-It runs in your browser with your own API key (nothing to install) or as
-a Claude Code plugin, on tenants you administer. Repo is "saas-rebuild" on
+It runs in your browser with your own API key (nothing to install, no
+connector into your tenant) or as a Claude Code plugin, on tenants you
+administer. Repo is "saas-rebuild" on
 GitHub (chrbailey) — links in comments.
 
 What I'd ask this network: when you left an ERP or major SaaS, what did
@@ -61,7 +62,7 @@ CONTRIBUTING.md explains the whole loop.
 
 ## Reviewer notes (delete before posting)
 
-- Character count of the main post is ~1,700 — trim to taste; the first
+- Character count of the main post is ~1,750 — trim to taste; the first
   two lines are the hook and must stay above the fold.
 - "29" and "unverified" must stay in sync with the repo at posting time
   (pinned at v0.8, skill 0.8.0: 29/100, all `doc-derived-unverified`).
