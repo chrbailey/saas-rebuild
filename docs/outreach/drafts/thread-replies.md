@@ -86,6 +86,8 @@ full preservation exports with checksums before any rebuild decision, a
 corpus of doc-derived extraction recipes for 29 common B2B apps, and
 replay-of-historical-behavior acceptance for replacements.
 https://github.com/chrbailey/saas-rebuild
+Runs in the browser too, with your own Anthropic API key and nothing to
+install: https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app
 
 Currently trying to get the first recipes promoted from
 "doc-derived-unverified" to "tenant-verified" by people who actually

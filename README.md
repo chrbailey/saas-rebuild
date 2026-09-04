@@ -6,59 +6,76 @@
 
 > **Prove what your SaaS actually does. Keep every byte of your data. Rebuild only the part you need.**
 
-Most companies pay for 100% of a SaaS or ERP product, use a fraction of it,
-and cannot say which fraction. Renewals get signed on the vendor's adoption
-deck and a gut feeling. Migrations start the data export *after* the contract
-decision, which is exactly backwards, and the attachments, audit trail, and
-configuration that explain the data are the first things lost.
+**Try it in your browser, nothing to install:**
+**[saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app)**
+Paste your own Anthropic API key (it is stored only in your browser and sent
+only to Anthropic; there is no backend and no account), name the tenant you
+administer or paste an export, and the workspace walks you through the audit
+as a chat. Within five minutes you have answered the scoping questions and
+downloaded the first artifact; a full teardown is a longer conversation and
+costs real API usage. Free and open source (MIT).
 
-SaaS Rebuild is a free, open-source protocol that fixes the order of
-operations. Point it at a tenant you administer and it produces an
-**evidence-cited verdict for every feature** (KEEP / SIMPLIFY / DROP / DEFER),
-a **checksummed export of everything you can reach** whether or not you keep
-it, and a **replacement plan validated by replaying your own history**, not by
-a vendor demo. It runs as a Claude Code plugin or in a browser workspace with
-your own API key, and it ships with documented export routes for 29 of the
-most common B2B applications.
+Renewal in six weeks and nobody can say which of the modules you pay for are
+used? Migration on the calendar with the data export scheduled for *after*
+the contract decision, when the attachments, audit history, and configuration
+that explain the data are the first things lost? SaaS Rebuild is a protocol
+for auditing a SaaS or ERP tenant you administer, with tooling that makes
+the audit checkable. You walk away with three things:
 
-**Who it is for**
+- **An evidence-cited verdict for every feature**, KEEP / SIMPLIFY / DROP /
+  DEFER. The schemas reject a verdict with no cited evidence, and a quiet
+  30-day log is never allowed to prove a year-end feature unused.
+- **A checksummed export of everything you can reach**, whether or not you
+  keep the feature, so the migration starts with the data already safe.
+- **A rebuild plan validated by replaying your own history**, not by a
+  vendor demo.
 
-- **IT and ops admins facing a renewal or true-up.** Walk in with a feature-by-feature
-  usage table where every row cites the log, export, or contract line that
-  supports it, instead of arguing with a dashboard the vendor built.
-- **Teams leaving NetSuite, Salesforce, QuickBooks, HubSpot, Microsoft 365, or two dozen others.**
-  Start from a written inventory of every export route, retention clock, and
-  role gate, and rehearse the export while the contract is still healthy.
-- **Consultants and MSPs.** Turn the SaaS-rationalization engagement into a
-  repeatable, machine-checked deliverable with a standard artifact set.
-- **Builders replacing a bloated tool with something smaller.** Get a
-  dependency-ordered rebuild plan and a regression corpus drawn from real
-  historical behavior.
+**Who it is for.** IT and ops admins facing a renewal or true-up; finance and
+ops leads who have to sign it; teams leaving NetSuite, Salesforce, QuickBooks,
+HubSpot, Microsoft 365, or another of the
+[29 applications with a documented export route](skills/saas-rebuild/corpus/README.md#covered-applications);
+consultants and MSPs who want the rationalization engagement as a repeatable,
+machine-checked deliverable; builders replacing a bloated tool with something
+smaller.
 
-The whole thing is deliberately honest about its limits. It reverse-engineers
-the part a customer legitimately owns (configuration, data, observed
-workflows, integrations, operating rules, historical inputs and outputs). It
-does not touch vendor source code, bypass access controls, or promise that
-every SaaS product can become a prompt. The schemas reject a verdict with no
-evidence behind it, and a 30-day quiet log is never allowed to prove a
-year-end feature is unused. That discipline is the product.
+**Where it stops.** It reads only the part you already own: configuration,
+data, observed workflows, integrations, contracts, and history. It does not
+touch vendor source code or bypass access controls. The 29 export recipes are
+researched from vendor documentation and not yet verified against live
+tenants, so every route is a hypothesis to check in your own account. Use it
+only on software and data you are authorized to administer.
 
 ## Five-minute quickstart (no tenant required)
 
-Pick whichever door fits. None of them touches a live account.
+Three doors, in order of effort. None of them touches a live account until
+you decide to.
 
-**Door 1 — the browser workspace, nothing to install.** The
-[`web/`](web/README.md) directory is a static app that runs the full protocol
-in your browser, guided by Claude, using your own Anthropic API key (stored
-only in your browser, sent only to Anthropic). It emits every artifact below as
-a downloadable file and lets you browse or attach any of the 29 extraction
-recipes. Serve it locally with one command:
+**Door 1 — the hosted browser workspace, nothing to install.**
 
-```bash
-cd web && python3 -m http.server 8080   # then open http://localhost:8080
-```
+1. Open [saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app)
+   and click **Open the workspace**.
+2. Paste an Anthropic API key when asked. The app is fully static: the key
+   is kept in your browser's localStorage and sent only to
+   `api.anthropic.com`. Clear it from the same dialog whenever you like.
+3. Pick a model (Claude Opus 5 by default; Sonnet 5 or Haiku 4.5 for cheaper
+   passes), optionally tick a reference playbook, and optionally attach one
+   of the 29 extraction recipes for the application you are auditing.
+4. Type something like *"Tear down the CRM tenant I administer and tell me
+   what we actually use."* The assistant opens with the scoping questions,
+   then asks you to run exports and queries in your own tenant and paste the
+   sanitized results. It has no connector into your account, and the protocol
+   instructs it never to ask for credentials.
 
-A hosted copy of the same workspace runs at [saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app), deployed automatically from `main` on Vercel.
+Every artifact below arrives as a fenced block with a download button.
+Sessions autosave in the browser and can be exported and re-imported, so a
+teardown can pause and resume. Expect real API spend on a serious engagement;
+the protocol prompt is large, and prompt caching is on to reduce it. Want to
+look before you paste a key? The [recipe corpus](#every-documented-way-to-get-your-data-out-of-29-b2b-apps)
+is browsable at `#/corpus` without one.
+
+The same app can be served locally from a clone
+(`cd web && python3 -m http.server 8080`, then open `http://localhost:8080`);
+see [`web/README.md`](web/README.md).
 
 **Door 2 — the Claude Code plugin.** Inside Claude Code:
 
@@ -69,6 +86,9 @@ A hosted copy of the same workspace runs at [saas-rebuild-workspace-christopher-
 
 That adds two slash commands: `/saas-rebuild:saas-rebuild` (the teardown
 protocol) and `/saas-rebuild:export-compliance` (the reference rebuild).
+Unlike the browser workspace, Claude Code can use whatever authorized
+connectors and files you give it, so the export steps can run in the same
+session.
 
 **Door 3 — see the machine checks bite.** From a clone of this repository, run
 the same validator CI runs against the fictional worked example:
@@ -93,7 +113,8 @@ verdicts it produced in
 [`examples/synthetic-crm/usage-analysis.md`](examples/synthetic-crm/usage-analysis.md);
 a test fails if that Markdown ever drifts from the JSON it is rendered from.
 
-**Then, on a tenant you administer:**
+**Then, on a tenant you administer.** In Claude Code (in the workspace, type
+the same sentence without the slash command):
 
 ```text
 /saas-rebuild:saas-rebuild Tear down the CRM tenant I administer and tell me what we actually use.
@@ -101,8 +122,8 @@ a test fails if that Markdown ever drifts from the JSON it is rendered from.
 
 If the application is one of the
 [29 covered applications](skills/saas-rebuild/corpus/README.md#covered-applications),
-the skill starts from that recipe's documented export routes. Every route is a
-hypothesis to verify in your tenant, not a promise.
+the protocol starts from that recipe's documented export routes. Every route
+is a hypothesis to verify in your tenant, not a promise.
 
 ### Manual skill install
 
@@ -168,7 +189,10 @@ may export, every documented extraction route in preference order (bulk
 export, API, report builder, file storage, audit log, configuration export),
 the roles and SKUs that gate each route, rate limits, retention clues, and
 where attachments and audit history hide. Every claim carries a cited, dated
-source.
+source. Browse it in the
+[hosted workspace](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app/#/corpus)
+(filter by name, vendor, or category; no API key needed) or as JSON in
+[`skills/saas-rebuild/corpus/extraction-recipes/`](skills/saas-rebuild/corpus/extraction-recipes/).
 
 Covered today (accounting, ERP, CRM, HR and payroll, spend, payments,
 productivity, recruiting, and project management):
@@ -300,7 +324,7 @@ what each test surface does, and does not, establish.
 | Component | Maturity | Purpose |
 |---|---|---|
 | [`saas-rebuild`](skills/saas-rebuild/SKILL.md) | Protocol / Claude Code skill | Runs the evidence, preservation, architecture, and replay workflow |
-| [Browser workspace](web/README.md) | Static app, bring your own key | Runs the same protocol from a browser with no install; emits artifacts as downloads |
+| [Browser workspace](web/README.md) | Static app, bring your own key, [hosted on Vercel](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app) | Runs the same protocol from a browser with no install; emits artifacts as downloads |
 | [Extraction recipes](skills/saas-rebuild/corpus/README.md) | Document-derived route hypotheses | Seeds authorized extraction and preservation planning; tenant verification is still required |
 | [Machine contracts](skills/saas-rebuild/templates) | JSON Schema 2020-12 | Constrain features, citations, paired cases, run state, graphs, and preservation manifests |
 | [Technical playbooks](skills/saas-rebuild/references) | Reviewable methodology | Extraction, process mining, and dependency analysis with explicit failure conditions |
@@ -309,9 +333,10 @@ what each test surface does, and does not, establish.
 | [`export-compliance`](skills/export-compliance/SKILL.md) | Reference implementation | Demonstrates the intended end state: deterministic core, optional model judgment, human gate, audit trail |
 
 The `saas-rebuild` skill is an executable instruction and evidence protocol,
-not a universal connector or one-click crawler. Platform APIs, permissions,
-retention windows, and data models differ; the agent follows the protocol
-using the authorized tools available for that tenant.
+not a universal connector or a crawler that works on every product unchanged.
+Platform APIs, permissions, retention windows, and data models differ; the
+agent follows the protocol using the authorized tools available for that
+tenant.
 
 Version 0.8 tightens the artifact contracts again. Existing users should read
 the [v0.7 → v0.8 migration guide](docs/migration-v0.8.md) (and, for older
@@ -342,10 +367,12 @@ export rights, or prohibited automated access changes the risk.
 
 `raw-local-only` is an **artifact distribution label**, not a claim that data
 never crossed a network. A hosted model or remote browser or MCP connector can
-receive whatever content it is shown. Before acquisition, record the actual
-model, connector, storage, residency, retention, and approval boundary in
-`teardown.json`; then minimize fields and aggregate whenever record-level data
-is unnecessary.
+receive whatever content it is shown. In the browser workspace, everything you
+paste is sent to Anthropic's API under your own key and account terms; the
+workspace itself has no server and stores nothing outside your browser.
+Before acquisition, record the actual model, connector, storage, residency,
+retention, and approval boundary in `teardown.json`; then minimize fields and
+aggregate whenever record-level data is unnecessary.
 
 The protocol does not establish legal compliance, data completeness, or
 behavioral equivalence by itself. Those are acceptance claims backed by

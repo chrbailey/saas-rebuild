@@ -39,8 +39,9 @@ unverified until someone proves them against a real tenant.
 → If you rebuild, the replacement is validated by replaying historical
 behavior, not by a demo.
 
-It runs as a Claude Code plugin on tenants you administer. Repo is
-"saas-rebuild" on GitHub (chrbailey) — link in comments.
+It runs in your browser with your own API key (nothing to install) or as
+a Claude Code plugin, on tenants you administer. Repo is "saas-rebuild" on
+GitHub (chrbailey) — links in comments.
 
 What I'd ask this network: when you left an ERP or major SaaS, what did
 you fail to export before the contract ended? That failure list is what
@@ -50,8 +51,10 @@ I'm trying to make impossible.
 
 ## First comment (post after engagement starts)
 
-Repo: https://github.com/chrbailey/saas-rebuild — the synthetic worked
-example shows every artifact without anyone's tenant data. If you
+Try it without installing anything: https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app
+(static app, your Anthropic API key stays in your browser and goes only to
+Anthropic). Repo: https://github.com/chrbailey/saas-rebuild — the synthetic
+worked example shows every artifact without anyone's tenant data. If you
 administer a tenant and want a genuinely useful way to help: pick one of
 the 29 extraction recipes and verify its routes against your live account.
 CONTRIBUTING.md explains the whole loop.
@@ -60,7 +63,10 @@ CONTRIBUTING.md explains the whole loop.
 
 - Character count of the main post is ~1,700 — trim to taste; the first
   two lines are the hook and must stay above the fold.
-- "29" and "unverified" must stay in sync with the repo at posting time.
+- "29" and "unverified" must stay in sync with the repo at posting time
+  (pinned at v0.8, skill 0.8.0: 29/100, all `doc-derived-unverified`).
+- Open the hosted workspace URL and confirm it loads before posting the
+  comment.
 - Timely alternates for later weeks: (a) Dynamics GP end-of-sales
   (Apr 2026) preservation angle; (b) riff on Zylo's 2026 index
   ($19.8M/yr avg. waste) or Flexera's 2026 ITAM report — both circulate

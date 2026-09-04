@@ -47,7 +47,7 @@ audit my SaaS":
 - **Rebuilds are accepted by replaying historical behavior**, with lineage
   rules so acceptance cases can't leak into development examples.
 - **A reference rebuild ships in the repo** (restricted-party screening):
-  deterministic Python core, ~270 stdlib tests, model adjudication optional
+  deterministic Python core, 379 stdlib tests, model adjudication optional
   and unable to overrule an exact match. That's the target architecture the
   protocol pushes toward — the skill as orchestration, not as a database.
 
@@ -58,6 +58,14 @@ without tenant data, and the whole thing installs as a plugin:
 /plugin marketplace add chrbailey/saas-rebuild
 /plugin install saas-rebuild@chrbailey-plugins
 ```
+
+If you'd rather see it before installing anything, the same protocol runs
+as a static browser workspace with your own Anthropic API key (no backend;
+the key stays in localStorage and goes only to api.anthropic.com; artifacts
+come back as downloads): https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app
+The plugin is the better fit for a real engagement, because Claude Code can
+use whatever authorized connectors and files you give it; the browser
+version has no connector into your tenant, so you paste sanitized exports.
 
 Honest limits: recipes are documentary research, not proof a route works in
 your tenant; the bibliography is recipe-level, not claim-addressable; and
@@ -70,9 +78,10 @@ lacks. CONTRIBUTING.md has the loop.
 
 ## Reviewer notes (delete before posting)
 
-- Numbers pinned to v0.7: 29/100, all doc-derived-unverified, 379 tests
-  (rounded to ~270 in the draft to keep it casual — restore the exact
-  number if you prefer).
+- Numbers pinned to v0.8 (skill 0.8.0): 29/100, all
+  doc-derived-unverified, 379 tests (the count in README and the assurance
+  case; re-check before posting).
+- Open the hosted workspace URL and confirm it loads before posting.
 - If the sub requires flair, "Showcase"/"Plugin" equivalents fit.
 - Expect "why not just a spreadsheet/SAM tool" comments — the answer is
   the preservation manifest + replay acceptance, not the usage report.

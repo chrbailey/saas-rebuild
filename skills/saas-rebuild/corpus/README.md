@@ -8,9 +8,18 @@ document, written once per application from the vendor's own terms and
 documentation, with a cited and dated bibliography, so nobody has to
 re-derive it under a termination deadline.
 
+You do not need to run a teardown, or install anything, to use it. Browse it
+in the hosted workspace at
+[saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app/#/corpus](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app/#/corpus)
+(filter by name, vendor, or category; no API key needed), or open the JSON
+files under [`extraction-recipes/`](extraction-recipes/) directly. Each
+recipe reads as a pre-migration checklist: what to export, by which route,
+with which role, before any contract conversation gets real.
+
 It reduces the blank-page cost of authorized SaaS extraction. It is a set of
 documented route hypotheses to verify, not a connector library and not tenant
-evidence.
+evidence: every recipe was researched from documentation and none has yet
+been exercised against a live tenant (see the `verification` field below).
 
 `apps.json` is a curated research backlog of 100 B2B SaaS applications across
 roughly 30 categories. Its `rank` is prioritization metadata, not a measured
