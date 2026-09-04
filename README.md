@@ -11,9 +11,9 @@
 Paste your own Anthropic API key (it is stored only in your browser and sent
 only to Anthropic; there is no backend and no account), name the tenant you
 administer or paste an export, and the workspace walks you through the audit
-as a chat. Within five minutes you have answered the scoping questions and
-downloaded the first artifact; a full teardown is a longer conversation and
-costs real API usage. Free and open source (MIT).
+as a chat. Within five minutes you are answering the scoping questions; a
+full teardown is a longer conversation and costs real API usage. Free and
+open source (MIT).
 
 Renewal in six weeks and nobody can say which of the modules you pay for are
 used? Migration on the calendar with the data export scheduled for *after*

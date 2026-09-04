@@ -5,6 +5,7 @@ public description from outrunning the repository's actual enforcement.
 
 | Claim | Enforced or demonstrated by | Residual limitation |
 |---|---|---|
+| The browser workspace keeps the API key in the browser and sends it only to Anthropic | `web/app.js` stores the key in `localStorage`, calls `api.anthropic.com` directly with the documented browser-access header, and has no server component; the static deployment has no build step and no environment variables | Everything pasted into the chat reaches Anthropic under the user's own key and account terms; the workspace cannot attest to what the model provider retains |
 | Claude Code can discover the plugin and its two skills | Official manifest field shapes, schema URLs, marketplace-source tests, documented namespaced invocation | Full install smoke test requires a current Claude Code binary and network access |
 | Extraction recipes are structurally reviewable | Draft 2020-12 schema, 100-entry backlog checks, filename/index parity, HTTPS/date/uniqueness bibliography tests | v0.8 does not fetch sources, type their authority, map individual claims to sources, or prove a route in any tenant |
 | A non-unknown usage or verdict has cited evidence | JSON Schema conditionals and invalid fixtures | Schema validates presence/shape, not whether the citation is true or sufficient |

@@ -26,7 +26,8 @@ Anthropic API key, and start.
   auditing.
 - **Browse the recipe corpus** at `#/corpus`, filterable by name, vendor, or
   category, with no API key required. Each recipe page shows the export-rights
-  summary, routes, and bibliography, and offers the JSON for download.
+  summary and the routes, and offers the full recipe JSON, bibliography
+  included, for download.
 - **Pause and resume.** Sessions autosave to the browser and can be exported
   and re-imported as JSON, the web analog of the protocol's resumable
   `teardown.json`. A transcript can be downloaded as Markdown.

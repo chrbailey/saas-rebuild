@@ -5,8 +5,10 @@ failure behavior, reproducibility, or the honesty of public claims.
 
 New here? You do not need a development setup to get a feel for the project.
 The [hosted browser workspace](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app)
-runs the whole protocol with your own Anthropic API key and nothing to
-install, and its `#/corpus` view shows every extraction recipe without a key.
+runs the protocol as a chat with your own Anthropic API key and nothing to
+install (it has no connector into a tenant and no filesystem, so you run the
+exports yourself and paste sanitized results), and its `#/corpus` view shows
+every extraction recipe without a key.
 The [synthetic worked example](examples/synthetic-crm/README.md) shows a
 finished teardown. Most contributions below start from one of those two
 places rather than from code.
