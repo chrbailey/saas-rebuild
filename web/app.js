@@ -109,6 +109,7 @@ async function loadData() {
     graph: refGraph,
   };
   state.recipeIndex = idx;
+  showProtocolVersion();
   const sel = $("recipe-select");
   for (const r of idx) {
     const o = document.createElement("option");
@@ -116,6 +117,19 @@ async function loadData() {
     o.textContent = `${r.app_name} (${r.category})`;
     sel.appendChild(o);
   }
+}
+
+// The served protocol version comes from web/data/version.json, which
+// scripts/sync_web_data.py generates from skill-versions.json, so the welcome
+// note cannot drift from the SKILL.md that is actually loaded. A missing or
+// malformed file leaves the note unversioned rather than failing the boot.
+async function showProtocolVersion() {
+  try {
+    const r = await fetch(dataUrl("version.json"));
+    if (!r.ok) return;
+    const v = (await r.json())["saas-rebuild"];
+    if (typeof v === "string" && v) $("protocol-version").textContent = ` (skill ${v})`;
+  } catch (_) { /* leave the note unversioned */ }
 }
 
 /* ------------------------------------------------ system prompt */

@@ -45,8 +45,15 @@ def main() -> None:
         )
 
     (OUT / "recipes" / "index.json").write_text(json.dumps(index, indent=2) + "\n")
+
+    # Skill versions, so the web app can show which protocol version it serves
+    # without hardcoding a number that goes stale at the next release.
+    versions = json.loads((ROOT / "skill-versions.json").read_text())
+    (OUT / "version.json").write_text(json.dumps(versions, indent=2, sort_keys=True) + "\n")
+
     print(f"Synced {len(index)} recipes, 2 skills, "
-          f"{len(list((OUT / 'references').glob('*.md')))} references -> {OUT}")
+          f"{len(list((OUT / 'references').glob('*.md')))} references, "
+          f"skill versions -> {OUT}")
 
 
 if __name__ == "__main__":
