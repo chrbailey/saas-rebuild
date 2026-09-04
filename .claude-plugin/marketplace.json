@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "chrbailey-plugins",
-  "description": "Evidence-driven application teardown, preservation, and replacement tools from ERP Access.",
+  "description": "Tools from ERP Access for proving what your SaaS actually does, keeping all of its data, and rebuilding only what you need.",
   "owner": {
     "name": "Chris Bailey",
     "url": "https://github.com/chrbailey"
@@ -10,7 +10,7 @@
     {
       "name": "saas-rebuild",
       "displayName": "SaaS Rebuild",
-      "description": "Map what an administered SaaS tenant actually does, seed extraction from cited recipes, preserve every data class or record accepted gaps, and derive a smaller replacement architecture from evidence and replay.",
+      "description": "Evidence-cited usage verdicts for every feature of a SaaS tenant you administer, a checksummed export of everything you can reach, and a replay-validated rebuild plan. Starts from documented export routes for 29 common B2B apps.",
       "source": "./",
       "category": "development",
       "tags": [

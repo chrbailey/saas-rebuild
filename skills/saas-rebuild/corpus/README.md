@@ -1,8 +1,16 @@
 # Extraction-recipe corpus
 
-This corpus reduces the blank-page cost of authorized SaaS extraction. It is
-a set of documented route hypotheses to verify, not a connector library and
-not tenant evidence.
+Before you leave a vendor, renew with one, or rebuild what it does, you need
+one document that says: what am I allowed to take, every route to take it,
+who has to hold which role or SKU to use that route, how fast, and where the
+attachments, audit history, and configuration hide. This corpus is that
+document, written once per application from the vendor's own terms and
+documentation, with a cited and dated bibliography, so nobody has to
+re-derive it under a termination deadline.
+
+It reduces the blank-page cost of authorized SaaS extraction. It is a set of
+documented route hypotheses to verify, not a connector library and not tenant
+evidence.
 
 `apps.json` is a curated research backlog of 100 B2B SaaS applications across
 roughly 30 categories. Its `rank` is prioritization metadata, not a measured
