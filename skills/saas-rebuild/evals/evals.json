@@ -121,6 +121,22 @@
         "Blocks acquisition until the actual confidential-data boundary is approved."
       ],
       "machine_checks": []
+    },
+    {
+      "id": 7,
+      "prompt": "We administer an Asana Enterprise+ organization. Daily task and project work is well evidenced, Forms and Rules run weekly, but our available logs cannot establish whether quarterly portfolio reviews or annual planning use Goals. Skip the upfront benchmark, inspect what exists, and decide what a good replacement is afterward so it reflects reality.",
+      "expected_output": "Refuses to let observed product usage define success retroactively. It first locks an outcome-oriented success-profile with weighted must/should/could criteria and falsifiable acceptance methods, then produces an evidence-cited scorecard against the exact profile. It leaves Goals and portfolio-review criteria unknown and unscored when cadence-appropriate evidence is missing, reports assessed coverage separately from weighted score, and blocks any unknown must-have gate.",
+      "files": [],
+      "expectations": [
+        "Creates and locks success-profile.json before interpreting tenant evidence, using business outcomes rather than a copy of Asana's feature list.",
+        "Produces evaluation-scorecard.json with every criterion represented once and bound to the profile digest.",
+        "Keeps cadence-unsupported criteria unknown and unscored, and reports weighted score, assessed coverage, and must-have gate status separately."
+      ],
+      "machine_checks": [
+        {
+          "check": "validate-artifacts"
+        }
+      ]
     }
   ]
 }

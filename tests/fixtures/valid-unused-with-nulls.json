@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.8.0",
+  "schema_version": "0.9.0",
   "id": "commission-plans",
   "nav_path": "Settings > Sales > Commission plans",
   "name": "Commission plans",

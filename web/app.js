@@ -53,6 +53,7 @@ function route() {
   });
   if (view === "corpus") renderCorpus();
   if (view === "workspace" && !localStorage.getItem(STORE.key)) showKeyModal();
+  else hideKeyModal();
 }
 window.addEventListener("hashchange", route);
 
@@ -69,6 +70,7 @@ function refreshKeyState() {
 }
 
 $("key-state").addEventListener("click", showKeyModal);
+$("key-close").addEventListener("click", hideKeyModal);
 $("key-save").addEventListener("click", () => {
   const v = $("key-input").value.trim();
   if (v) localStorage.setItem(STORE.key, v);
@@ -83,6 +85,9 @@ $("key-clear").addEventListener("click", () => {
 });
 $("key-modal").addEventListener("click", (e) => {
   if (e.target === $("key-modal")) hideKeyModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("key-modal").classList.contains("hidden")) hideKeyModal();
 });
 
 /* ------------------------------------------------ data loading */

@@ -4,7 +4,7 @@
     "app_name": "Asana",
     "vendor": "Asana",
     "category": "project-management",
-    "routes": 5
+    "routes": 6
   },
   {
     "app": "bamboohr",

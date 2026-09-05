@@ -5,9 +5,10 @@ description: Audit a SaaS tenant the user owns or administers, preserve its data
 
 # SaaS Rebuild — evidence-driven teardown and replacement design
 
-Systematic pipeline: inventory the tenant-specific system → identify observed
-behavior and uncertainty → preserve every data category → choose the smallest
-sound target architecture → verify it with disjoint historical cases.
+Systematic pipeline: lock what good means → inventory the tenant-specific
+system → identify observed behavior and uncertainty → preserve every data
+category → choose the smallest sound target architecture → verify it with
+disjoint historical cases.
 
 ## Guardrails (do these before anything else)
 
@@ -46,7 +47,7 @@ most, who are the users (names/roles count), and whether an admin/audit-log
 area is accessible. Create the output dir and `teardown.json` state file:
 
 ```json
-{"schema_version":"0.8.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Dev/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl"},"extraction":[],"decisions":[],"action_log":[]}
+{"schema_version":"0.9.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Dev/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl","success_profile":"success-profile.json"},"extraction":[],"decisions":[],"action_log":[]}
 ```
 
 State is resumable — on re-invocation, read `teardown.json` and continue from
@@ -90,6 +91,22 @@ resumability is not a state contract.
 
 Record each pre-flight item's status in `teardown.json` under `preflight`;
 an item marked blocked gets an owner and a ticket reference, not silence.
+
+### Phase 0b — Lock what good looks like
+
+Before inspecting tenant usage, facilitate the outcome benchmark and write
+`success-profile.json` against `templates/success-profile.schema.json`.
+Describe jobs and business outcomes rather than vendor screens. For each
+criterion record its dimension, must/should/could priority, 1–5 weight, and a
+falsifiable acceptance method, target, and required evidence classes. Also
+record non-goals and budget, deadline, legal, security, operational, or
+technical constraints. Get the decision owner's approval and set `locked_at`.
+
+This ordering prevents hindsight from redefining success around what the
+tenant happens to contain. An urgent volatile-log snapshot may precede the
+lock, but do not interpret it until the profile is locked. After lock, preserve
+the prior file as a numbered revision and log the approver, reason, old digest,
+and new digest in `teardown.json.decisions`; never silently edit the benchmark.
 
 ## Alternate mode — document-based teardown (no tenant access needed)
 
@@ -307,6 +324,17 @@ Sanity pass: any KEEP without cited evidence, or DROP with high criticality,
 gets re-checked. Write `usage-analysis.md` (verdict table + the why column)
 and update `teardown.json`.
 
+Then match the findings against the locked benchmark. Write
+`evaluation-scorecard.json` against
+`templates/evaluation-scorecard.schema.json`; bind it to the exact
+`success-profile.json` bytes with SHA-256 and include every criterion exactly
+once. `met` scores 100, `not-met` 0, `partially-met` 1–99, and `unknown` is
+unscored rather than treated as failure. Cite evidence ids and satisfy each
+criterion's required evidence classes before assigning a score. Report both
+weighted score and assessed-weight coverage. A must criterion that is unknown
+blocks the gate; any other unmet or partial must criterion fails it. The
+weighted score never overrides that gate.
+
 ## Phase 4 — Data extraction map
 
 For each KEEP/SIMPLIFY entity, choose the best extraction route in order of
@@ -450,7 +478,8 @@ version retained).
 
 ## Deliverables recap
 
-`~/Dev/teardowns/<app-slug>/`: `teardown.json`, `graph.json`, `inventory.md`,
+`~/Dev/teardowns/<app-slug>/`: `teardown.json`, `success-profile.json`,
+`evaluation-scorecard.json`, `graph.json`, `inventory.md`,
 `usage-analysis.md`, `extraction-runbook.md`,
 `preservation-manifest.json`, `exports/`, `pairs.jsonl`,
 `interview-questions.md` (if used), and `REBUILD_PLAN.md`. Validate every JSON
@@ -458,5 +487,6 @@ or JSONL artifact against its template before delivery. When Python and the
 declared `requirements.txt` dependency are available, run
 `tools/validate_artifacts.py <output-dir>` to enforce cross-file identities,
 lineage isolation, graph references, and preservation digests. Summarize
-KEEP/SIMPLIFY/DROP/DEFER counts, target-runtime counts, top findings, material
-unknowns, holdout status, and preservation gaps.
+KEEP/SIMPLIFY/DROP/DEFER counts, benchmark score and coverage, gate status,
+target-runtime counts, top findings, material unknowns, holdout status, and
+preservation gaps.

@@ -71,7 +71,7 @@ checklist of what to export before any migration conversation gets real.
   file-storage, audit-log-export, config-export). Re-check if the recipe
   changes before posting.
 - Verify sidebar rules and whether tool posts need mod pre-approval.
-- Numbers pinned to v0.8 (skill 0.8.0): 29/100 recipes, all
+- Numbers pinned to v0.9 (skill 0.9.0): 29/100 recipes, all
   `doc-derived-unverified`. Open the hosted workspace URL and confirm the
   NetSuite recipe renders before posting.
 - If a launch post feels too promotional for the sub's mood that week,

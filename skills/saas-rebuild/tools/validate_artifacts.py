@@ -8,7 +8,9 @@ to the feature inventory, and a pair's copy of a citation must equal its
 inventory definition), graph endpoints and process coverage, verdict parity
 between inventory and graph in both directions, dataset-lineage isolation,
 state references to the validated files, and preservation file
-size/digests/path containment with normalized path comparison.
+size/digests/path containment with normalized path comparison; and locked
+success-profile to scorecard identity, evidence coverage, score arithmetic,
+assessment coverage, and must-have gate status.
 """
 
 from __future__ import annotations
@@ -36,6 +38,8 @@ REQUIRED = {
     "pairs": "pairs.jsonl",
     "graph": "graph.json",
     "preservation": "preservation-manifest.json",
+    "success": "success-profile.json",
+    "scorecard": "evaluation-scorecard.json",
 }
 SCHEMAS = {
     "teardown": "teardown-state.schema.json",
@@ -43,6 +47,8 @@ SCHEMAS = {
     "pair": "pairs.schema.json",
     "graph": "dependency-graph.schema.json",
     "preservation": "preservation-manifest.schema.json",
+    "success": "success-profile.schema.json",
+    "scorecard": "evaluation-scorecard.schema.json",
 }
 # teardown.json `artifacts` keys that must name the file this command
 # validated; a state pointing elsewhere would make the validated file and the
@@ -52,6 +58,8 @@ STATE_ARTIFACTS = {
     "pairs": REQUIRED["pairs"],
     "graph": REQUIRED["graph"],
     "preservation_manifest": REQUIRED["preservation"],
+    "success_profile": REQUIRED["success"],
+    "evaluation_scorecard": REQUIRED["scorecard"],
 }
 
 
@@ -127,6 +135,8 @@ class Validation:
             pairs = load_jsonl(self.root / REQUIRED["pairs"])
             graph = load_json(self.root / REQUIRED["graph"])
             preservation = load_json(self.root / REQUIRED["preservation"])
+            success = load_json(self.root / REQUIRED["success"])
+            scorecard = load_json(self.root / REQUIRED["scorecard"])
         except ValueError as error:
             self.error(str(error))
             return self.finish()
@@ -141,9 +151,11 @@ class Validation:
             self.schema(pair, "pair", f"pairs.jsonl[{index}]")
         self.schema(graph, "graph", "graph.json")
         self.schema(preservation, "preservation", "preservation-manifest.json")
+        self.schema(success, "success", "success-profile.json")
+        self.schema(scorecard, "scorecard", "evaluation-scorecard.json")
 
         if not self.errors:
-            self.cross_file(state, features, pairs, graph, preservation)
+            self.cross_file(state, features, pairs, graph, preservation, success, scorecard)
         return self.finish(features=len(features), pairs=len(pairs))
 
     def cross_file(
@@ -153,6 +165,8 @@ class Validation:
         pairs: list[dict[str, Any]],
         graph: dict[str, Any],
         preservation: dict[str, Any],
+        success: dict[str, Any],
+        scorecard: dict[str, Any],
     ) -> None:
         feature_ids = [feature["id"] for feature in features]
         repeated = duplicates(feature_ids)
@@ -316,6 +330,126 @@ class Validation:
             if unresolved:
                 self.error(
                     f"teardown decision {decision['id']} has unknown evidence: {sorted(unresolved)}"
+                )
+
+        # The benchmark is locked before evidence collection and the scorecard
+        # is a complete, reproducible crosswalk against that exact file.
+        if success["teardown_id"] != state["teardown_id"]:
+            self.error("success-profile teardown_id does not match state")
+        if scorecard["teardown_id"] != state["teardown_id"]:
+            self.error("evaluation-scorecard teardown_id does not match state")
+        if success["app"]["slug"] != state["app"]["slug"]:
+            self.error("success-profile app slug does not match state")
+
+        criteria = success["criteria"]
+        criterion_ids = [criterion["id"] for criterion in criteria]
+        repeated = duplicates(criterion_ids)
+        if repeated:
+            self.error(f"duplicate success-profile criterion ids: {sorted(repeated)}")
+        criterion_map = {criterion["id"]: criterion for criterion in criteria}
+
+        entries = scorecard["entries"]
+        entry_ids = [entry["criterion_id"] for entry in entries]
+        repeated = duplicates(entry_ids)
+        if repeated:
+            self.error(f"duplicate evaluation-scorecard criterion ids: {sorted(repeated)}")
+        missing_entries = sorted(set(criterion_ids) - set(entry_ids))
+        extra_entries = sorted(set(entry_ids) - set(criterion_ids))
+        if missing_entries:
+            self.error(f"evaluation-scorecard is missing criteria: {missing_entries}")
+        if extra_entries:
+            self.error(f"evaluation-scorecard has unknown criteria: {extra_entries}")
+
+        entry_map = {entry["criterion_id"]: entry for entry in entries}
+        for entry in entries:
+            unresolved = set(entry["evidence_ids"]) - evidence_set
+            if unresolved:
+                self.error(
+                    f"evaluation criterion {entry['criterion_id']} has unknown evidence: "
+                    f"{sorted(unresolved)}"
+                )
+                continue
+            if entry["criterion_id"] not in criterion_map:
+                continue
+            if entry["status"] == "unknown":
+                continue
+            required_classes = set(
+                criterion_map[entry["criterion_id"]]["acceptance"]["evidence_classes"]
+            )
+            present_classes = {
+                evidence_map[evidence_id]["evidence_class"]
+                for evidence_id in entry["evidence_ids"]
+            }
+            absent_classes = sorted(required_classes - present_classes)
+            if absent_classes:
+                self.error(
+                    f"evaluation criterion {entry['criterion_id']} lacks required evidence "
+                    f"classes: {absent_classes}"
+                )
+
+        success_bytes = (self.root / REQUIRED["success"]).read_bytes()
+        expected_digest = hashlib.sha256(success_bytes).hexdigest()
+        if scorecard["benchmark"]["sha256"] != expected_digest:
+            self.error("evaluation-scorecard benchmark digest does not match success-profile.json")
+
+        summary = scorecard["summary"]
+        total_weight = sum(criterion["weight"] for criterion in criteria)
+        assessed = [
+            criterion
+            for criterion in criteria
+            if criterion["id"] in entry_map and entry_map[criterion["id"]]["score"] is not None
+        ]
+        assessed_weight = sum(criterion["weight"] for criterion in assessed)
+        coverage = round(100 * assessed_weight / total_weight, 2)
+        weighted = (
+            round(
+                sum(
+                    criterion["weight"] * entry_map[criterion["id"]]["score"]
+                    for criterion in assessed
+                )
+                / assessed_weight,
+                2,
+            )
+            if assessed_weight
+            else None
+        )
+        unknown = sorted(
+            criterion["id"]
+            for criterion in criteria
+            if entry_map.get(criterion["id"], {}).get("status") == "unknown"
+        )
+        must_gaps = sorted(
+            criterion["id"]
+            for criterion in criteria
+            if criterion["priority"] == "must"
+            and entry_map.get(criterion["id"], {}).get("status") != "met"
+        )
+        failed = any(
+            criterion["priority"] == "must"
+            and entry_map.get(criterion["id"], {}).get("status")
+            in {"partially-met", "not-met"}
+            for criterion in criteria
+        )
+        blocked = any(
+            criterion["priority"] == "must"
+            and entry_map.get(criterion["id"], {}).get("status") == "unknown"
+            for criterion in criteria
+        )
+        gate_status = "fail" if failed else "blocked" if blocked else "pass"
+        expected_summary = {
+            "total_weight": total_weight,
+            "assessed_weight": assessed_weight,
+            "coverage_percent": coverage,
+            "weighted_score": weighted,
+            "gate_status": gate_status,
+            "must_gaps": must_gaps,
+            "unknown_criteria": unknown,
+        }
+        for field, expected in expected_summary.items():
+            actual = summary[field]
+            if actual != expected:
+                self.error(
+                    f"evaluation-scorecard summary {field} is {actual!r}, expected {expected!r}"
                 )
 
         for name, relative in state["artifacts"].items():

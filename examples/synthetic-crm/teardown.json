@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.8.0",
+  "schema_version": "0.9.0",
   "teardown_id": "synthetic-crm-2026",
   "app": {
     "name": "SYNTHETIC CRM FIXTURE",
@@ -34,6 +34,8 @@
     "pairs": "pairs.jsonl",
     "graph": "graph.json",
     "preservation_manifest": "preservation-manifest.json",
+    "success_profile": "success-profile.json",
+    "evaluation_scorecard": "evaluation-scorecard.json",
     "rebuild_plan": "REBUILD_PLAN.md"
   },
   "extraction": [

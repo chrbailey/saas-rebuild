@@ -3,7 +3,7 @@
   "name": "saas-rebuild",
   "displayName": "SaaS Rebuild",
   "description": "Prove what a SaaS or ERP tenant you administer actually uses, keep every byte of its data, and rebuild only what you need. Every feature gets an evidence-cited KEEP / SIMPLIFY / DROP / DEFER verdict (the schemas reject a verdict with no cited evidence), everything reachable is exported and checksummed regardless of verdict, and any replacement is validated by replaying the tenant's own history. Ships documented export routes for 29 common B2B apps (NetSuite, Salesforce, QuickBooks, HubSpot, Microsoft 365, and more; researched from vendor docs, not yet verified against live tenants) and a tested export-compliance reference rebuild. The same protocol also runs with no install in a hosted browser workspace using your own Anthropic API key.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "skills": "./skills/",
   "author": {
     "name": "Chris Bailey",

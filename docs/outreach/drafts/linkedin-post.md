@@ -65,7 +65,7 @@ CONTRIBUTING.md explains the whole loop.
 - Character count of the main post is ~1,750 — trim to taste; the first
   two lines are the hook and must stay above the fold.
 - "29" and "unverified" must stay in sync with the repo at posting time
-  (pinned at v0.8, skill 0.8.0: 29/100, all `doc-derived-unverified`).
+  (pinned at v0.9, skill 0.9.0: 29/100, all `doc-derived-unverified`).
 - Open the hosted workspace URL and confirm it loads before posting the
   comment.
 - Timely alternates for later weeks: (a) Dynamics GP end-of-sales

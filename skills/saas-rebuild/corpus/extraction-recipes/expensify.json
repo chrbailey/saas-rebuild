@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.8.0",
+  "schema_version": "0.9.0",
   "app": "expensify",
   "app_name": "Expensify",
   "vendor": "Expensify",

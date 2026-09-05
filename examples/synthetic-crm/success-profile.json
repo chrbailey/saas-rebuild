@@ -1,0 +1,78 @@
+{
+  "schema_version": "0.9.0",
+  "teardown_id": "synthetic-crm-2026",
+  "app": {
+    "name": "Synthetic CRM",
+    "slug": "synthetic-crm"
+  },
+  "created_at": "2026-07-01T09:00:00Z",
+  "locked_at": "2026-07-01T09:30:00Z",
+  "approved_by": "synthetic-product-owner",
+  "outcomes": [
+    "Service staff can identify the correct customer during an inbound request.",
+    "Operations can ingest the weekly customer file without ad hoc repair.",
+    "The replacement meets every recurring customer-compliance obligation."
+  ],
+  "criteria": [
+    {
+      "id": "customer-lookup",
+      "dimension": "business-outcome",
+      "statement": "Service roles can find the correct customer during an inbound request.",
+      "priority": "must",
+      "weight": 5,
+      "acceptance": {
+        "method": "replay",
+        "target": "All frozen lookup cases return the same customer identity as the legacy system.",
+        "evidence_classes": ["runtime", "human-framing"]
+      }
+    },
+    {
+      "id": "weekly-customer-ingest",
+      "dimension": "workflow",
+      "statement": "The weekly customer file imports through a stable, versioned contract without manual column cleanup.",
+      "priority": "must",
+      "weight": 4,
+      "acceptance": {
+        "method": "replay",
+        "target": "100 percent of frozen valid batches import without manual remapping; invalid batches fail with actionable errors.",
+        "evidence_classes": ["runtime"]
+      }
+    },
+    {
+      "id": "no-dormant-enrichment-dependency",
+      "dimension": "cost",
+      "statement": "No retained workflow or paid dependency relies on the dormant social-enrichment connector.",
+      "priority": "could",
+      "weight": 1,
+      "acceptance": {
+        "method": "inspection",
+        "target": "No execution or dependency exists across the complete tenant history.",
+        "evidence_classes": ["structure", "runtime"]
+      }
+    },
+    {
+      "id": "annual-tax-compliance",
+      "dimension": "control",
+      "statement": "The replacement produces the required annual customer tax certificate.",
+      "priority": "must",
+      "weight": 5,
+      "acceptance": {
+        "method": "replay",
+        "target": "Every eligible frozen year-end case produces the policy-required certificate.",
+        "evidence_classes": ["runtime", "human-framing"]
+      }
+    }
+  ],
+  "non_goals": [
+    "Reproduce every configuration option in the legacy CRM.",
+    "Retain the disabled social-enrichment integration."
+  ],
+  "constraints": [
+    {
+      "id": "preserve-before-cutover",
+      "kind": "operational",
+      "statement": "The full tenant export and replay corpus must be verified before cutover."
+    }
+  ],
+  "change_control": "After lock, append a dated decision to teardown.json; never rewrite the original criterion without recording why and who approved it."
+}

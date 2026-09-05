@@ -1,11 +1,11 @@
 {
-  "schema_version": "0.8.0",
+  "schema_version": "0.9.0",
   "app": "asana",
   "app_name": "Asana",
   "vendor": "Asana",
   "category": "project-management",
   "export_rights": {
-    "summary": "Asana's developer documentation states that an organization_export request 'starts a job to export the complete data of the given Organization' in JSON format, available to Service Accounts of Enterprise organizations, and that 'admins can export subsets of organization data as CSV, such as tasks in a project'. The customer-facing terms/DPA were not consulted, so no contractual statement of export rights is documented here.",
+    "summary": "Current Asana developer documentation describes a JSON organization export as the complete data of an organization and limits its API to Service Accounts of Enterprise+ organizations. Current Help Center documentation also describes per-project JSON/CSV export, Admin Console domain export, member/team CSV export, audit-log CSV export, and connected-app activity CSV export. These are documented product routes, not a contractual determination of export rights; the customer agreement and DPA were not reviewed.",
     "tos_url": null,
     "post_termination_window": null
   },
@@ -13,10 +13,10 @@
     {
       "route_type": "account-export",
       "covers": ["complete organization data (all objects, JSON)"],
-      "how": "POST https://app.asana.com/api/1.0/organization_exports with {data:{organization:<workspace_gid>}}; poll GET /organization_exports/{organization_export_gid} until state=finished; download the gzip JSON file at download_url. Auth: Bearer personal access token of a Service Account.",
+      "how": "API: POST https://app.asana.com/api/1.0/organization_exports with {data:{organization:<workspace_gid>}}; poll GET /organization_exports/{organization_export_gid} until state=finished; download the gzip JSON file at download_url. UI: profile photo > Admin console > Settings > Domain export; the completion link is emailed to the admin.",
       "formats": ["JSON (gzip .gz)"],
-      "requires": ["Enterprise organization", "Service Account personal access token"],
-      "rate_limits": "Standard API limits apply (150 req/min free domains, 1500 req/min premium domains).",
+      "requires": ["Enterprise+ organization and Service Account token for the API route", "appropriate admin access for the Admin Console route"],
+      "rate_limits": "API standard limits apply (150 req/min free domains, 1500 req/min paid domains); export endpoints are also limited to 5 concurrent jobs per user.",
       "gotchas": [
         "Exports can take from several minutes to a few hours for large organizations.",
         "download_url may be null while in progress or on failure, and when present may only be valid for 1 hour from retrieval — refresh on demand, do not persist.",
@@ -38,14 +38,27 @@
     },
     {
       "route_type": "entity-export",
-      "covers": ["project tasks (CSV)", "workspace members (CSV)", "teams (CSV)", "search report results (CSV)"],
-      "how": "Admin/UI CSV exports. Developer docs confirm these exist ('admins can export subsets of organization data as CSV, such as tasks in a project') and the audit-log event catalog enumerates project_csv_export_started, workspace_members_export_started, workspace_teams_export_started, division_teams_export_started and search_report_export_started — but the consulted docs give no UI navigation steps; verify paths in-tenant (help.asana.com was not consulted for this recipe).",
-      "formats": ["CSV"],
-      "requires": ["admin role for workspace-level exports (per docs wording 'admins can export')"],
+      "covers": ["project data (JSON or CSV)", "saved Search Views", "My Tasks", "organization or division members (CSV)", "organization or division teams (CSV)"],
+      "how": "Project/Search/My Tasks: open the view, click the title drop-down, hover Export/Print, and choose JSON or CSV where offered. Members: Admin console > Members > Export CSV. Teams: Admin console > Teams > Export CSV. Admin exports are delivered by emailed download link.",
+      "formats": ["JSON", "CSV"],
+      "requires": ["view access for project/Search/My Tasks exports", "admin access for member export", "super admin of a paid organization or division admin for team export"],
       "rate_limits": null,
       "gotchas": [
-        "Exact nav paths, included fields, and any row/field truncation are undocumented in the sources consulted.",
-        "A workspace_attachment_export_started audit event implies an attachment export feature exists, but it is otherwise undocumented in the consulted sources."
+        "CSV project exports do not preserve every task behavior or binary attachment; validate JSON and attachment coverage separately.",
+        "Large CSV exports may be generated asynchronously and delivered by email.",
+        "An export is permission-scoped; private work the exporting identity cannot see may be absent."
+      ]
+    },
+    {
+      "route_type": "config-export",
+      "covers": ["connected apps", "integration users", "90-day app-use counts", "last app activity", "granted permissions"],
+      "how": "Admin console > Apps > Manage apps > Connected apps. Inspect each app for permissions and recent usage, then click Export CSV for user-level activity. The CSV is emailed to the exporting admin.",
+      "formats": ["CSV", "admin-console inspection"],
+      "requires": ["authorized admin with App management access"],
+      "rate_limits": null,
+      "gotchas": [
+        "The exported usage window is 90 days, so absence does not prove an annual or seasonal integration unused.",
+        "Configuration and permission detail visible on an app page may need a separate evidence capture if the CSV omits it."
       ]
     },
     {
@@ -64,9 +77,9 @@
     {
       "route_type": "audit-log-export",
       "covers": ["audit-log"],
-      "how": "GET https://app.asana.com/api/1.0/workspaces/{workspace_gid}/audit_log_events with start_at/end_at/event_type/actor filters; paginated (default limit 1000 events) via offset tokens. Auth: Service Account personal access token.",
+      "how": "API: GET https://app.asana.com/api/1.0/workspaces/{workspace_gid}/audit_log_events with start_at/end_at/event_type/actor filters and pagination; authenticate with a Service Account token. UI snapshot: Admin console > Security > Audit log > Export CSV.",
       "formats": ["JSON"],
-      "requires": ["Enterprise domain", "Service Account personal access token"],
+      "requires": ["Enterprise+ or legacy Enterprise Service Account, or Enterprise with Compliance Management Add-on", "super admin access for the Admin Console CSV route"],
       "rate_limits": "Standard API limits apply.",
       "gotchas": [
         "Events are permanently deleted after 90 days — docs recommend continuous ingestion into a SIEM for a permanent record; a one-time exit export only captures the trailing 90 days.",
@@ -77,8 +90,8 @@
   ],
   "preservation_notes": {
     "attachments": "Per-object via REST API: list attachments per parent, then download each download_url (valid ~2 minutes; null for Box-hosted and Vimeo video-message attachments — retrieve those from the external host). Whether the Enterprise organization export JSON includes attachment binaries is not stated in the consulted docs. An admin-side 'workspace attachment export' is implied by the audit event workspace_attachment_export_started but is otherwise undocumented in consulted sources.",
-    "audit_log": "Audit Log API (Enterprise + Service Account PAT): GET /workspaces/{workspace_gid}/audit_log_events, JSON, paginated (default 1000/page). Documented retention is 90 days from capture, after which events are permanently deleted; events exist only from 2021-10-08 onward.",
-    "config_artifacts": "No dedicated restorable config-export is documented in the consulted sources. Custom field definitions, project templates, task templates, forms-related settings etc. are readable as JSON via the REST API, and the Enterprise organization export is described as 'the complete data of an organization', but neither is documented as a re-importable configuration artifact."
+    "audit_log": "Audit Log API access currently requires Enterprise+, legacy Enterprise, or Enterprise with the Compliance Management Add-on plus a Service Account token. Super admins can also export a CSV snapshot from Admin console > Security > Audit log. Documented retention is 90 days, so continuous ingestion is required for longer history.",
+    "config_artifacts": "No dedicated restorable configuration package is documented. Custom fields, templates, forms-related objects and other metadata are readable through the REST API or organization export where supported. Connected-app inventory and 90-day app activity can be exported from Admin console > Apps > Manage apps > Connected apps. None of these routes is documented as a full configuration restore."
   },
   "sources": [
     {
@@ -110,12 +123,58 @@
       "url": "https://github.com/Asana/developer-docs/blob/master/source/includes/markdown/_auth.html.md",
       "title": "Asana API docs: Authentication (personal access tokens, OAuth 2.0)",
       "retrieved": "2026-08-08"
+    },
+    {
+      "url": "https://developers.asana.com/reference/organization-exports",
+      "title": "Asana developer documentation: Organization exports and Enterprise+ access requirement",
+      "retrieved": "2026-09-05"
+    },
+    {
+      "url": "https://developers.asana.com/reference/audit-log-api",
+      "title": "Asana developer documentation: Audit Log API access tiers and Service Account requirement",
+      "retrieved": "2026-09-05"
+    },
+    {
+      "url": "https://developers.asana.com/docs/rate-limits",
+      "title": "Asana developer documentation: Standard, search, concurrent request, and export-job limits",
+      "retrieved": "2026-09-05"
+    },
+    {
+      "url": "https://help.asana.com/s/article/project-importing-and-exporting?language=en_US",
+      "title": "Asana Help Center: Project, Search View, and My Tasks JSON/CSV exports",
+      "retrieved": "2026-09-05"
+    },
+    {
+      "url": "https://help.asana.com/s/article/privacy-and-security?language=en_US",
+      "title": "Asana Help Center: Domain export route and documented organization-export contents",
+      "retrieved": "2026-09-05"
+    },
+    {
+      "url": "https://help.asana.com/s/article/managing-members-in-an-organization?language=en_US",
+      "title": "Asana Help Center: Organization member CSV export and fields",
+      "retrieved": "2026-09-05"
+    },
+    {
+      "url": "https://help.asana.com/s/article/managing-teams-through-the-admin-console?language=en_US",
+      "title": "Asana Help Center: Team CSV export and fields",
+      "retrieved": "2026-09-05"
+    },
+    {
+      "url": "https://help.asana.com/s/article/audit-suite-api-and-integration-support?language=en_US",
+      "title": "Asana Help Center: Audit log 90-day retention and Admin Console CSV export",
+      "retrieved": "2026-09-05"
+    },
+    {
+      "url": "https://help.asana.com/s/article/app-management-and-integrations?language=en_US",
+      "title": "Asana Help Center: Connected-app inventory, permissions, and 90-day activity CSV",
+      "retrieved": "2026-09-05"
     }
   ],
   "verification": "doc-derived-unverified",
-  "last_reviewed": "2026-08-08",
-  "notes": "This recipe is built entirely from a local clone of Asana's official developer-docs GitHub repository — vendor-authored, but a snapshot last committed 2024-09-11; live docs may have newer limits, plan names (e.g. Advanced/Enterprise+ SKUs are not reflected), or endpoints. Not confirmable from consulted sources and therefore omitted: UI navigation paths for project CSV/JSON export and admin-console exports; whether project export offers JSON as well as CSV; report/dashboard (Universal Reporting) export capability; terms-of-service/DPA export-rights language and any post-termination retrieval window; whether the org export JSON contains attachment binaries. Verify all routes in-tenant before relying on them.",
+  "last_reviewed": "2026-09-05",
+  "notes": "Current live Asana developer and Help Center pages were reviewed for organization, project, member, team, connected-app, and audit-log routes. The recipe remains document-derived and unverified against a live tenant. Still unconfirmed: contractual export/return rights and post-termination window; full organization-export object coverage; binary attachment inclusion; a restorable configuration package; and exact SKU availability in the user's tenant.",
   "research_caveats": [
-    "asana.com, help.asana.com, developers.asana.com and web.archive.org were all blocked by the research environment's network egress proxy, and the web-search budget was exhausted, so this recipe was built entirely from a local clone of Asana's official developer-docs GitHub repository (snapshot last committed 2024-09-11) rather than the live vendor pages; UI navigation steps on help.asana.com and the customer-facing terms/DPA were not consulted."
+    "The customer agreement and DPA were not reviewed, so the documented product routes are not presented as a legal conclusion about export rights or post-termination access.",
+    "No live Asana tenant was used; roles, entitlements, asynchronous delivery, field coverage, and attachment behavior require in-tenant verification."
   ]
 }

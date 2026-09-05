@@ -78,7 +78,7 @@ lacks. CONTRIBUTING.md has the loop.
 
 ## Reviewer notes (delete before posting)
 
-- Numbers pinned to v0.8 (skill 0.8.0): 29/100, all
+- Numbers pinned to v0.9 (skill 0.9.0): 29/100, all
   doc-derived-unverified, 379 tests (the count in README and the assurance
   case; re-check before posting).
 - Open the hosted workspace URL and confirm it loads before posting.
