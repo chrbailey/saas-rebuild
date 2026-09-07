@@ -10,7 +10,7 @@ and the Claude Code plugin emit for a tenant you administer; the preserved
 export files and their digests come from exports you run yourself, since the
 workspace has no connector into a tenant.
 
-The directory is an internally consistent example of the v0.8 artifact
+The directory is an internally consistent example of the v0.9 artifact
 contracts. It is not evidence from a customer engagement, and every number in
 it was invented to exercise the rules.
 
@@ -23,8 +23,11 @@ The example deliberately includes four different conclusions:
 
 It also demonstrates a hybrid target architecture, disjoint behavioral-case
 roles, explicit model/connector boundaries, a typed interaction graph, and a
-checksummed preservation manifest. CI validates both JSON Schema conformance
-and cross-artifact invariants.
+checksummed preservation manifest. The pre-evidence success profile is bound
+to its scorecard by SHA-256; the example scores 84 across 66.67% of weighted
+criteria but fails its must-have gate because weekly ingest is only partial;
+annual compliance also remains unknown. CI validates both JSON Schema
+conformance and cross-artifact invariants.
 
 ## Reading order
 
@@ -32,6 +35,7 @@ Start with the human artifacts, then open the JSON they are rendered from:
 
 | Read | Rendered from | What it shows |
 |---|---|---|
+| [`evaluation-scorecard.json`](evaluation-scorecard.json) | `success-profile.json`, `feature-inventory.json` | The locked “what good looks like” criteria, evidence crosswalk, assessed coverage, weighted score, and must-have gate |
 | [`usage-analysis.md`](usage-analysis.md) | `feature-inventory.json`, `teardown.json` | The KEEP / SIMPLIFY / DROP / DEFER table with a reason and evidence ids per row, and why a 60-day window cannot demote an annual report |
 | [`inventory.md`](inventory.md) | `feature-inventory.json`, `graph.json` | Every feature, every citation with its coverage horizon, and the typed graph |
 | [`extraction-runbook.md`](extraction-runbook.md) | `teardown.json`, `preservation-manifest.json`, the preserved files | Route and status per entity, expected fields, and the checksummed preservation record including the accepted gap |
@@ -52,6 +56,8 @@ python skills/saas-rebuild/tools/validate_artifacts.py examples/synthetic-crm
 | File | Contract |
 |---|---|
 | `teardown.json` | `templates/teardown-state.schema.json` — run state, preflight, data boundary, extraction status, decisions, action log |
+| `success-profile.json` | `templates/success-profile.schema.json` — locked outcomes, weighted criteria, acceptance methods, non-goals, and constraints |
+| `evaluation-scorecard.json` | `templates/evaluation-scorecard.schema.json` — complete evidence crosswalk, score, coverage, gate, and benchmark digest |
 | `feature-inventory.json` | `templates/feature-inventory.schema.json` — one entry per feature with typed evidence citations |
 | `graph.json` | `templates/dependency-graph.schema.json` — feature, entity, integration, and business-process nodes with evidence-bearing edges |
 | `preservation-manifest.json` | `templates/preservation-manifest.schema.json` — exported files with SHA-256 digests, record counts, and one accepted gap |

@@ -1,0 +1,59 @@
+{
+  "schema_version": "0.9.0",
+  "teardown_id": "synthetic-crm-2026",
+  "evaluated_at": "2026-07-03T12:00:00Z",
+  "benchmark": {
+    "path": "success-profile.json",
+    "sha256": "d5f2edc40e74fdfbc2a574564dd121ccf23243569be3c513f204d4cec6d5c7e5"
+  },
+  "entries": [
+    {
+      "criterion_id": "customer-lookup",
+      "status": "met",
+      "score": 100,
+      "evidence_ids": ["ev-search-runtime", "ev-search-criticality"],
+      "finding": "Observed service use and the named critical process establish the lookup requirement.",
+      "gap": null,
+      "recommendation": "Retain the behavior and validate it with frozen lookup replays."
+    },
+    {
+      "criterion_id": "weekly-customer-ingest",
+      "status": "partially-met",
+      "score": 60,
+      "evidence_ids": ["ev-import-runtime"],
+      "finding": "Weekly imports run, but six of eight observed batches required manual column cleanup.",
+      "gap": "The input contract is not stable enough for unattended operation.",
+      "recommendation": "Replace flexible mappings with a versioned template and deterministic validation."
+    },
+    {
+      "criterion_id": "no-dormant-enrichment-dependency",
+      "status": "met",
+      "score": 100,
+      "evidence_ids": ["ev-enrich-config", "ev-enrich-runtime"],
+      "finding": "The connector is disabled and has no execution across the complete synthetic history.",
+      "gap": null,
+      "recommendation": "Drop the connector after confirming no external dependency references it."
+    },
+    {
+      "criterion_id": "annual-tax-compliance",
+      "status": "unknown",
+      "score": null,
+      "evidence_ids": ["ev-tax-window", "ev-tax-contract"],
+      "finding": "The policy establishes the obligation, but the 60-day runtime window excludes year end.",
+      "gap": "No cadence-appropriate runtime or frozen year-end replay evidence is available.",
+      "recommendation": "Acquire a complete year-end case set before selecting or accepting the replacement."
+    }
+  ],
+  "summary": {
+    "total_weight": 15,
+    "assessed_weight": 10,
+    "coverage_percent": 66.67,
+    "weighted_score": 84.0,
+    "gate_status": "fail",
+    "must_gaps": ["annual-tax-compliance", "weekly-customer-ingest"],
+    "unknown_criteria": ["annual-tax-compliance"],
+    "caveats": [
+      "The weighted score covers only assessed criteria; it must be read with the 66.67 percent coverage, failed must-have gate, and remaining unknown."
+    ]
+  }
+}

@@ -23,7 +23,7 @@ been exercised against a live tenant (see the `verification` field below).
 
 `apps.json` is a curated research backlog of 100 B2B SaaS applications across
 roughly 30 categories. Its `rank` is prioritization metadata, not a measured
-market-adoption result. At v0.8, 29 entries have recipes; the
+market-adoption result. At v0.9, 29 entries have recipes; the
 [covered applications](#covered-applications) table below lists them. For
 each implemented entry, `extraction-recipes/<app>.json` records, per
 `../templates/extraction-recipe.schema.json`:
@@ -68,7 +68,7 @@ worked, what differed, vendor documentation links, and the date.
 filename, the target list, and bibliography URL/date/uniqueness constraints,
 and checks that research-session language stays out of `export_rights.summary`
 and `notes`. It does **not** fetch URLs, prove that a source supports a
-sentence, or establish tenant completeness. The v0.8 bibliography is
+sentence, or establish tenant completeness. The v0.9 bibliography is
 recipe-level rather than claim-addressable; that is a declared assurance
 limitation, not hidden provenance.
 
@@ -111,7 +111,7 @@ re-reviews become visible here as they land.
 | Microsoft Teams | [`microsoft-teams`](extraction-recipes/microsoft-teams.json) | communication | doc-derived-unverified | 2026-08-08 |
 | Google Workspace | [`google-workspace`](extraction-recipes/google-workspace.json) | productivity-suite | doc-derived-unverified | 2026-08-08 |
 | Microsoft 365 | [`microsoft-365`](extraction-recipes/microsoft-365.json) | productivity-suite | doc-derived-unverified | 2026-08-08 |
-| Asana | [`asana`](extraction-recipes/asana.json) | project-management | doc-derived-unverified | 2026-08-08 |
+| Asana | [`asana`](extraction-recipes/asana.json) | project-management | doc-derived-unverified | 2026-09-05 |
 
 The remaining 71 backlog entries have research briefs in
 [`docs/corpus-batches/`](../../../docs/corpus-batches/) and no recipe yet;

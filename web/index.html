@@ -158,9 +158,9 @@
 </footer>
 
 <!-- ============ key modal ============ -->
-<div class="modal-backdrop hidden" id="key-modal">
+<div class="modal-backdrop hidden" id="key-modal" role="dialog" aria-modal="true" aria-labelledby="key-modal-title">
   <div class="modal">
-    <h2>Anthropic API key</h2>
+    <h2 id="key-modal-title">Anthropic API key</h2>
     <p>Calls go directly from your browser to <span class="mono">api.anthropic.com</span>.
     The key is stored only in this browser's localStorage — this site has no backend and
     never sees it. Create a key in the
@@ -169,6 +169,7 @@
     <input type="password" id="key-input" placeholder="sk-ant-...">
     <div class="row">
       <button class="small-btn" id="key-clear">Forget key</button>
+      <button class="small-btn" id="key-close">Close</button>
       <button class="btn" id="key-save">Save</button>
     </div>
   </div>

@@ -5,6 +5,7 @@
 - Methodology: {live-tenant | document-based | hybrid}
 - Evidence cutoff and coverage: {timestamp, windows, known blind spots}
 - Verdicts: {KEEP}/{SIMPLIFY}/{DROP}/{DEFER}
+- Locked benchmark: {weighted score, assessed coverage, must-have gate status}
 - Target shape: {skill | code | service | app | workflow | hybrid}
 - Preservation status: {complete | gaps accepted | blocked}
 - Holdout status: {frozen groups, contamination incidents, replacements}

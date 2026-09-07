@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chrbailey/saas-rebuild/skills/saas-rebuild/templates/evaluation-scorecard.schema.json",
+  "title": "Evidence-cited evaluation against a locked success profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "teardown_id",
+    "evaluated_at",
+    "benchmark",
+    "entries",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.9.0" },
+    "teardown_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "evaluated_at": { "$ref": "#/$defs/timestamp" },
+    "benchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "const": "success-profile.json" },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_weight",
+        "assessed_weight",
+        "coverage_percent",
+        "weighted_score",
+        "gate_status",
+        "must_gaps",
+        "unknown_criteria"
+      ],
+      "properties": {
+        "total_weight": { "type": "integer", "minimum": 1 },
+        "assessed_weight": { "type": "integer", "minimum": 0 },
+        "coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "weighted_score": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "gate_status": { "enum": ["pass", "fail", "blocked"] },
+        "must_gaps": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "unknown_criteria": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "caveats": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:(?:[0-5]\\d|60)(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterion_id",
+        "status",
+        "score",
+        "evidence_ids",
+        "finding",
+        "gap",
+        "recommendation"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "unknown" } },
+            "required": ["status"]
+          },
+          "then": { "properties": { "score": { "type": "null" } } },
+          "else": {
+            "properties": {
+              "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "evidence_ids": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "met" } },
+            "required": ["status"]
+          },
+          "then": { "properties": { "score": { "const": 100 } } }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "not-met" } },
+            "required": ["status"]
+          },
+          "then": { "properties": { "score": { "const": 0 } } }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "partially-met" } },
+            "required": ["status"]
+          },
+          "then": { "properties": { "score": { "minimum": 1, "maximum": 99 } } }
+        }
+      ],
+      "properties": {
+        "criterion_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "status": { "enum": ["met", "partially-met", "not-met", "unknown"] },
+        "score": { "type": ["integer", "null"] },
+        "evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "finding": { "type": "string", "minLength": 1 },
+        "gap": { "type": ["string", "null"] },
+        "recommendation": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

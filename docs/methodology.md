@@ -59,8 +59,19 @@ Extraction recipes sit outside this tenant evidence model. They are priors
 about where authorized evidence may be acquired, based on a dated
 bibliography. A recipe becomes evidence only when a route is re-verified and
 the resulting artifact receives a tenant evidence ID, coverage horizon, and
-acquisition record. The v0.8 recipe format does not yet encode claim-level
+acquisition record. The v0.9 recipe format does not yet encode claim-level
 source references; the assurance case records that limitation.
+
+### Benchmark before observation
+
+The decision owner defines success before the evidence walk as a set of
+outcome-oriented, weighted criteria with falsifiable acceptance methods. The
+locked profile is hashed into the evaluation scorecard so the evaluator cannot
+quietly redefine success after seeing what the tenant already does. Unknown
+criteria are excluded from the weighted score and surfaced through assessed
+coverage; an unknown must-have blocks the gate, while a partial or failed
+must-have fails it. This keeps a high score on a narrow evidence slice from
+masquerading as readiness.
 
 ### Absence is bounded
 

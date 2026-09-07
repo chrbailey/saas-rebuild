@@ -89,7 +89,7 @@ fail to export before the contract ended?
 
 ## Reviewer notes (delete before posting)
 
-- Every number above is pinned to the repo at v0.8 (skill 0.8.0): 29/100
+- Every number above is pinned to the repo at v0.9 (skill 0.9.0): 29/100
   recipes, all `doc-derived-unverified`. If recipes were added or promoted
   since, update both counts and the "none verified" sentence.
 - The hosted workspace URL is the Vercel deployment that auto-deploys from

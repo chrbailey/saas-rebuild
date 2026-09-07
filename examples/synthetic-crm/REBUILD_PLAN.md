@@ -6,6 +6,8 @@
 - Evidence cutoff: 2026-07-31; runtime coverage is 2026-06-01 through
   2026-07-30 unless a citation says all-time
 - Verdicts: KEEP 1 / SIMPLIFY 1 / DROP 1 / DEFER 1
+- Locked benchmark: 84.0 weighted score across 66.67% assessed weight;
+  gate failed by partial weekly ingest, with annual-tax compliance also unknown
 - Target: transactional customer service + deterministic importer + assisted
   search skill
 - Preservation: complete for every synthetic source category; attachments are
