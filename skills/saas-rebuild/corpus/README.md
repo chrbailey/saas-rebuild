@@ -77,9 +77,14 @@ limitation, not hidden provenance.
 Generated from the recipe files and `apps.json`; a test fails if this table
 and the `extraction-recipes/` directory disagree. Rows follow the backlog
 `rank`, which is prioritization metadata only. Every recipe is currently
-`doc-derived-unverified` and was last reviewed on the same date, because the
-corpus was researched in one pass; the columns exist so that promotions and
-re-reviews become visible here as they land.
+`doc-derived-unverified`: no entry has been exercised against a live tenant,
+whatever its review date. Most entries still carry the `2026-08-08` date of the
+original research pass, which ran on a network that blocked many vendor
+domains; a later date means that recipe has since been re-researched against
+current vendor pages, which changes how stale its documentary claims are but
+not its verification status. Re-review runs worst-provenance-first and is
+tracked in
+[`docs/corpus-refresh-backlog.md`](../../../docs/corpus-refresh-backlog.md).
 
 | App | Recipe | Category | Verification | Last reviewed |
 |---|---|---|---|---|
