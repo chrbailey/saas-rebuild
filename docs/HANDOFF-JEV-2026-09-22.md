@@ -119,6 +119,67 @@ The temporary live artifacts were at
 and may be removed by the OS. The safe response fixture and measured summary
 are committed in the repository; the key is not.
 
+## Status after takeover review (2026-09-23)
+
+A second LLM (Claude) took over from the Codex session, made no live Jev call,
+and spawned no agents. The original gap list below is kept as written; this
+section records what changed. Full suite: 755 passed, plus validator, package
+parity, and whitespace checks.
+
+**Resolved**
+
+- **1.** Reran all four local checks on the pushed branch before any edit: 724
+  passed (the final edits added one test to the 723 reported below).
+- **3, 4.** `Runner._effect` never read the answer. Uncalibrated, it turned every
+  flag/veto/reject question into `prioritize`, clear "no" answers included; with
+  any threshold present it returned the declared authority outright. On the one
+  real response, F2 answered 0.24 and would have vetoed. Effects now follow the
+  answer; flag/veto/reject need a calibrated probability meeting a threshold
+  bound to the question's hash, and the annotation schema refuses them without
+  `calibrated_p` and `threshold_set_id`. Replay could turn a shadow spike into
+  effects; it now carries no authority and appends nothing.
+- **10, 11.** The migration doc sent users to a script that only rewrites this
+  repository, and omitted that bumping versions breaks two byte-bound contracts
+  (the benchmark digest and preserved-file digests). The doc now gives the real
+  steps and `tests/test_migration_v010.py` runs them. The script is
+  maintainer-only, refuses to re-run, and records `model_annotations`.
+- **12.** Refusal events validate against the call-log schema, verify in the
+  hash chain alongside calls, and carry no tenant text.
+- **13.** Kept: a present `model-annotations.jsonl` is validated whether or not
+  it is declared, because ignoring it could hide a veto. Declaring it under
+  another name is refused. Both are tested.
+
+**New findings, fixed**
+
+- The PHI → BAA and EU → transfer-mechanism gates were never engaged outside
+  two unit tests: nothing passed `contains_phi` or `contains_eu_personal_data`,
+  and no artifact recorded either. `data_boundary.regulated_data` now declares
+  them; absent or `unknown` counts as present, and the runner and validator
+  both enforce it.
+- The runner did not check that the client posts to the approved endpoint. It
+  now refuses a mismatch.
+
+**Still open**
+
+- **2.** Review is partial. Covered: runner, call log, boundary, transport,
+  state minimization, validator annotation checks, migration. Not yet: cache,
+  limiter, client parsing edge cases, `rules/derive.py`, calibrate math, canary,
+  bench. Notes from `state.py`: nested dict keys are not scrubbed (only values),
+  and person names are never scrubbed; the allow-list and class gate are the
+  real guarantee.
+- **Transport retries can exceed the "hard" budget.** POSTs retry on timeouts
+  and 500/502/504, where the server may already have billed the request, while
+  the budget reserves once per `ask()`. Worst case is four billed attempts per
+  counted call. Options: retry only not-processed signals (429, 503, 529, 408)
+  or reserve per attempt. Needs an owner decision.
+- **5, 6.** Only the feature set runs end to end. C2, E1, and I2 stay inert:
+  they compare an answer with target-specific evidence, so they need
+  comparators, not fixed triggers.
+- `jev_run.py` loads no threshold set, so live runs can only prioritize or
+  suggest. This is intentional until calibration exists.
+- **7, 8, 9.** Need live calls, real engagements, or human gold. Untouched; no
+  accuracy, savings, or readiness claim is justified.
+
 ## Known gaps and review findings still required
 
 Treat the branch as an M0 implementation with a bounded M1 contract spike,
