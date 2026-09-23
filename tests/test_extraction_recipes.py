@@ -171,3 +171,47 @@ def test_covered_applications_table_lists_exactly_the_recipe_files():
 def test_covered_applications_table_follows_backlog_rank(apps_index):
     ranks = [apps_index[row["slug"]]["rank"] for row in covered_applications_rows()]
     assert ranks == sorted(ranks)
+
+
+# The corpus was researched in one pass on this date, on a network that blocked
+# most vendor documentation domains. A recipe still carrying it has not been
+# re-read against current vendor pages, whatever its bibliography looks like.
+ORIGINAL_RESEARCH_DATE = "2026-08-08"
+REFRESH_BACKLOG = REPO_ROOT / "docs" / "corpus-refresh-backlog.md"
+
+
+def test_refresh_backlog_lists_exactly_the_un_rereviewed_recipes():
+    """The backlog rots the moment a refresh lands and nobody prunes it.
+
+    Every entry links its recipe file, so the listed slugs are recoverable.
+    Pinning them against the recipes that still carry the original research
+    date means a refresh cannot quietly leave a stale worklist behind, and a
+    recipe cannot fall out of the backlog without actually being re-reviewed.
+    """
+    assert REFRESH_BACKLOG.is_file(), "corpus refresh backlog is missing"
+    text = REFRESH_BACKLOG.read_text(encoding="utf-8")
+    # Only the tier sections are the worklist. Recipes cited elsewhere in the
+    # brief — the refreshed exemplar, schema references — are not entries.
+    start, end = text.find("\n## Tier 1"), text.find("\n## Honesty rules")
+    assert -1 not in (start, end) and start < end, (
+        "backlog must keep its tier sections between the 'Tier 1' and "
+        "'Honesty rules' headings; the worklist is read from that range"
+    )
+    listed = set(
+        re.findall(
+            r"extraction-recipes/([a-z0-9][a-z0-9-]*)\.json", text[start:end]
+        )
+    )
+    stale = {
+        path.stem
+        for path in RECIPES
+        if json.loads(path.read_text())["last_reviewed"] == ORIGINAL_RESEARCH_DATE
+    }
+    assert listed - stale == set(), (
+        "backlog lists re-reviewed or unknown recipes: "
+        f"{sorted(listed - stale)} — prune them as their refresh lands"
+    )
+    assert stale - listed == set(), (
+        f"recipes still on the {ORIGINAL_RESEARCH_DATE} research pass but "
+        f"absent from the backlog: {sorted(stale - listed)}"
+    )
