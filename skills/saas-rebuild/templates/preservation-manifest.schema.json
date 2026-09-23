@@ -4,14 +4,23 @@
   "title": "Full-tenant preservation manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "teardown_id", "generated_at", "artifacts"],
+  "required": [
+    "schema_version",
+    "teardown_id",
+    "generated_at",
+    "artifacts"
+  ],
   "properties": {
-    "schema_version": { "const": "0.9.0" },
+    "schema_version": {
+      "const": "0.10.0"
+    },
     "teardown_id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
     },
-    "generated_at": { "$ref": "#/$defs/timestamp" },
+    "generated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
     "artifacts": {
       "type": "array",
       "minItems": 1,
@@ -29,34 +38,76 @@
         "allOf": [
           {
             "if": {
-              "properties": { "status": { "const": "exported" } },
-              "required": ["status"]
+              "properties": {
+                "status": {
+                  "const": "exported"
+                }
+              },
+              "required": [
+                "status"
+              ]
             },
             "then": {
-              "required": ["files", "verified_at"],
-              "properties": { "files": { "minItems": 1 } }
+              "required": [
+                "files",
+                "verified_at"
+              ],
+              "properties": {
+                "files": {
+                  "minItems": 1
+                }
+              }
             }
           },
           {
             "if": {
-              "properties": { "status": { "not": { "const": "exported" } } },
-              "required": ["status"]
+              "properties": {
+                "status": {
+                  "not": {
+                    "const": "exported"
+                  }
+                }
+              },
+              "required": [
+                "status"
+              ]
             },
-            "then": { "required": ["gap"] }
+            "then": {
+              "required": [
+                "gap"
+              ]
+            }
           },
           {
             "if": {
               "properties": {
-                "status": { "const": "exported" },
-                "sensitivity": { "enum": ["confidential", "restricted"] }
+                "status": {
+                  "const": "exported"
+                },
+                "sensitivity": {
+                  "enum": [
+                    "confidential",
+                    "restricted"
+                  ]
+                }
               },
-              "required": ["status", "sensitivity"]
+              "required": [
+                "status",
+                "sensitivity"
+              ]
             },
             "then": {
-              "required": ["encrypted", "backed_up"],
+              "required": [
+                "encrypted",
+                "backed_up"
+              ],
               "properties": {
-                "encrypted": { "const": true },
-                "backed_up": { "const": true }
+                "encrypted": {
+                  "const": true
+                },
+                "backed_up": {
+                  "const": true
+                }
               }
             }
           }
@@ -75,57 +126,122 @@
               "configuration",
               "identity-access",
               "replay-corpus",
-              "other"
+              "other",
+              "model-io"
             ]
           },
           "status": {
-            "enum": ["exported", "partial", "blocked", "not-applicable"]
+            "enum": [
+              "exported",
+              "partial",
+              "blocked",
+              "not-applicable"
+            ]
           },
-          "source": { "type": "string", "minLength": 1 },
-          "route": { "type": "string", "minLength": 1 },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "route": {
+            "type": "string",
+            "minLength": 1
+          },
           "sensitivity": {
-            "enum": ["public", "internal", "confidential", "restricted"]
+            "enum": [
+              "public",
+              "internal",
+              "confidential",
+              "restricted"
+            ]
           },
           "files": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["path", "sha256", "bytes"],
+              "required": [
+                "path",
+                "sha256",
+                "bytes"
+              ],
               "properties": {
-                "path": { "type": "string", "minLength": 1 },
-                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-                "bytes": { "type": "integer", "minimum": 0 }
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                }
               }
             }
           },
-          "record_count": { "type": ["integer", "null"], "minimum": 0 },
+          "record_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
           "date_range": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
               "start": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])(?:T(?:[01]\\d|2[0-3]):[0-5]\\d:(?:[0-5]\\d|60)(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d))?$"
               },
               "end": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])(?:T(?:[01]\\d|2[0-3]):[0-5]\\d:(?:[0-5]\\d|60)(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d))?$"
               }
             }
           },
-          "encrypted": { "type": "boolean" },
-          "backed_up": { "type": "boolean" },
-          "verified_at": { "$ref": "#/$defs/timestamp" },
+          "encrypted": {
+            "type": "boolean"
+          },
+          "backed_up": {
+            "type": "boolean"
+          },
+          "verified_at": {
+            "$ref": "#/$defs/timestamp"
+          },
           "gap": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["reason", "accepted_by", "accepted_at"],
+            "required": [
+              "reason",
+              "accepted_by",
+              "accepted_at"
+            ],
             "properties": {
-              "reason": { "type": "string", "minLength": 1 },
-              "ticket": { "type": ["string", "null"] },
-              "accepted_by": { "type": "string", "minLength": 1 },
-              "accepted_at": { "$ref": "#/$defs/timestamp" }
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ticket": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "accepted_by": {
+                "type": "string",
+                "minLength": 1
+              },
+              "accepted_at": {
+                "$ref": "#/$defs/timestamp"
+              }
             }
           }
         }

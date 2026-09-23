@@ -20,98 +20,184 @@
   "allOf": [
     {
       "if": {
-        "properties": { "pair_type": { "const": "replay" } },
-        "required": ["pair_type"]
-      },
-      "then": {
-        "required": ["replay_context"],
         "properties": {
-          "label_authority": { "const": "system-of-record" }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": { "pair_type": { "const": "perception" } },
-        "required": ["pair_type"]
+          "pair_type": {
+            "const": "replay"
+          }
+        },
+        "required": [
+          "pair_type"
+        ]
       },
       "then": {
-        "properties": {
-          "label_authority": { "const": "observed-ui" }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": { "pair_type": { "const": "judgment" } },
-        "required": ["pair_type"]
-      },
-      "then": {
-        "required": ["evidence"],
-        "properties": {
-          "label_authority": { "const": "analyst" },
-          "evidence": { "minItems": 1 }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": { "pair_type": { "const": "design" } },
-        "required": ["pair_type"]
-      },
-      "then": {
-        "required": ["evidence"],
+        "required": [
+          "replay_context"
+        ],
         "properties": {
           "label_authority": {
-            "enum": ["analyst", "validated-design"]
-          },
-          "evidence": { "minItems": 1 }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "sanitization_tier": { "const": "sanitized-shareable" }
-        },
-        "required": ["sanitization_tier"]
-      },
-      "then": {
-        "required": ["sanitization_review"],
-        "properties": {
-          "sanitization_review": {
-            "properties": { "status": { "const": "approved" } },
-            "required": ["status", "reviewed_by", "reviewed_at"]
+            "const": "system-of-record"
           }
         }
       }
     },
     {
       "if": {
-        "properties": { "dataset_role": { "const": "holdout-eval" } },
-        "required": ["dataset_role"]
+        "properties": {
+          "pair_type": {
+            "const": "perception"
+          }
+        },
+        "required": [
+          "pair_type"
+        ]
       },
       "then": {
         "properties": {
           "label_authority": {
-            "enum": ["system-of-record", "observed-ui", "validated-design"]
+            "const": "observed-ui"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "pair_type": {
+            "const": "judgment"
+          }
+        },
+        "required": [
+          "pair_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "evidence"
+        ],
+        "properties": {
+          "label_authority": {
+            "const": "analyst"
+          },
+          "evidence": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "pair_type": {
+            "const": "design"
+          }
+        },
+        "required": [
+          "pair_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "evidence"
+        ],
+        "properties": {
+          "label_authority": {
+            "enum": [
+              "analyst",
+              "validated-design"
+            ]
+          },
+          "evidence": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "sanitization_tier": {
+            "const": "sanitized-shareable"
+          }
+        },
+        "required": [
+          "sanitization_tier"
+        ]
+      },
+      "then": {
+        "required": [
+          "sanitization_review"
+        ],
+        "properties": {
+          "sanitization_review": {
+            "properties": {
+              "status": {
+                "const": "approved"
+              }
+            },
+            "required": [
+              "status",
+              "reviewed_by",
+              "reviewed_at"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "dataset_role": {
+            "const": "holdout-eval"
+          }
+        },
+        "required": [
+          "dataset_role"
+        ]
+      },
+      "then": {
+        "properties": {
+          "label_authority": {
+            "enum": [
+              "system-of-record",
+              "observed-ui",
+              "validated-design"
+            ]
           }
         }
       }
     }
   ],
   "properties": {
-    "schema_version": { "const": "0.9.0" },
+    "schema_version": {
+      "const": "0.10.0"
+    },
     "pair_id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
     },
     "pair_type": {
-      "enum": ["replay", "judgment", "perception", "design"]
+      "enum": [
+        "replay",
+        "judgment",
+        "perception",
+        "design"
+      ]
     },
-    "input": { "type": ["object", "string"] },
-    "output": { "type": ["object", "string"] },
-    "rationale": { "type": "string" },
+    "input": {
+      "type": [
+        "object",
+        "string"
+      ]
+    },
+    "output": {
+      "type": [
+        "object",
+        "string"
+      ]
+    },
+    "rationale": {
+      "type": "string"
+    },
     "label_authority": {
       "enum": [
         "system-of-record",
@@ -121,7 +207,11 @@
       ]
     },
     "dataset_role": {
-      "enum": ["development", "regression", "holdout-eval"],
+      "enum": [
+        "development",
+        "regression",
+        "holdout-eval"
+      ],
       "description": "holdout-eval lineages must never be used for training or design selection"
     },
     "split_group": {
@@ -131,7 +221,9 @@
     },
     "evidence": {
       "type": "array",
-      "items": { "$ref": "#/$defs/citation" }
+      "items": {
+        "$ref": "#/$defs/citation"
+      }
     },
     "provenance": {
       "type": "object",
@@ -144,12 +236,19 @@
         "source_artifact_refs"
       ],
       "properties": {
-        "app": { "type": "string", "minLength": 1 },
+        "app": {
+          "type": "string",
+          "minLength": 1
+        },
         "teardown_id": {
           "type": "string",
           "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         },
-        "phase": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "phase": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
         "created_at": {
           "type": "string",
           "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:(?:[0-5]\\d|60)(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
@@ -158,7 +257,43 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "model_assist": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "annotation_id",
+              "question_id",
+              "effect"
+            ],
+            "properties": {
+              "annotation_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "question_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "effect": {
+                "enum": [
+                  "flag",
+                  "veto",
+                  "reject",
+                  "prioritize",
+                  "suggest",
+                  "none"
+                ]
+              }
+            }
+          }
         }
       }
     },
@@ -176,32 +311,63 @@
           "type": "string",
           "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])(?:T(?:[01]\\d|2[0-3]):[0-5]\\d:(?:[0-5]\\d|60)(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d))?$"
         },
-        "legacy_config_ref": { "type": "string", "minLength": 1 },
-        "state_capture": {
-          "enum": ["captured", "self-contained", "unavailable"]
+        "legacy_config_ref": {
+          "type": "string",
+          "minLength": 1
         },
-        "side_effect_free_verified": { "const": true },
+        "state_capture": {
+          "enum": [
+            "captured",
+            "self-contained",
+            "unavailable"
+          ]
+        },
+        "side_effect_free_verified": {
+          "const": true
+        },
         "expected_divergence_ref": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
     "sanitization_tier": {
-      "enum": ["raw-local-only", "sanitized-shareable", "synthetic"]
+      "enum": [
+        "raw-local-only",
+        "sanitized-shareable",
+        "synthetic"
+      ]
     },
     "sanitization_review": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status"],
+      "required": [
+        "status"
+      ],
       "properties": {
-        "status": { "enum": ["pending", "approved", "rejected"] },
-        "reviewed_by": { "type": "string", "minLength": 1 },
+        "status": {
+          "enum": [
+            "pending",
+            "approved",
+            "rejected"
+          ]
+        },
+        "reviewed_by": {
+          "type": "string",
+          "minLength": 1
+        },
         "reviewed_at": {
           "type": "string",
           "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:(?:[0-5]\\d|60)(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
         },
-        "method": { "type": "string" },
-        "notes": { "type": "string" }
+        "method": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
       }
     }
   },
@@ -227,7 +393,11 @@
           "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         },
         "evidence_class": {
-          "enum": ["structure", "runtime", "human-framing"]
+          "enum": [
+            "structure",
+            "runtime",
+            "human-framing"
+          ]
         },
         "plane": {
           "enum": [
@@ -245,8 +415,14 @@
             "document"
           ]
         },
-        "claim": { "type": "string", "minLength": 1 },
-        "source": { "type": "string", "minLength": 1 },
+        "claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
         "observed_at": {
           "type": "string",
           "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:(?:[0-5]\\d|60)(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
@@ -254,14 +430,27 @@
         "coverage": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind"],
+          "required": [
+            "kind"
+          ],
           "allOf": [
             {
               "if": {
-                "properties": { "kind": { "const": "window-bounded" } },
-                "required": ["kind"]
+                "properties": {
+                  "kind": {
+                    "const": "window-bounded"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
               },
-              "then": { "required": ["start", "end"] }
+              "then": {
+                "required": [
+                  "start",
+                  "end"
+                ]
+              }
             }
           ],
           "properties": {
@@ -273,25 +462,52 @@
                 "not-applicable"
               ]
             },
-            "start": { "type": "string", "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$" },
-            "end": { "type": "string", "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$" },
-            "notes": { "type": "string" }
+            "start": {
+              "type": "string",
+              "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$"
+            },
+            "end": {
+              "type": "string",
+              "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$"
+            },
+            "notes": {
+              "type": "string"
+            }
           }
         },
-        "confidence": { "enum": ["high", "medium", "low"] },
+        "confidence": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
         "sensitivity": {
-          "enum": ["public", "internal", "confidential", "restricted"]
+          "enum": [
+            "public",
+            "internal",
+            "confidential",
+            "restricted"
+          ]
         },
         "supports": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "enum": ["usage", "criticality", "verdict", "dependency"]
+            "enum": [
+              "usage",
+              "criticality",
+              "verdict",
+              "dependency"
+            ]
           }
         },
         "source_digest": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "pattern": "^[a-f0-9]{64}$"
         },
         "derived_from": {
@@ -300,6 +516,42 @@
           "items": {
             "type": "string",
             "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "measure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "metric",
+            "value",
+            "unit"
+          ],
+          "properties": {
+            "metric": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "value": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "window_start": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$"
+            },
+            "window_end": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$"
+            }
           }
         }
       }

@@ -10,7 +10,7 @@ and the Claude Code plugin emit for a tenant you administer; the preserved
 export files and their digests come from exports you run yourself, since the
 workspace has no connector into a tenant.
 
-The directory is an internally consistent example of the v0.9 artifact
+The directory is an internally consistent example of the v0.10 artifact
 contracts. It is not evidence from a customer engagement, and every number in
 it was invented to exercise the rules.
 
