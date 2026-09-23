@@ -18,7 +18,7 @@ VALIDATOR = ROOT / "skills" / "saas-rebuild" / "tools" / "validate_artifacts.py"
 
 def annotation(**updates):
     value = {
-        "schema_version": "0.10.0",
+        "schema_version": "0.11.0",
         "annotation_id": "ann-test",
         "run_id": "jev-test",
         "target_kind": "feature",

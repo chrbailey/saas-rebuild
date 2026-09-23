@@ -50,6 +50,10 @@ def load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def load_jsonl(path: Path) -> list[Any]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
 class Target(NamedTuple):
     """One thing to ask about: what the model sees, and what it never sees.
 
@@ -134,12 +138,36 @@ def edge_targets(root: Path, boundary: dict[str, Any]) -> Iterator[Target]:
         )
 
 
+def interview_targets(root: Path, boundary: dict[str, Any]) -> Iterator[Target]:
+    # Only usage statements an analyst linked to a feature, from respondents
+    # who consented to model perception. Only the statement text is sent;
+    # role, group, and the feature's declared usage stay local.
+    usage = {feature.get("id"): feature.get("usage") for feature in load_json(root / "feature-inventory.json")}
+    for statement in load_jsonl(root / "interviews.jsonl"):
+        consent = statement.get("consent") or {}
+        if (
+            statement.get("topic") != "usage"
+            or statement.get("feature_id") is None
+            or consent.get("recorded") is not True
+            or "model-perception" not in (consent.get("scopes") or [])
+        ):
+            continue
+        yield Target(
+            "interview-statement",
+            str(statement.get("statement_id", "unknown")),
+            {"statement": statement.get("text")},
+            statement.get("sensitivity", "restricted"),
+            {"usage": usage.get(statement.get("feature_id"))},
+        )
+
+
 # Question sets without a reader are refused rather than asked about the
 # wrong kind of target.
 READERS = {
     "feature-perception": feature_targets,
     "citation-checks": citation_targets,
     "graph-edges": edge_targets,
+    "interviews": interview_targets,
 }
 
 
@@ -197,6 +225,8 @@ def main(argv: list[str] | None = None) -> int:
         parser().error("feature-inventory.json must contain an array")
     if args.question_set == "graph-edges" and not (root / "graph.json").is_file():
         parser().error("the graph-edges question set needs graph.json")
+    if args.question_set == "interviews" and not (root / "interviews.jsonl").is_file():
+        parser().error("the interviews question set needs interviews.jsonl")
 
     load_local_api_key()
     catalog_doc = load_json(catalog_path)

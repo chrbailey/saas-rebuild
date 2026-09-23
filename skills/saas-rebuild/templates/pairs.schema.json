@@ -169,7 +169,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "0.10.0"
+      "const": "0.11.0"
     },
     "pair_id": {
       "type": "string",
@@ -552,6 +552,15 @@
               ],
               "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$"
             }
+          }
+        },
+        "statement_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
           }
         }
       }

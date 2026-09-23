@@ -1,6 +1,6 @@
 [
   {
-    "schema_version": "0.10.0",
+    "schema_version": "0.11.0",
     "id": "customer-search",
     "nav_path": "Customers > Search",
     "name": "Customer search",
@@ -33,7 +33,8 @@
         "coverage": {"kind": "point-in-time"},
         "confidence": "medium",
         "sensitivity": "public",
-        "supports": ["criticality", "verdict", "dependency"]
+        "supports": ["criticality", "verdict", "dependency"],
+        "statement_ids": ["st-int-01-02"]
       }
     ],
     "criticality": "critical",
@@ -43,7 +44,7 @@
     "unused_reason": null
   },
   {
-    "schema_version": "0.10.0",
+    "schema_version": "0.11.0",
     "id": "bulk-customer-import",
     "nav_path": "Admin > Imports > Customers",
     "name": "Bulk customer import",
@@ -74,7 +75,7 @@
     "unused_reason": null
   },
   {
-    "schema_version": "0.10.0",
+    "schema_version": "0.11.0",
     "id": "social-enrichment",
     "nav_path": "Settings > Integrations > Social enrichment",
     "name": "Social enrichment",
@@ -117,7 +118,7 @@
     "unused_reason": "configured-never-enabled"
   },
   {
-    "schema_version": "0.10.0",
+    "schema_version": "0.11.0",
     "id": "annual-tax-certificate",
     "nav_path": "Reports > Compliance > Annual tax certificate",
     "name": "Annual tax certificate",

@@ -48,7 +48,7 @@ most, who are the users (names/roles count), and whether an admin/audit-log
 area is accessible. Create the output dir and `teardown.json` state file:
 
 ```json
-{"schema_version":"0.10.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Dev/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl","success_profile":"success-profile.json"},"extraction":[],"decisions":[],"action_log":[]}
+{"schema_version":"0.11.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Dev/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl","success_profile":"success-profile.json"},"extraction":[],"decisions":[],"action_log":[]}
 ```
 
 State is resumable — on re-invocation, read `teardown.json` and continue from
@@ -245,12 +245,12 @@ Four independent evidence streams; gather all four:
    core entities (guide the user through clicks if downloads need approval).
    Store under `exports/` in the output dir; summarize row counts and date
    ranges.
-3. **User interviews**: AskUserQuestion batches per user group — which screens
-   do you touch daily/weekly/never, what do you do OUTSIDE the app that the
-   app should do (spreadsheet workarounds are gold), what do you dread, what
-   would you keep if you could keep only three things. If teammates aren't in
-   the room, generate `interview-questions.md` for the user to circulate and
-   accept answers pasted back later (state file makes this resumable).
+3. **User interviews**: AskUserQuestion batches per user group — screens used
+   daily/weekly/never, work done OUTSIDE the app (spreadsheet workarounds are
+   gold), what they dread, the three things they'd keep. Absent teammates get
+   `interview-questions.md`; accept answers pasted back later. Record each as a
+   line of `interviews.jsonl` (`templates/interviews.schema.json`: pseudonym
+   and role, never a name); interview citations list their `statement_ids`.
 4. **Contracts and renewals**: order forms, renewal quotes, seat counts vs.
    assigned users, module line items. Purchased-vs-used is often the single
    strongest signal — modules bought and never enabled, seats paid and never
@@ -488,8 +488,8 @@ version retained).
 `~/Dev/teardowns/<app-slug>/`: `teardown.json`, `success-profile.json`,
 `evaluation-scorecard.json`, `graph.json`, `inventory.md`,
 `usage-analysis.md`, `extraction-runbook.md`,
-`preservation-manifest.json`, `exports/`, `pairs.jsonl`,
-`interview-questions.md` (if used), and `REBUILD_PLAN.md`. Validate every JSON
+`preservation-manifest.json`, `exports/`, `pairs.jsonl`, `interviews.jsonl`
+and `interview-questions.md` (if used), and `REBUILD_PLAN.md`. Validate every JSON
 or JSONL artifact against its template before delivery. When Python and the
 declared `requirements.txt` dependency are available, run
 `tools/validate_artifacts.py <output-dir>` to enforce cross-file identities,
