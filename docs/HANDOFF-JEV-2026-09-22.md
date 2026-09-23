@@ -173,9 +173,12 @@ parity, and whitespace checks.
   bench. Notes from `state.py`: nested dict keys are not scrubbed (only values),
   and person names are never scrubbed; the allow-list and class gate are the
   real guarantee.
-- **5, 6.** Only the feature set runs end to end. C2, E1, and I2 stay inert:
-  they compare an answer with target-specific evidence, so they need
-  comparators, not fixed triggers.
+- **5, 6.** Partly resolved after PR #34. C2, E1, and I2 now have comparators
+  (a catalog `compare` spec read against the target's declared field), and
+  `jev_run.py` has readers for `citation-checks` and `graph-edges` as well as
+  `feature-perception`; any other set is refused before a call. Still open:
+  interviews (I1/I2) have no interview artifact to read, and process-mining,
+  sanitization, and replay-residuals have no reader.
 - `jev_run.py` loads no threshold set, so live runs can only prioritize or
   suggest. This is intentional until calibration exists.
 - **7, 8, 9.** Need live calls, real engagements, or human gold. Untouched; no

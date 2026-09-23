@@ -62,20 +62,34 @@ class ThresholdSet:
     entries: Mapping[str, CalibratedThreshold]
 
 
-def _signal(catalog_item: dict[str, Any], answer: Answer) -> float | None:
+def _signal(
+    catalog_item: dict[str, Any],
+    answer: Answer,
+    context: Mapping[str, Any] | None = None,
+) -> float | None:
     """Probability that the answer is the one the question's authority acts on.
 
     A noul answer is already that probability. A choice answer counts only the
-    options its catalog entry names as ``trigger``; without a declared trigger
-    there is no signal, so a choice question cannot act on anything.
+    options its catalog entry names: a fixed ``trigger``, or under ``compare``
+    the options that contradict the target's declared value. Without either,
+    or when that declared value is absent or unmapped, there is no signal, so
+    the question cannot act on anything.
     """
 
     if answer.type == "noul":
         return float(answer.value)
-    trigger = catalog_item.get("trigger")
-    if answer.type == "choice" and trigger and answer.probabilities is not None:
-        return min(1.0, sum(answer.probabilities.get(option, 0.0) for option in trigger))
-    return None
+    if answer.type != "choice" or answer.probabilities is None:
+        return None
+    options = catalog_item.get("trigger")
+    compare = catalog_item.get("compare")
+    if compare is not None:
+        declared = (context or {}).get(compare["against"])
+        options = compare["contradicts"].get(declared) if isinstance(declared, str) else None
+        if options is not None and not options:
+            return 0.0
+    if not options:
+        return None
+    return min(1.0, sum(answer.probabilities.get(option, 0.0) for option in options))
 
 
 def _effect(
@@ -83,6 +97,7 @@ def _effect(
     answer: Answer,
     mode: str,
     calibration: CalibratedThreshold | None,
+    context: Mapping[str, Any] | None = None,
 ) -> tuple[str, float | None]:
     """Return the annotation effect and the calibrated probability behind it.
 
@@ -93,9 +108,9 @@ def _effect(
     if mode in {"shadow", "replay"}:
         return "none", None
     declared = catalog_item.get("authority", "prioritize")
-    if declared == "suggest" and answer.type == "choice" and not catalog_item.get("trigger"):
+    if declared == "suggest" and answer.type == "choice" and not (catalog_item.get("trigger") or catalog_item.get("compare")):
         return "suggest", None
-    signal = _signal(catalog_item, answer)
+    signal = _signal(catalog_item, answer, context)
     if signal is None:
         return "none", None
     if declared in HIGH_AUTHORITY:
@@ -148,7 +163,14 @@ class Runner:
         catalog_version: str,
         catalog: Mapping[str, dict[str, Any]],
         thresholds: ThresholdSet | None = None,
+        context: Mapping[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
+        """Ask the catalog about one target.
+
+        ``context`` carries the target's declared fields (for example a
+        citation's ``evidence_class``) that ``compare`` questions check the
+        answer against. It is never sent to the model.
+        """
         contains_phi, contains_eu_personal_data = regulated_data(self.teardown)
         try:
             ticket: BoundaryTicket = open_ticket(
@@ -208,7 +230,7 @@ class Runner:
             if calibration is not None and calibration.question_hash != question_hash(item["question"]):
                 # A threshold fitted on different question text does not apply.
                 calibration = None
-            effect, calibrated_p = _effect(item, response.answers[question_id], self.mode, calibration)
+            effect, calibrated_p = _effect(item, response.answers[question_id], self.mode, calibration, context)
             record = {
                 "schema_version": "0.10.0",
                 "annotation_id": f"ann-{stable_digest([self.run_id, target_kind, target_id, question_id])[:24]}",
