@@ -1,7 +1,6 @@
 {
-  "schema_version": "systemone/1", "id": "interviews", "version": "1", "purpose": "interviews",
+  "schema_version": "systemone/1", "id": "interviews", "version": "2", "purpose": "interviews",
   "questions": {
-    "I1": {"question": {"type": "choice", "instructions": "Which feature best matches this interview statement?", "criteria": {"candidate-feature": "One of the supplied candidate features", "none": "No supplied feature matches"}}, "authority": "suggest", "consumer": "interview.feature-review", "gold": "analyst"},
     "I2": {"question": {"type": "choice", "instructions": "What usage frequency does the interview statement claim?", "criteria": {"daily": "Daily or more often", "weekly": "Weekly", "rare": "Occasional or seasonal", "never": "Explicitly never", "unknown": "No frequency is stated"}}, "authority": "flag", "compare": {"against": "usage", "contradicts": {"daily": ["rare", "never"], "weekly": ["never"], "rare": ["daily", "never"], "never": ["daily", "weekly", "rare"]}}, "consumer": "interview.runtime-compare", "gold": "system-of-record runtime"}
   }
 }

@@ -55,6 +55,7 @@ coverage horizon, and confidence.
 |---|---|---|---|---|
 | `decision-hybrid-target` | 2026-08-01T15:00:00Z | Use a transactional service for customer state and a skill for assisted search/summarization. | Shared records require durable state and permissions; reasoning does not. | `ev-search-runtime`, `ev-search-criticality`, `ev-import-runtime` |
 | `decision-defer-tax-report` | 2026-08-01T15:10:00Z | Defer target selection for the annual tax certificate. | The runtime window excludes its plausible annual cadence. | `ev-tax-window`, `ev-tax-contract` |
+| `decision-benchmark-rebind-v0-11` | 2026-09-23T12:00:00Z | Re-bound the success-profile.json digest 00b6aedda26b6f5b824a8040627fc605b27f8c7eef016466401fd5f353b844b6 -> ac28a7097c006cb11ebb9fd858409ce11093eddd6a9d09b33ef1c8a195dfcdd4. | schema_version bump 0.10.0 -> 0.11.0 only; no criterion, weight, or target changed. | none |
 
 ## What this table does not establish
 

@@ -10,7 +10,9 @@ between inventory and graph in both directions, dataset-lineage isolation,
 state references to the validated files, and preservation file
 size/digests/path containment with normalized path comparison; and locked
 success-profile to scorecard identity, evidence coverage, score arithmetic,
-assessment coverage, and must-have gate status.
+assessment coverage, and must-have gate status; and interview statements
+(unique ids, feature links, boundary classes, no contact details in text, and
+interview citations that resolve to the statements they cite).
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -50,6 +53,7 @@ SCHEMAS = {
     "success": "success-profile.schema.json",
     "scorecard": "evaluation-scorecard.schema.json",
     "annotation": "model-annotations.schema.json",
+    "interview": "interviews.schema.json",
 }
 # teardown.json `artifacts` keys that must name the file this command
 # validated; a state pointing elsewhere would make the validated file and the
@@ -62,7 +66,14 @@ STATE_ARTIFACTS = {
     "success_profile": REQUIRED["success"],
     "evaluation_scorecard": REQUIRED["scorecard"],
     "model_annotations": "model-annotations.jsonl",
+    "interviews": "interviews.jsonl",
 }
+SENSITIVITY = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
+# Statements hold paraphrased speech, so contact details are the cheap,
+# high-precision personal data to refuse. Names cannot be caught this way;
+# the pseudonymous respondent fields exist so text never needs one.
+EMAIL = re.compile(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}")
+PHONE_RUN = re.compile(r"\+?\(?\d[\d\s().-]{6,}\d")
 
 
 def load_json(path: Path) -> Any:
@@ -141,6 +152,8 @@ class Validation:
             scorecard = load_json(self.root / REQUIRED["scorecard"])
             annotation_path = self.root / "model-annotations.jsonl"
             annotations = load_jsonl(annotation_path) if annotation_path.is_file() else []
+            interview_path = self.root / "interviews.jsonl"
+            interviews = load_jsonl(interview_path) if interview_path.is_file() else None
         except ValueError as error:
             self.error(str(error))
             return self.finish()
@@ -159,9 +172,13 @@ class Validation:
         self.schema(scorecard, "scorecard", "evaluation-scorecard.json")
         for index, annotation in enumerate(annotations):
             self.schema(annotation, "annotation", f"model-annotations.jsonl[{index}]")
+        for index, statement in enumerate(interviews or []):
+            self.schema(statement, "interview", f"interviews.jsonl[{index}]")
 
         if not self.errors:
-            self.cross_file(state, features, pairs, graph, preservation, success, scorecard, annotations)
+            self.cross_file(
+                state, features, pairs, graph, preservation, success, scorecard, annotations, interviews
+            )
         return self.finish(features=len(features), pairs=len(pairs))
 
     def cross_file(
@@ -174,6 +191,7 @@ class Validation:
         success: dict[str, Any],
         scorecard: dict[str, Any],
         annotations: list[dict[str, Any]],
+        interviews: list[dict[str, Any]] | None,
     ) -> None:
         feature_ids = [feature["id"] for feature in features]
         repeated = duplicates(feature_ids)
@@ -232,6 +250,63 @@ class Validation:
                         f"pair {pair['pair_id']} citation {evidence_id} differs from its "
                         f"feature-inventory definition in: {differing}"
                     )
+
+        statement_ids = [statement["statement_id"] for statement in interviews or []]
+        repeated = duplicates(statement_ids)
+        if repeated:
+            self.error(f"duplicate interview statement ids: {sorted(repeated)}")
+        statement_map = {statement["statement_id"]: statement for statement in interviews or []}
+        known_features = {feature["id"] for feature in features}
+        for statement in interviews or []:
+            statement_id = statement["statement_id"]
+            if "feature_id" in statement and statement["feature_id"] not in known_features:
+                self.error(
+                    f"interview statement {statement_id} links unknown feature: {statement['feature_id']}"
+                )
+            if statement["sensitivity"] not in globally_allowed:
+                self.error(
+                    f"interview statement {statement_id} sensitivity is outside the approved "
+                    f"boundary: {statement['sensitivity']}"
+                )
+            text = statement["text"]
+            if EMAIL.search(text) or any(
+                sum(character.isdigit() for character in run) >= 10 for run in PHONE_RUN.findall(text)
+            ):
+                self.error(
+                    f"interview statement {statement_id} text contains an email address or phone "
+                    "number; redact it"
+                )
+        # A citation copy in a pair equals its inventory definition (checked
+        # above), so checking inventory citations covers every copy.
+        for citation in citations:
+            linked = citation.get("statement_ids")
+            evidence_id = citation["evidence_id"]
+            if citation["plane"] != "interview":
+                if linked is not None:
+                    self.error(f"evidence {evidence_id} links interview statements but is not interview-plane")
+                continue
+            if interviews is None:
+                if linked is not None:
+                    self.error(
+                        f"evidence {evidence_id} links interview statements but interviews.jsonl is absent"
+                    )
+                continue
+            if not linked:
+                self.error(f"interview evidence {evidence_id} must link its statement_ids")
+                continue
+            unresolved = sorted(set(linked) - set(statement_map))
+            if unresolved:
+                self.error(f"interview evidence {evidence_id} links unknown statements: {unresolved}")
+                continue
+            strictest = max(
+                (statement_map[statement_id]["sensitivity"] for statement_id in linked),
+                key=SENSITIVITY.__getitem__,
+            )
+            if SENSITIVITY[citation["sensitivity"]] < SENSITIVITY[strictest]:
+                self.error(
+                    f"interview evidence {evidence_id} is {citation['sensitivity']} but links a "
+                    f"{strictest} statement"
+                )
 
         for feature in features:
             usage = feature.get("usage")
@@ -366,6 +441,7 @@ class Validation:
             "citation": evidence_set,
             "graph-edge": graph_edge_ids,
             "pair": set(pair_ids),
+            "interview-statement": set(statement_ids),
         }
         # Only an explicit "no" clears PHI or EU personal data; absent or
         # "unknown" fails closed, matching the runner's boundary gate.
@@ -408,10 +484,21 @@ class Validation:
                 key = (annotation["target_kind"], annotation["target_id"])
                 open_effects.setdefault(key, set()).add(annotation["effect"])
 
+        statement_effects: dict[str, set[str]] = {}
+        for statement in interviews or []:
+            if "feature_id" in statement:
+                statement_effects.setdefault(statement["feature_id"], set()).update(
+                    open_effects.get(("interview-statement", statement["statement_id"]), set())
+                )
         for feature in features:
             effects = open_effects.get(("feature", feature["id"]), set())
             if feature.get("verdict") == "DROP" and effects & {"flag", "veto"}:
                 self.error(f"feature {feature['id']} is DROP despite an open model flag or veto")
+            if feature.get("verdict") == "DROP" and statement_effects.get(feature["id"], set()) & {"flag", "veto"}:
+                self.error(
+                    f"feature {feature['id']} is DROP despite an open model flag or veto on a "
+                    "linked interview statement"
+                )
         for pair in pairs:
             effects = open_effects.get(("pair", pair["pair_id"]), set())
             review = pair.get("sanitization_review") or {}

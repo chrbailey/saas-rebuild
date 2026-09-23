@@ -659,7 +659,7 @@ def test_edge_reader_puts_the_source_first_and_keeps_type_local():
         assert "verdict" not in sent and edge["type"] not in json.dumps(target.source)
 
 
-@pytest.mark.parametrize("question_set", ["sanitization", "interviews", "process-mining", "replay-residuals"])
+@pytest.mark.parametrize("question_set", ["sanitization", "process-mining", "replay-residuals"])
 def test_sets_without_a_reader_are_refused_before_any_call(tmp_path, question_set):
     target = tmp_path / "teardown"
     shutil.copytree(ROOT / "examples" / "synthetic-crm", target)
@@ -727,6 +727,54 @@ def test_edge_run_needs_its_purpose_approved(tmp_path):
     result = subprocess.run([sys.executable, str(TOOLS / "validate_artifacts.py"), str(root)], text=True, capture_output=True)
     assert result.returncode == 0, result.stderr
 
+
+
+def test_interview_reader_sends_only_consented_linked_usage_statements():
+    root = ROOT / "examples" / "synthetic-crm"
+    statements = [json.loads(line) for line in (root / "interviews.jsonl").read_text().splitlines()]
+    targets = list(jev_run.interview_targets(root, example_state()["data_boundary"]))
+    # st-int-02-01 is a linked usage statement without model-perception consent.
+    assert [target.id for target in targets] == ["st-int-01-01"]
+    target = targets[0]
+    assert target.kind == "interview-statement"
+    assert target.source == {"statement": statements[0]["text"]}
+    assert target.context == {"usage": "daily"}
+    assert target.data_class == "public"
+    sent = json.dumps(jev_run.target_state(target, ["public"]).value)
+    for local in ("service-lead", "r-01", "customer-search", "daily"):
+        assert local not in sent.replace(statements[0]["text"], "")
+
+
+def test_interview_set_needs_its_statements(tmp_path):
+    target = tmp_path / "teardown"
+    shutil.copytree(ROOT / "examples" / "synthetic-crm", target)
+    (target / "interviews.jsonl").unlink()
+    env = {key: value for key, value in os.environ.items() if key != "TYPESAFE_API_KEY"}
+    result = subprocess.run(
+        [sys.executable, str(TOOLS / "jev_run.py"), "--mode", "shadow", "--set", "interviews", str(target)],
+        text=True, capture_output=True, env=env,
+    )
+    assert result.returncode == 2
+    assert "needs interviews.jsonl" in result.stderr
+    assert not (target / ".systemone").exists()
+
+
+def test_interview_run_needs_its_purpose_and_flags_a_contradiction(tmp_path):
+    root = tmp_path / "teardown"
+    shutil.copytree(ROOT / "examples" / "synthetic-crm", root)
+    teardown = json.loads((root / "teardown.json").read_text())
+    # The statement reads as "never"; the linked feature is observed daily.
+    answers = {"I2": {"type": "choice", "choice": "never", "probabilities": {"daily": 0.05, "weekly": 0.05, "rare": 0.1, "never": 0.8, "unknown": 0.0}, "confidence": 0.8}}
+    with pytest.raises(BoundaryRefused, match="purpose 'interviews' is not approved"):
+        run_reader(root, jev_run.interview_targets, "interviews", "interviews", teardown, answers)
+    teardown["data_boundary"]["model_endpoints"][0]["purposes"].append("interviews")
+    (root / "teardown.json").write_text(json.dumps(teardown, indent=2) + "\n")
+    runner = run_reader(root, jev_run.interview_targets, "interviews", "interviews", teardown, answers)
+    assert [(record["target_id"], record["question_id"], record["effect"]) for record in runner.annotations] == [
+        ("st-int-01-01", "I2", "prioritize")
+    ]
+    result = subprocess.run([sys.executable, str(TOOLS / "validate_artifacts.py"), str(root)], text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
 
 def test_systemone_runtime_has_no_third_party_imports():
     standard = set(sys.stdlib_module_names)

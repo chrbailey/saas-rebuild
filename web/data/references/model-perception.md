@@ -34,8 +34,10 @@ effect. That cutoff only routes review work; it never gates a veto.
 Three questions use comparators. C2 flags a citation whose text reads as a
 different evidence class than it declares, such as configuration cited as
 runtime evidence. E1 flags a directional edge whose text runs the other way;
-`joins-on` is symmetric and never contradicts. I2 flags an interview claim at
-least two frequency bands from observed usage, or `never` against any use.
+`joins-on` is symmetric and never contradicts. I2 flags an interview statement
+whose claimed frequency is at least two bands from the linked feature's
+observed usage, or `never` against any use. An open flag or veto on a statement
+linked to a `DROP` feature fails validation, as one on the feature does.
 
 ## Boundary contract
 
@@ -74,13 +76,18 @@ python3 skills/saas-rebuild/tools/jev_run.py --mode shadow \
   --max-calls 1 --max-input-tokens 2000 examples/synthetic-crm
 ```
 
-`--set` picks the question set. `feature-perception`, `citation-checks`, and
-`graph-edges` have target readers; any other set is refused before a call,
-since asking its questions about the wrong kind of target would be noise. Each
-set's purpose must be approved on the endpoint. The citation reader sends only
-a citation's claim and source text, keeping its evidence class and plane
-local; the edge reader sends the two node labels, source first, with the
-edge's evidence claims, keeping the edge type local.
+`--set` picks the question set. `feature-perception`, `citation-checks`,
+`graph-edges`, and `interviews` have target readers; any other set is refused
+before a call, since asking its questions about the wrong kind of target would
+be noise. Each set's purpose must be approved on the endpoint. The citation
+reader sends only a citation's claim and source text, keeping its evidence
+class and plane local; the edge reader sends the two node labels, source first,
+with the edge's evidence claims, keeping the edge type local. The interview
+reader reads `interviews.jsonl` and asks only about `usage` statements an
+analyst linked to a feature, from respondents whose recorded consent includes
+`model-perception`. It sends only the statement text, with digits stripped, and
+keeps the respondent, role, and the feature's declared usage local. It never
+links a statement to a feature; that stays an analyst's call.
 
 Replay mode reads the content-addressed cache, refuses a cache miss, and
 reproduces the cached answers for audit. It carries no authority and appends no

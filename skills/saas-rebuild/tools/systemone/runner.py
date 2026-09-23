@@ -232,7 +232,7 @@ class Runner:
                 calibration = None
             effect, calibrated_p = _effect(item, response.answers[question_id], self.mode, calibration, context)
             record = {
-                "schema_version": "0.10.0",
+                "schema_version": "0.11.0",
                 "annotation_id": f"ann-{stable_digest([self.run_id, target_kind, target_id, question_id])[:24]}",
                 "run_id": self.run_id,
                 "target_kind": target_kind,

@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.10.0",
+  "schema_version": "0.11.0",
   "teardown_id": "synthetic-crm-2026",
   "app": {
     "name": "SYNTHETIC CRM FIXTURE",
@@ -61,6 +61,7 @@
     "preservation_manifest": "preservation-manifest.json",
     "success_profile": "success-profile.json",
     "evaluation_scorecard": "evaluation-scorecard.json",
+    "interviews": "interviews.jsonl",
     "rebuild_plan": "REBUILD_PLAN.md"
   },
   "extraction": [
@@ -82,6 +83,13 @@
       "decision": "Defer target selection for the annual tax certificate.",
       "reason": "The runtime window excludes its plausible annual cadence.",
       "evidence_ids": ["ev-tax-window", "ev-tax-contract"]
+    },
+    {
+      "id": "decision-benchmark-rebind-v0-11",
+      "made_at": "2026-09-23T12:00:00Z",
+      "decision": "Re-bound the success-profile.json digest 00b6aedda26b6f5b824a8040627fc605b27f8c7eef016466401fd5f353b844b6 -> ac28a7097c006cb11ebb9fd858409ce11093eddd6a9d09b33ef1c8a195dfcdd4.",
+      "reason": "schema_version bump 0.10.0 -> 0.11.0 only; no criterion, weight, or target changed.",
+      "evidence_ids": []
     }
   ],
   "action_log": [

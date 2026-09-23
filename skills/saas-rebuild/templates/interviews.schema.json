@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chrbailey/saas-rebuild/skills/saas-rebuild/templates/interviews.schema.json",
+  "title": "Interview statement",
+  "description": "One JSONL line per statement from a user interview. Respondents are pseudonyms with a role, never a name. A statement is HUMAN/FRAMING evidence: it corroborates, never sets usage, and only an analyst links it to a feature.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "statement_id",
+    "session",
+    "respondent",
+    "consent",
+    "topic",
+    "text",
+    "verbatim",
+    "sensitivity"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.11.0"
+    },
+    "statement_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "channel",
+        "collected_at",
+        "collected_by"
+      ],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "channel": {
+          "enum": [
+            "live",
+            "circulated",
+            "notes"
+          ]
+        },
+        "collected_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "collected_by": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "A role such as analyst, never a person's name."
+        }
+      }
+    },
+    "respondent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "respondent_id",
+        "role",
+        "user_group"
+      ],
+      "properties": {
+        "respondent_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "A pseudonym stable within this teardown, such as r-01."
+        },
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "user_group": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        }
+      }
+    },
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recorded",
+        "scopes"
+      ],
+      "properties": {
+        "recorded": {
+          "type": "boolean"
+        },
+        "scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "teardown",
+              "model-perception"
+            ]
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "scopes": {
+            "contains": {
+              "const": "model-perception"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "recorded": {
+            "const": true
+          }
+        }
+      }
+    },
+    "topic": {
+      "enum": [
+        "usage",
+        "workaround",
+        "pain",
+        "keep",
+        "other"
+      ]
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "verbatim": {
+      "type": "boolean"
+    },
+    "sensitivity": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    },
+    "feature_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "linked_by": {
+      "const": "analyst"
+    }
+  },
+  "dependentRequired": {
+    "feature_id": [
+      "linked_by"
+    ],
+    "linked_by": [
+      "feature_id"
+    ]
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verbatim": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "sensitivity": {
+            "enum": [
+              "confidential",
+              "restricted"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:(?:[0-5]\\d|60)(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+    }
+  }
+}
