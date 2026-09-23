@@ -123,7 +123,7 @@ are committed in the repository; the key is not.
 
 A second LLM (Claude) took over from the Codex session, made no live Jev call,
 and spawned no agents. The original gap list below is kept as written; this
-section records what changed. Full suite: 755 passed, plus validator, package
+section records what changed. Full suite: 767 passed, plus validator, package
 parity, and whitespace checks.
 
 **Resolved**
@@ -158,6 +158,12 @@ parity, and whitespace checks.
   both enforce it.
 - The runner did not check that the client posts to the approved endpoint. It
   now refuses a mismatch.
+- Transport retries could bill beyond the "hard" budget: POSTs retried on
+  timeouts and 500/502/504, where the server may already have billed, while the
+  budget counts one call per `ask()`. By owner decision, a request is now
+  retried only when it provably was not processed (408, 425, 429, 503, 529, or a
+  refused/DNS-failed connection); everything else fails fast. The
+  export-compliance `xscreen` client keeps its own, older retry policy.
 
 **Still open**
 
@@ -167,11 +173,6 @@ parity, and whitespace checks.
   bench. Notes from `state.py`: nested dict keys are not scrubbed (only values),
   and person names are never scrubbed; the allow-list and class gate are the
   real guarantee.
-- **Transport retries can exceed the "hard" budget.** POSTs retry on timeouts
-  and 500/502/504, where the server may already have billed the request, while
-  the budget reserves once per `ask()`. Worst case is four billed attempts per
-  counted call. Options: retry only not-processed signals (429, 503, 529, 408)
-  or reserve per attempt. Needs an owner decision.
 - **5, 6.** Only the feature set runs end to end. C2, E1, and I2 stay inert:
   they compare an answer with target-specific evidence, so they need
   comparators, not fixed triggers.

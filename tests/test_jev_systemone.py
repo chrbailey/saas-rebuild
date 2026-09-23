@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 import random
+import socket
 import subprocess
 import sys
 import urllib.error
@@ -33,7 +34,7 @@ from systemone.limiter import BudgetGuard, LimitExceeded  # noqa: E402
 from systemone.questions import Choice, Noul, Score, question_hash, to_wire  # noqa: E402
 from systemone.runner import CalibratedThreshold, Runner, ThresholdSet  # noqa: E402
 from systemone.state import StateRefused, build_state  # noqa: E402
-from systemone.transport import post_json  # noqa: E402
+from systemone.transport import TransportError, post_json  # noqa: E402
 
 
 def example_state() -> dict:
@@ -123,6 +124,67 @@ def test_transport_retries_retry_after(monkeypatch):
     assert body == {"ok": True}
     assert headers["x-request-id"] == "retry-ok"
     assert len(calls) == 2 and sleeps == [2.0]
+
+
+class OkResponse:
+    headers = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self):
+        return b'{"ok":true}'
+
+
+def flaky_urlopen(failure, calls):
+    def urlopen(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise failure
+        return OkResponse()
+    return urlopen
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        urllib.error.HTTPError(ENDPOINT, 408, "timeout", {}, None),
+        urllib.error.HTTPError(ENDPOINT, 503, "overloaded", {}, None),
+        urllib.error.HTTPError(ENDPOINT, 529, "overloaded", {}, None),
+        urllib.error.URLError(ConnectionRefusedError()),
+        urllib.error.URLError(socket.gaierror()),
+    ],
+    ids=["408", "503", "529", "refused", "dns"],
+)
+def test_transport_retries_only_requests_that_were_never_processed(monkeypatch, failure):
+    calls, sleeps = [], []
+    monkeypatch.setattr("urllib.request.urlopen", flaky_urlopen(failure, calls))
+    assert post_json(ENDPOINT, {}, {}, sleep=sleeps.append)[0] == {"ok": True}
+    assert len(calls) == 2 and len(sleeps) == 1
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        urllib.error.HTTPError(ENDPOINT, 500, "error", {}, None),
+        urllib.error.HTTPError(ENDPOINT, 502, "bad gateway", {}, None),
+        urllib.error.HTTPError(ENDPOINT, 504, "gateway timeout", {}, None),
+        urllib.error.HTTPError(ENDPOINT, 409, "conflict", {}, None),
+        urllib.error.URLError(TimeoutError()),
+        TimeoutError("read timed out"),
+        ConnectionResetError("reset by peer"),
+    ],
+    ids=["500", "502", "504", "409", "urlerror-timeout", "timeout", "reset"],
+)
+def test_transport_fails_fast_when_a_billed_request_may_have_completed(monkeypatch, failure):
+    calls, sleeps = [], []
+    monkeypatch.setattr("urllib.request.urlopen", flaky_urlopen(failure, calls))
+    with pytest.raises(TransportError):
+        post_json(ENDPOINT, {}, {}, sleep=sleeps.append)
+    assert len(calls) == 1 and sleeps == []
 
 
 @pytest.mark.parametrize(

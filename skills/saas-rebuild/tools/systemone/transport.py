@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import ssl
 import urllib.error
 import urllib.request
@@ -25,7 +26,11 @@ def _ssl_ctx() -> ssl.SSLContext:
     return ssl.create_default_context()
 
 
-RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504, 529})
+# A billed POST is retried only when the request provably was not processed:
+# the server said so (these statuses), or the connection never opened. A
+# timeout, reset, or 5xx may follow a completed and billed request, and a retry
+# there would spend budget the guard never counted, so those fail fast.
+RETRYABLE_STATUS = frozenset({408, 425, 429, 503, 529})
 MAX_TRANSPORT_ATTEMPTS = 4
 BACKOFF_BASE_S = 1.0
 BACKOFF_CAP_S = 30.0
@@ -40,6 +45,12 @@ def _sleep_for(attempt: int, retry_after: str | None) -> float:
         except ValueError:
             pass
     return min(BACKOFF_CAP_S, BACKOFF_BASE_S * (2 ** attempt))
+
+
+def _never_sent(error: urllib.error.URLError) -> bool:
+    """True when the connection failed before any request byte was sent."""
+
+    return isinstance(error.reason, (socket.gaierror, ConnectionRefusedError))
 
 
 def _redacted_error(error: urllib.error.HTTPError) -> str:
@@ -75,11 +86,17 @@ def post_json(
                 raise TransportError(_redacted_error(error)) from error
             retry_after = error.headers.get("Retry-After") if error.headers else None
             sleeper(_sleep_for(attempt, retry_after))
-        except (TimeoutError, urllib.error.URLError, ConnectionError) as error:
+        except urllib.error.URLError as error:
             last = f"{type(error).__name__}: {error}"
+            if not _never_sent(error):
+                raise TransportError(f"{last} (not retried: the request may have been processed)") from error
             if attempt == MAX_TRANSPORT_ATTEMPTS - 1:
                 raise TransportError(f"{last} (after {MAX_TRANSPORT_ATTEMPTS} attempts)") from error
             sleeper(_sleep_for(attempt, None))
+        except (TimeoutError, ConnectionError) as error:
+            raise TransportError(
+                f"{type(error).__name__}: {error} (not retried: the request may have been processed)"
+            ) from error
         except (json.JSONDecodeError, UnicodeDecodeError) as error:
             raise TransportError("System One returned invalid JSON") from error
         except TransportError:
