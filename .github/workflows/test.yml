@@ -36,6 +36,10 @@ jobs:
         working-directory: skills/export-compliance/tools
         run: python -c "import xscreen; print('xscreen', xscreen.__version__)"
 
+      - name: Confirm System One adapter has zero dependencies
+        working-directory: skills/saas-rebuild/tools
+        run: python -c "import systemone; print('systemone import passed')"
+
       - name: Run the suite
         working-directory: skills/export-compliance/tools
         env:

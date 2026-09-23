@@ -68,7 +68,7 @@ rejects the directory on any mismatch.
 | `customer-records` | entity-records | exported | built-in CSV export | `exports/customers.csv` | 119 | `533f0b590d0978143d042d969a94fbbf87b34593aa957cb7584ccfc1617e611e` | 3 |
 | `audit-events` | audit-log | exported | API export | `audit/events.csv` | 233 | `3e2b34227cb969c6a8e317ed37608663a06d212ab797c92b0861de2b18de7743` | 3 |
 | `workflow-configuration` | configuration | exported | metadata API | `config/workflows.json` | 218 | `2bda19bf246c2e45816a22ff68778f0eca7cfaf91cb2a2f0ec74bbf8a65a7e8f` | null |
-| `behavioral-cases` | replay-corpus | exported | local JSONL generation | `pairs.jsonl` | 3649 | `7a35001ab83a84de7ed2fbe17fb5e4b62b33a194ffa5531ca9af233142e2d266` | 4 |
+| `behavioral-cases` | replay-corpus | exported | local JSONL generation | `pairs.jsonl` | 3653 | `855a2a1a16c4958af6e3cb59d5d5476c6085b984674066e0e09a82c44bd51e29` | 4 |
 | `attachments` | attachments | not-applicable | No attachment subsystem exists in this example | — | — | — | gap: The fictional source contains no attachment feature or records. |
 
 `record_count: null` for the configuration artifact means the manifest does

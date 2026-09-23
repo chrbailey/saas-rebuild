@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chrbailey/saas-rebuild/systemone/schemas/calibration-systemone-1.json",
+  "title": "Hash-only System One calibration record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "record_id", "question_hash", "state_hash", "split_group_hash", "dataset_role", "gold_source", "probability", "label", "model_assist"],
+  "properties": {
+    "schema_version": {"const": "systemone/1"},
+    "record_id": {"type": "string", "minLength": 1},
+    "question_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "state_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "split_group_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "dataset_role": {"enum": ["development", "regression", "holdout-eval"]},
+    "gold_source": {"enum": ["system-of-record", "observed-ui", "owner-confirmed", "dual-adjudicated", "analyst"]},
+    "probability": {"type": "number", "minimum": 0, "maximum": 1},
+    "label": {"type": "boolean"},
+    "model_assist": {"type": "boolean"}
+  }
+}

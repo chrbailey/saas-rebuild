@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/chrbailey/saas-rebuild/schemas/extraction-recipe-v0.7.json",
+  "$id": "https://github.com/chrbailey/saas-rebuild/schemas/extraction-recipe-v0.10.json",
   "title": "Per-app extraction recipe (one file of corpus/extraction-recipes/)",
   "description": "A document-derived route map for an authorized tenant teardown. A recipe is a hypothesis until verified: doc-derived-unverified recipes must be checked against current documentation, entitlements, region, and the live tenant before their claims enter an evidence base. The v0.7 sources array is a recipe-level bibliography, not machine-enforced claim-to-source lineage.",
   "type": "object",
@@ -20,7 +20,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "0.9.0"
+      "const": "0.10.0"
     },
     "app": {
       "type": "string",
@@ -40,19 +40,27 @@
     "export_rights": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["summary"],
+      "required": [
+        "summary"
+      ],
       "properties": {
         "summary": {
           "type": "string",
           "description": "what the customer is entitled to export, in one or two sentences, per the vendor's own terms or docs"
         },
         "tos_url": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "uri",
           "description": "URL of the terms/DPA/export-policy page consulted"
         },
         "post_termination_window": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "documented data-retrieval window after termination (e.g. '30 days'), null if not documented"
         }
       }
@@ -64,7 +72,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["route_type", "covers", "how"],
+        "required": [
+          "route_type",
+          "covers",
+          "how"
+        ],
         "properties": {
           "route_type": {
             "enum": [
@@ -84,7 +96,9 @@
           "covers": {
             "type": "array",
             "minItems": 1,
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "entities or artifact kinds this route extracts, e.g. contacts, invoices, attachments, audit-log, workflow-definitions"
           },
           "how": {
@@ -93,19 +107,28 @@
           },
           "formats": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
           "requires": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "role, plan/SKU, API token type, or vendor ticket this route needs"
           },
           "rate_limits": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "gotchas": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "field truncation, attachments not included, pagination caps, silent export failures"
           }
         }
@@ -115,18 +138,31 @@
       "type": "object",
       "additionalProperties": false,
       "description": "the Phase 4b checklist items that need app-specific answers; null means the docs don't say — verify in-tenant",
-      "required": ["attachments", "audit_log", "config_artifacts"],
+      "required": [
+        "attachments",
+        "audit_log",
+        "config_artifacts"
+      ],
       "properties": {
         "attachments": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "how files/attachments/documents are bulk-extracted, or null if undocumented"
         },
         "audit_log": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "how the audit/activity log is exported and its documented retention"
         },
         "config_artifacts": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "how customizations (fields, workflows, reports) export as restorable artifacts"
         }
       }
@@ -137,14 +173,20 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["url", "title", "retrieved"],
+        "required": [
+          "url",
+          "title",
+          "retrieved"
+        ],
         "properties": {
           "url": {
             "type": "string",
             "format": "uri",
             "pattern": "^https://"
           },
-          "title": { "type": "string" },
+          "title": {
+            "type": "string"
+          },
           "retrieved": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
@@ -171,7 +213,10 @@
     },
     "research_caveats": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "description": "Constraints of the research pass that produced this recipe: vendor hosts that could not be fetched, exhausted search budgets, mirrors or source repositories read instead of live vendor pages, and which claims therefore rest on search-engine excerpts. These describe how the documents were consulted, not what they say. They are part of the recipe's provenance and must be preserved when a recipe is revised; they are removed only when a later pass consults the affected sources directly"
     }
   }

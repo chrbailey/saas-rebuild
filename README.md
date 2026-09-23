@@ -209,7 +209,7 @@ Greenhouse · HubSpot · Microsoft 365 · Microsoft Teams · NetSuite · Payloci
 Pipedrive · QuickBooks Online · Ramp · Sage Intacct · Salesforce ·
 SAP Business One · SAP Concur · Square · Stripe · Xero · Zoho Books · Zoho CRM
 
-The target index names 100 applications; at v0.9, 29 have schema-validated
+The target index names 100 applications; at v0.10, 29 have schema-validated
 recipes, listed in the
 [covered applications](skills/saas-rebuild/corpus/README.md#covered-applications)
 table. Every recipe is marked `doc-derived-unverified`: researched from
@@ -306,7 +306,7 @@ separating claims from their enforcement:
   backlog, with HTTPS, date, and uniqueness checks on each bibliography, and a
   test keeps research-session caveats in their own `research_caveats` field
   rather than in reader-facing prose. They remain documented route hypotheses;
-  v0.9 does not machine-map individual claims to sources or prove that a route
+  v0.10 does not machine-map individual claims to sources or prove that a route
   works in a tenant.
 - The cross-artifact validator rejects duplicate identities, unresolved graph
   evidence, dataset lineages crossing roles, path escapes, and digest drift; a
@@ -344,8 +344,13 @@ Platform APIs, permissions, retention windows, and data models differ; the
 agent follows the protocol using the authorized tools available for that
 tenant.
 
-Version 0.9 adds the locked success profile and evidence-cited scorecard.
-Existing users should read the [v0.8 → v0.9 migration guide](docs/migration-v0.9.md)
+Version 0.10 adds optional, boundary-gated Jev/System One perception without
+giving the model ownership of any teardown decision. The deterministic core
+still runs fully offline; Jev annotations are server-side/CLI only and may
+only raise scrutiny. See the [model-perception contract](skills/saas-rebuild/references/model-perception.md).
+
+Existing users should read the [v0.9 → v0.10 migration guide](docs/migration-v0.10.md),
+the [v0.8 → v0.9 migration guide](docs/migration-v0.9.md),
 and, for older outputs, the [v0.7 → v0.8 guide](docs/migration-v0.8.md) and
 [v0.6 → v0.7 guide](docs/migration-v0.7.md) rather than changing the version
 field on old outputs.
@@ -391,7 +396,7 @@ artifacts, tests, and accountable reviewers.
 public teardown report that predates the v0.7 contracts. Its verdict taxonomy,
 evidence language, and skill-only target framing are legacy rather than
 normative. The repository links to that source record for transparency but
-does not republish derived engagement material as part of the v0.9 evidence
+does not republish derived engagement material as part of the v0.10 evidence
 base.
 
 ## Research lineage

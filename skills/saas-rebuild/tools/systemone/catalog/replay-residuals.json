@@ -1,0 +1,7 @@
+{
+  "schema_version": "systemone/1", "id": "replay-residuals", "version": "1", "purpose": "replay-residuals",
+  "questions": {
+    "R1": {"question": {"type": "choice", "instructions": "Which registered non-numeric divergence best matches this replay difference?", "criteria": {"registered": "Matches a registered intended divergence", "unregistered": "Does not match a registered divergence", "unclear": "The text is insufficient"}}, "authority": "suggest", "consumer": "replay.human-confirm", "gold": "owner-confirmed"},
+    "R2": {"question": {"type": "noul", "instructions": "Does the source material identify this behavior as a known legacy defect?"}, "authority": "suggest", "consumer": "replay.human-confirm", "gold": "owner-confirmed"}
+  }
+}

@@ -7,12 +7,20 @@
   "allOf": [
     {
       "if": {
-        "properties": { "status": { "const": "complete" } },
-        "required": ["status"]
+        "properties": {
+          "status": {
+            "const": "complete"
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
       "then": {
         "properties": {
-          "phase": { "const": 5 },
+          "phase": {
+            "const": 5
+          },
           "artifacts": {
             "required": [
               "feature_inventory",
@@ -44,7 +52,9 @@
     "action_log"
   ],
   "properties": {
-    "schema_version": { "const": "0.9.0" },
+    "schema_version": {
+      "const": "0.10.0"
+    },
     "teardown_id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
@@ -52,24 +62,53 @@
     "app": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "slug", "methodology"],
+      "required": [
+        "name",
+        "slug",
+        "methodology"
+      ],
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
         "slug": {
           "type": "string",
           "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         },
-        "url": { "type": ["string", "null"] },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "methodology": {
-          "enum": ["live-tenant", "document-based", "hybrid"]
+          "enum": [
+            "live-tenant",
+            "document-based",
+            "hybrid"
+          ]
         }
       }
     },
-    "started_at": { "$ref": "#/$defs/timestamp" },
-    "updated_at": { "$ref": "#/$defs/timestamp" },
-    "phase": { "type": "integer", "minimum": 0, "maximum": 5 },
+    "started_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "phase": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
     "status": {
-      "enum": ["in-progress", "blocked", "complete", "abandoned"]
+      "enum": [
+        "in-progress",
+        "blocked",
+        "complete",
+        "abandoned"
+      ]
     },
     "data_boundary": {
       "type": "object",
@@ -84,23 +123,198 @@
       ],
       "properties": {
         "model_boundary": {
-          "enum": ["local", "self-hosted", "vendor-cloud", "mixed", "unknown"]
+          "enum": [
+            "local",
+            "self-hosted",
+            "vendor-cloud",
+            "mixed",
+            "unknown"
+          ]
         },
         "connector_boundary": {
-          "enum": ["local", "self-hosted", "vendor-cloud", "mixed", "unknown"]
+          "enum": [
+            "local",
+            "self-hosted",
+            "vendor-cloud",
+            "mixed",
+            "unknown"
+          ]
         },
-        "artifact_root": { "type": "string", "minLength": 1 },
+        "artifact_root": {
+          "type": "string",
+          "minLength": 1
+        },
         "allowed_data_classes": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "enum": ["public", "internal", "confidential", "restricted"]
+            "enum": [
+              "public",
+              "internal",
+              "confidential",
+              "restricted"
+            ]
           }
         },
-        "approved_by": { "type": "string", "minLength": 1 },
-        "approved_at": { "$ref": "#/$defs/timestamp" },
-        "notes": { "type": "string" }
+        "approved_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approved_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source_classes": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "public",
+              "internal",
+              "confidential",
+              "restricted"
+            ]
+          }
+        },
+        "model_endpoints": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "vendor",
+              "endpoint",
+              "boundary",
+              "allowed_data_classes",
+              "purposes",
+              "zdr",
+              "baa",
+              "transfer_mechanism",
+              "training_on_customer_data",
+              "terms_version",
+              "approved_by",
+              "approved_at"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "vendor": {
+                "type": "string",
+                "minLength": 1
+              },
+              "endpoint": {
+                "type": "string",
+                "const": "https://api.typesafe.ai/v1/systemone"
+              },
+              "boundary": {
+                "enum": [
+                  "local",
+                  "self-hosted",
+                  "vendor-cloud",
+                  "mixed"
+                ]
+              },
+              "allowed_data_classes": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "public",
+                    "internal",
+                    "confidential",
+                    "restricted"
+                  ]
+                }
+              },
+              "purposes": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "zdr": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "status",
+                  "ref"
+                ],
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "not-in-force",
+                      "in-force"
+                    ]
+                  },
+                  "ref": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "baa": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "status",
+                  "ref"
+                ],
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "not-in-force",
+                      "in-force"
+                    ]
+                  },
+                  "ref": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "transfer_mechanism": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "training_on_customer_data": {
+                "enum": [
+                  "unknown",
+                  "yes",
+                  "no"
+                ]
+              },
+              "terms_version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "approved_by": {
+                "type": "string",
+                "minLength": 1
+              },
+              "approved_at": {
+                "$ref": "#/$defs/timestamp"
+              }
+            }
+          }
+        }
       }
     },
     "preflight": {
@@ -109,7 +323,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "status", "owner"],
+        "required": [
+          "id",
+          "status",
+          "owner"
+        ],
         "properties": {
           "id": {
             "enum": [
@@ -119,31 +337,80 @@
               "volatile-logs",
               "contracts",
               "admin-access",
-              "browser-automation"
+              "browser-automation",
+              "model-vendor-review"
             ]
           },
           "status": {
-            "enum": ["pending", "ready", "blocked", "not-applicable"]
+            "enum": [
+              "pending",
+              "ready",
+              "blocked",
+              "not-applicable"
+            ]
           },
-          "owner": { "type": "string", "minLength": 1 },
-          "evidence": { "type": "string" },
-          "ticket": { "type": ["string", "null"] },
-          "blocked_reason": { "type": ["string", "null"] }
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "ticket": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "blocked_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       }
     },
     "artifacts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["feature_inventory", "pairs"],
+      "required": [
+        "feature_inventory",
+        "pairs"
+      ],
       "properties": {
-        "feature_inventory": { "type": "string", "minLength": 1 },
-        "pairs": { "type": "string", "minLength": 1 },
-        "graph": { "type": "string", "minLength": 1 },
-        "preservation_manifest": { "type": "string", "minLength": 1 },
-        "success_profile": { "type": "string", "minLength": 1 },
-        "evaluation_scorecard": { "type": "string", "minLength": 1 },
-        "rebuild_plan": { "type": "string", "minLength": 1 }
+        "feature_inventory": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pairs": {
+          "type": "string",
+          "minLength": 1
+        },
+        "graph": {
+          "type": "string",
+          "minLength": 1
+        },
+        "preservation_manifest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "success_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluation_scorecard": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_annotations": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rebuild_plan": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "extraction": {
@@ -151,14 +418,36 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["entity", "route", "status"],
+        "required": [
+          "entity",
+          "route",
+          "status"
+        ],
         "properties": {
-          "entity": { "type": "string", "minLength": 1 },
-          "route": {
-            "enum": ["api", "connector", "built-in-export", "report-csv", "scrape", "none"]
+          "entity": {
+            "type": "string",
+            "minLength": 1
           },
-          "status": { "enum": ["planned", "verified", "blocked"] },
-          "notes": { "type": "string" }
+          "route": {
+            "enum": [
+              "api",
+              "connector",
+              "built-in-export",
+              "report-csv",
+              "scrape",
+              "none"
+            ]
+          },
+          "status": {
+            "enum": [
+              "planned",
+              "verified",
+              "blocked"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          }
         }
       }
     },
@@ -167,16 +456,44 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "made_at", "decision", "reason", "evidence_ids"],
+        "required": [
+          "id",
+          "made_at",
+          "decision",
+          "reason",
+          "evidence_ids"
+        ],
         "properties": {
-          "id": { "type": "string", "minLength": 1 },
-          "made_at": { "$ref": "#/$defs/timestamp" },
-          "decision": { "type": "string", "minLength": 1 },
-          "reason": { "type": "string", "minLength": 1 },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "made_at": {
+            "$ref": "#/$defs/timestamp"
+          },
+          "decision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
           "evidence_ids": {
             "type": "array",
             "uniqueItems": true,
-            "items": { "type": "string", "minLength": 1 }
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "annotation_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       }
@@ -186,16 +503,41 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["at", "actor", "action", "target", "effect"],
+        "required": [
+          "at",
+          "actor",
+          "action",
+          "target",
+          "effect"
+        ],
         "properties": {
-          "at": { "$ref": "#/$defs/timestamp" },
-          "actor": { "type": "string", "minLength": 1 },
-          "action": { "type": "string", "minLength": 1 },
-          "target": { "type": "string", "minLength": 1 },
-          "effect": {
-            "enum": ["read-only", "local-write", "remote-read", "remote-write", "unknown"]
+          "at": {
+            "$ref": "#/$defs/timestamp"
           },
-          "notes": { "type": "string" }
+          "actor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "effect": {
+            "enum": [
+              "read-only",
+              "local-write",
+              "remote-read",
+              "remote-write",
+              "unknown"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          }
         }
       }
     }

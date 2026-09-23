@@ -1,0 +1,9 @@
+{
+  "schema_version": "systemone/1", "id": "graph-edges", "version": "1", "purpose": "graph-edges",
+  "questions": {
+    "E1": {"question": {"type": "choice", "instructions": "Which direction best describes the relationship in this script excerpt?", "criteria": {"source-to-target": "The first named object acts on the second", "target-to-source": "The second named object acts on the first", "bidirectional": "Both directions are present", "unclear": "The direction is not established"}}, "authority": "flag", "consumer": "graph.spot-check", "gold": "system-of-record execution logs"},
+    "E2": {"question": {"type": "noul", "instructions": "Does this script body make or configure a call to an external system?"}, "authority": "suggest", "consumer": "graph.structural-edge", "gold": "system-of-record integration logs"},
+    "E3": {"question": {"type": "choice", "instructions": "Which named target is dynamically selected by this text?", "criteria": {"declared-target": "The declared target", "runtime-target": "A target assembled or selected at runtime", "none": "No target is selected"}}, "authority": "suggest", "consumer": "graph.target-review", "gold": "partial"},
+    "E4": {"question": {"type": "choice", "instructions": "What kind of trigger does the deployment text describe?", "criteria": {"scheduled": "Time or schedule based", "record-event": "Create, update, or delete event", "user-action": "Explicit user action", "integration-event": "External message or callback", "unknown": "No trigger is established"}}, "authority": "suggest", "consumer": "graph.trigger-review", "gold": "system-of-record deploy config"}
+  }
+}

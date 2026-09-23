@@ -49,6 +49,7 @@ SCHEMAS = {
     "preservation": "preservation-manifest.schema.json",
     "success": "success-profile.schema.json",
     "scorecard": "evaluation-scorecard.schema.json",
+    "annotation": "model-annotations.schema.json",
 }
 # teardown.json `artifacts` keys that must name the file this command
 # validated; a state pointing elsewhere would make the validated file and the
@@ -60,6 +61,7 @@ STATE_ARTIFACTS = {
     "preservation_manifest": REQUIRED["preservation"],
     "success_profile": REQUIRED["success"],
     "evaluation_scorecard": REQUIRED["scorecard"],
+    "model_annotations": "model-annotations.jsonl",
 }
 
 
@@ -137,6 +139,8 @@ class Validation:
             preservation = load_json(self.root / REQUIRED["preservation"])
             success = load_json(self.root / REQUIRED["success"])
             scorecard = load_json(self.root / REQUIRED["scorecard"])
+            annotation_path = self.root / "model-annotations.jsonl"
+            annotations = load_jsonl(annotation_path) if annotation_path.is_file() else []
         except ValueError as error:
             self.error(str(error))
             return self.finish()
@@ -153,9 +157,11 @@ class Validation:
         self.schema(preservation, "preservation", "preservation-manifest.json")
         self.schema(success, "success", "success-profile.json")
         self.schema(scorecard, "scorecard", "evaluation-scorecard.json")
+        for index, annotation in enumerate(annotations):
+            self.schema(annotation, "annotation", f"model-annotations.jsonl[{index}]")
 
         if not self.errors:
-            self.cross_file(state, features, pairs, graph, preservation, success, scorecard)
+            self.cross_file(state, features, pairs, graph, preservation, success, scorecard, annotations)
         return self.finish(features=len(features), pairs=len(pairs))
 
     def cross_file(
@@ -167,6 +173,7 @@ class Validation:
         preservation: dict[str, Any],
         success: dict[str, Any],
         scorecard: dict[str, Any],
+        annotations: list[dict[str, Any]],
     ) -> None:
         feature_ids = [feature["id"] for feature in features]
         repeated = duplicates(feature_ids)
@@ -184,7 +191,13 @@ class Validation:
             self.error(f"duplicate evidence ids: {sorted(repeated)}")
         evidence_set = set(evidence_ids)
         evidence_map = {citation["evidence_id"]: citation for citation in citations}
+        globally_allowed = set(state["data_boundary"]["allowed_data_classes"])
         for citation in citations:
+            if citation["sensitivity"] not in globally_allowed:
+                self.error(
+                    f"evidence {citation['evidence_id']} sensitivity is outside the approved boundary: "
+                    f"{citation['sensitivity']}"
+                )
             unresolved = set(citation.get("derived_from", [])) - evidence_set
             if unresolved:
                 self.error(
@@ -313,6 +326,8 @@ class Validation:
             roles_by_group.setdefault(pair["split_group"], set()).add(pair["dataset_role"])
             if pair["provenance"]["teardown_id"] != state["teardown_id"]:
                 self.error(f"pair {pair['pair_id']} teardown_id does not match state")
+            if pair["dataset_role"] == "holdout-eval" and pair["provenance"].get("model_assist"):
+                self.error(f"holdout pair {pair['pair_id']} must not contain model assistance")
         leaks = {group: roles for group, roles in roles_by_group.items() if len(roles) > 1}
         if leaks:
             self.error(f"split_group appears in multiple dataset roles: {leaks}")
@@ -331,6 +346,88 @@ class Validation:
                 self.error(
                     f"teardown decision {decision['id']} has unknown evidence: {sorted(unresolved)}"
                 )
+
+        annotation_ids = [annotation["annotation_id"] for annotation in annotations]
+        repeated = duplicates(annotation_ids)
+        if repeated:
+            self.error(f"duplicate model annotation ids: {sorted(repeated)}")
+        annotation_set = set(annotation_ids)
+        endpoint_list = state["data_boundary"].get("model_endpoints", [])
+        endpoint_ids = [endpoint["id"] for endpoint in endpoint_list]
+        repeated = duplicates(endpoint_ids)
+        if repeated:
+            self.error(f"duplicate model endpoint ids: {sorted(repeated)}")
+        endpoint_map = {endpoint["id"]: endpoint for endpoint in endpoint_list}
+        graph_edge_ids = {
+            f"{edge['from']}|{edge['to']}|{edge['type']}" for edge in graph["edges"]
+        }
+        target_sets = {
+            "feature": set(feature_ids),
+            "citation": evidence_set,
+            "graph-edge": graph_edge_ids,
+            "pair": set(pair_ids),
+        }
+        open_effects: dict[tuple[str, str], set[str]] = {}
+        for annotation in annotations:
+            endpoint = endpoint_map.get(annotation["endpoint_id"])
+            if endpoint is None:
+                self.error(
+                    f"annotation {annotation['annotation_id']} references unknown endpoint: "
+                    f"{annotation['endpoint_id']}"
+                )
+            else:
+                sent = set(annotation["sent_data_classes"])
+                refused = sent - globally_allowed | sent - set(endpoint["allowed_data_classes"])
+                if refused:
+                    self.error(
+                        f"annotation {annotation['annotation_id']} sent unapproved data classes: "
+                        f"{sorted(refused)}"
+                    )
+            targets = target_sets.get(annotation["target_kind"])
+            if targets is None or annotation["target_id"] not in targets:
+                self.error(
+                    f"annotation {annotation['annotation_id']} target does not resolve: "
+                    f"{annotation['target_kind']}:{annotation['target_id']}"
+                )
+            if annotation["resolution"]["status"] == "open":
+                key = (annotation["target_kind"], annotation["target_id"])
+                open_effects.setdefault(key, set()).add(annotation["effect"])
+
+        for feature in features:
+            effects = open_effects.get(("feature", feature["id"]), set())
+            if feature.get("verdict") == "DROP" and effects & {"flag", "veto"}:
+                self.error(f"feature {feature['id']} is DROP despite an open model flag or veto")
+        for pair in pairs:
+            effects = open_effects.get(("pair", pair["pair_id"]), set())
+            review = pair.get("sanitization_review") or {}
+            if (
+                pair["sanitization_tier"] == "sanitized-shareable"
+                and review.get("status") == "approved"
+                and effects & {"reject", "veto"}
+            ):
+                self.error(
+                    f"pair {pair['pair_id']} is shareable despite an open model sanitization rejection"
+                )
+            if (
+                pair["sanitization_tier"] == "sanitized-shareable"
+                and review.get("status") == "approved"
+                and review.get("method") == "model-prescreen-reject"
+            ):
+                self.error(f"pair {pair['pair_id']} cannot be approved by a rejected model prescreen")
+
+        for decision in state["decisions"]:
+            unresolved = set(decision.get("annotation_ids", [])) - annotation_set
+            if unresolved:
+                self.error(
+                    f"teardown decision {decision['id']} has unknown annotations: {sorted(unresolved)}"
+                )
+        for pair in pairs:
+            assisted = {
+                item["annotation_id"] for item in pair["provenance"].get("model_assist", [])
+            }
+            unresolved = assisted - annotation_set
+            if unresolved:
+                self.error(f"pair {pair['pair_id']} has unknown model annotations: {sorted(unresolved)}")
 
         # The benchmark is locked before evidence collection and the scorecard
         # is a complete, reproducible crosswalk against that exact file.

@@ -39,6 +39,8 @@ disjoint historical cases.
    which data classifications may cross each boundary; who approved it; and
    where artifacts are written. `raw-local-only` is an artifact-distribution
    label, not a claim that browser, connector, or model traffic stayed local.
+6. **Keep model perception optional and raise-only.** Deterministic rules own recorded decisions.
+   Jev may add review or veto `DROP` into `DEFER`; see `references/model-perception.md`.
 
 ## Phase 0 — Scope
 
@@ -47,7 +49,7 @@ most, who are the users (names/roles count), and whether an admin/audit-log
 area is accessible. Create the output dir and `teardown.json` state file:
 
 ```json
-{"schema_version":"0.9.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Dev/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl","success_profile":"success-profile.json"},"extraction":[],"decisions":[],"action_log":[]}
+{"schema_version":"0.10.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Dev/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl","success_profile":"success-profile.json"},"extraction":[],"decisions":[],"action_log":[]}
 ```
 
 State is resumable — on re-invocation, read `teardown.json` and continue from
@@ -88,6 +90,8 @@ resumability is not a state contract.
    or present-day vendor behavior. Re-check source freshness and confirm each
    route against the authorized tenant. Preserve the `verification` status;
    submit corrections and evidence through a reviewable recipe PR.
+7. **Review any model vendor before calling it.** Record `model-vendor-review` plus
+   the endpoint, purpose, classes, contract status, terms, and approver; no ticket means no call.
 
 Record each pre-flight item's status in `teardown.json` under `preflight`;
 an item marked blocked gets an owner and a ticket reference, not silence.
@@ -288,6 +292,10 @@ better evidence. Criticality follows the same citation discipline as usage:
 `critical` requires a citation naming the business process that breaks
 (interview, contract SLA, or a dependency-graph path to a critical process)
 — an uncited `critical` is `important`.
+
+Run the deterministic matrix first. Store Jev results in `model-annotations.jsonl`; the
+raise-only combiner may add review or veto `DROP` into `DEFER`, never create a verdict.
+The browser makes no Jev calls.
 
 Join rules (where Phase 1b ran): a feature is only "used" when STRUCTURE
 evidence (it exists/is configured) joins with RUNTIME evidence (transactions,
