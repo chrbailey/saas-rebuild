@@ -395,6 +395,30 @@ def test_annotation_schema_refuses_uncalibrated_high_authority(tmp_path, effect)
     jsonschema.validate({**record, "calibrated_p": 0.95, "threshold_set_id": "ts-1"}, ANNOTATION_SCHEMA)
 
 
+def test_refusal_events_validate_and_stay_content_free(tmp_path):
+    call_schema = json.loads((SYSTEMONE / "schemas" / "calllog.schema.json").read_text())
+    runner, _ = run_once(tmp_path, "shadow", {"Q": noul_item("veto")}, noul_body(0.9))
+    with pytest.raises(BoundaryRefused):
+        runner.ask(target_kind="feature", target_id="customer-search", state={"name": "secret tenant text"}, data_classes=("restricted",), catalog_version="1", catalog={"Q": noul_item("veto")})
+    # jev_run logs a state-gate refusal before any data class is known.
+    runner.record_refusal(target_kind="feature", target_id="customer-search", data_classes=(), gate="state", reason="no approved fields remain after minimization")
+
+    log = (tmp_path / ".systemone" / "calls.jsonl").read_text()
+    entries = [json.loads(line) for line in log.splitlines()]
+    assert [entry["event"] for entry in entries] == ["jev.call", "jev.gate.refused", "jev.gate.refused"]
+    assert [entry["payload"].get("gate") for entry in entries[1:]] == ["boundary", "state"]
+    for entry in entries:
+        jsonschema.validate(entry, call_schema)
+    assert runner.calllog.verify() == (True, [])
+    assert "secret tenant text" not in log
+
+    # A refusal payload cannot pose as a call, nor a call as a refusal.
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({**entries[1], "event": "jev.call"}, call_schema)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({**entries[0], "event": "jev.gate.refused"}, call_schema)
+
+
 def test_systemone_runtime_has_no_third_party_imports():
     standard = set(sys.stdlib_module_names)
     local = {path.stem for path in SYSTEMONE.glob("*.py")} | {"systemone"}

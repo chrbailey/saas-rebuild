@@ -78,3 +78,29 @@ def test_invalid_model_annotation_fails_closed(tmp_path, record, message):
     result = run(prepare(tmp_path, record))
     assert result.returncode == 1
     assert message in result.stderr
+
+
+def test_undeclared_annotation_file_is_still_enforced(tmp_path):
+    """jev_run never edits teardown.json, so a present annotation file must be
+    validated whether or not it is declared; ignoring it would hide a veto."""
+
+    target = prepare(tmp_path, annotation(target_id="social-enrichment", effect="veto", calibrated_p=0.95, threshold_set_id="ts-test"))
+    state_path = target / "teardown.json"
+    state = json.loads(state_path.read_text())
+    del state["artifacts"]["model_annotations"]
+    state_path.write_text(json.dumps(state, indent=2) + "\n")
+    result = run(target)
+    assert result.returncode == 1
+    assert "DROP despite an open model flag or veto" in result.stderr
+
+
+def test_annotations_declared_elsewhere_are_refused(tmp_path):
+    target = prepare(tmp_path, annotation())
+    (target / "model-annotations.jsonl").rename(target / "other.jsonl")
+    state_path = target / "teardown.json"
+    state = json.loads(state_path.read_text())
+    state["artifacts"]["model_annotations"] = "other.jsonl"
+    state_path.write_text(json.dumps(state, indent=2) + "\n")
+    result = run(target)
+    assert result.returncode == 1
+    assert "must be the validated file model-annotations.jsonl" in result.stderr

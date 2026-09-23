@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""Apply the one-time SaaS Rebuild 0.9.0 -> 0.10.0 contract bump."""
+"""Apply the one-time SaaS Rebuild 0.9.0 -> 0.10.0 bump to this repository.
+
+Maintainers only. This rewrites the repository's own schemas, corpus recipes,
+examples, and fixtures; it never touches a user's teardown directory. For that,
+follow docs/migration-v0.10.md. It refuses to run on a tree not at 0.9.0,
+because re-running would reformat schemas that were refined by hand afterwards.
+"""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -115,6 +122,7 @@ def update_teardown() -> None:
     schema["properties"]["decisions"]["items"]["properties"]["annotation_ids"] = {
         "type": "array", "uniqueItems": True, "items": {"type": "string", "minLength": 1}
     }
+    schema["properties"]["artifacts"]["properties"]["model_annotations"] = {"type": "string", "minLength": 1}
     write(path, schema)
 
 
@@ -151,7 +159,16 @@ def replace_versions() -> None:
     write(ROOT / ".claude-plugin" / "plugin.json", plugin)
 
 
-def main() -> None:
+def main() -> int:
+    current = read(ROOT / "skill-versions.json").get("saas-rebuild")
+    if current != OLD:
+        print(
+            f"refusing: saas-rebuild is at {current}, not {OLD}; this one-time "
+            "repository migration has already been applied. To migrate a "
+            "teardown directory, follow docs/migration-v0.10.md.",
+            file=sys.stderr,
+        )
+        return 1
     for path in sorted(TEMPLATES.glob("*.schema.json")):
         update_schema(path)
     update_feature_and_pairs()
@@ -159,7 +176,8 @@ def main() -> None:
     update_preservation()
     replace_versions()
     print("migrated SaaS Rebuild contracts to 0.10.0")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
