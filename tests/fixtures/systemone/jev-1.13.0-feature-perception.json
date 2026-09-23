@@ -1,0 +1,14 @@
+{
+  "model": "jev-1.13.0",
+  "answers": {
+    "F1": {"type": "choice", "choice": "intraday", "probabilities": {"annual-or-rarer": 0.0, "daily": 0.05, "intraday": 0.89, "irregular": 0.06, "monthly": 0.0, "quarterly": 0.0, "weekly": 0.0}, "confidence": 0.87},
+    "F2": {"type": "noul", "noul": 0.24},
+    "F3": {"type": "noul", "noul": 0.12},
+    "F4": {"type": "noul", "noul": 0.12},
+    "F5": {"type": "choice", "choice": "customer-service", "probabilities": {"compliance": 0.0, "customer-service": 1.0, "finance-close": 0.0, "operations": 0.0, "other": 0.0, "sales": 0.0}, "confidence": 1.0},
+    "F6": {"type": "choice", "choice": "unknown", "probabilities": {"duplicate": 0.01, "never-needed": 0.11, "too-complex": 0.0, "unknown": 0.83, "wrong-fit": 0.05}, "confidence": 0.78},
+    "F7": {"type": "choice", "choice": "moderate", "probabilities": {"hard": 0.46, "moderate": 0.53, "trivial": 0.01}, "confidence": 0.29},
+    "F8": {"type": "noul", "noul": 0.06}
+  },
+  "usage": {"input_tokens": 925, "output_tokens": 301}
+}

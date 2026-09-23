@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.9.0",
+  "schema_version": "0.10.0",
   "app": "paylocity",
   "app_name": "Paylocity",
   "vendor": "Paylocity",

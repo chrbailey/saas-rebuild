@@ -1,0 +1,9 @@
+{
+  "schema_version": "systemone/1", "id": "sanitization", "version": "1", "purpose": "sanitization",
+  "questions": {
+    "S1a": {"question": {"type": "noul", "instructions": "Does the text contain a person's name?"}, "authority": "reject", "consumer": "sanitization.reject-only", "gold": "seeded leak bench"},
+    "S1b": {"question": {"type": "noul", "instructions": "Does the text contain a real organization or customer name?"}, "authority": "reject", "consumer": "sanitization.reject-only", "gold": "seeded leak bench"},
+    "S1c": {"question": {"type": "noul", "instructions": "Does the text contain an internal URL, hostname, or system address?"}, "authority": "reject", "consumer": "sanitization.reject-only", "gold": "seeded leak bench"},
+    "S1d": {"question": {"type": "noul", "instructions": "Does the text contain a distinctive internal term that could identify the source organization?"}, "authority": "reject", "consumer": "sanitization.reject-only", "gold": "seeded leak bench"}
+  }
+}

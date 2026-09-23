@@ -1,5 +1,9 @@
 .DS_Store
 *.log
+.env
+.env.*
+!.env.example
+.systemone/
 exports/
 !examples/synthetic-crm/exports/
 !examples/synthetic-crm/exports/**

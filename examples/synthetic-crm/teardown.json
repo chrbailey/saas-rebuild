@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.9.0",
+  "schema_version": "0.10.0",
   "teardown_id": "synthetic-crm-2026",
   "app": {
     "name": "SYNTHETIC CRM FIXTURE",
@@ -12,10 +12,34 @@
   "phase": 5,
   "status": "complete",
   "data_boundary": {
-    "model_boundary": "local",
+    "model_boundary": "mixed",
     "connector_boundary": "local",
     "artifact_root": "examples/synthetic-crm/",
     "allowed_data_classes": ["public"],
+    "source_classes": {
+      "feature-inventory.json": "public"
+    },
+    "regulated_data": {
+      "phi": "no",
+      "eu_personal_data": "no"
+    },
+    "model_endpoints": [
+      {
+        "id": "typesafe-systemone",
+        "vendor": "TypeSafe AI",
+        "endpoint": "https://api.typesafe.ai/v1/systemone",
+        "boundary": "vendor-cloud",
+        "allowed_data_classes": ["public"],
+        "purposes": ["feature-perception", "citation-checks", "contract-spike"],
+        "zdr": {"status": "not-in-force", "ref": null},
+        "baa": {"status": "not-in-force", "ref": null},
+        "transfer_mechanism": null,
+        "training_on_customer_data": "unknown",
+        "terms_version": "not-recorded-synthetic-only",
+        "approved_by": "synthetic-example-owner",
+        "approved_at": "2026-09-21T12:00:00Z"
+      }
+    ],
     "approved_by": "synthetic-example-owner",
     "approved_at": "2026-07-31T10:00:00Z",
     "notes": "All records and identifiers are invented."
@@ -27,7 +51,8 @@
     {"id": "volatile-logs", "status": "ready", "owner": "synthetic-example-owner", "evidence": "audit/events.csv"},
     {"id": "contracts", "status": "ready", "owner": "synthetic-example-owner", "evidence": "Synthetic policy citation POL-07"},
     {"id": "admin-access", "status": "not-applicable", "owner": "synthetic-example-owner"},
-    {"id": "browser-automation", "status": "not-applicable", "owner": "synthetic-example-owner"}
+    {"id": "browser-automation", "status": "not-applicable", "owner": "synthetic-example-owner"},
+    {"id": "model-vendor-review", "status": "ready", "owner": "synthetic-example-owner", "evidence": "Public synthetic data only; restricted and PHI data remain refused without ZDR and a BAA."}
   ],
   "artifacts": {
     "feature_inventory": "feature-inventory.json",

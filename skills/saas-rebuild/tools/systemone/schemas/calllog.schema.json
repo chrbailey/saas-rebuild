@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chrbailey/saas-rebuild/systemone/schemas/calllog-systemone-1.json",
+  "title": "Privacy-minimized hash-chained System One log entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["seq", "ts", "actor", "event", "payload", "prev_hash", "hash"],
+  "properties": {
+    "seq": {"type": "integer", "minimum": 1},
+    "ts": {"type": "string", "format": "date-time"},
+    "actor": {"type": "string", "minLength": 1},
+    "event": {"enum": ["jev.call", "jev.gate.refused"]},
+    "prev_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "payload": {
+      "oneOf": [
+        {"$ref": "#/$defs/call"},
+        {"$ref": "#/$defs/refusal"}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"event": {"const": "jev.call"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/call"}}}
+    },
+    {
+      "if": {"properties": {"event": {"const": "jev.gate.refused"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/refusal"}}}
+    }
+  ],
+  "$defs": {
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_tokens", "output_tokens"],
+      "properties": {
+        "input_tokens": {"type": "integer", "minimum": 0},
+        "output_tokens": {"type": "integer", "minimum": 0}
+      }
+    },
+    "call": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "endpoint_id", "purpose", "model_requested", "model_returned", "state_sha256", "questions_sha256", "question_ids", "data_classes", "usage", "request_id", "latency_ms", "cache_key"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "endpoint_id": {"type": "string", "minLength": 1},
+        "purpose": {"type": "string", "minLength": 1},
+        "model_requested": {"type": "string", "minLength": 1},
+        "model_returned": {"type": "string", "minLength": 1},
+        "state_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "questions_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "question_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "data_classes": {"$ref": "#/$defs/classes"},
+        "usage": {"$ref": "#/$defs/usage"},
+        "request_id": {"type": ["string", "null"]},
+        "latency_ms": {"type": "integer", "minimum": 0},
+        "cache_key": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "endpoint_id", "purpose", "target_kind", "target_id", "data_classes", "gate", "reason"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "endpoint_id": {"type": "string", "minLength": 1},
+        "purpose": {"type": "string", "minLength": 1},
+        "target_kind": {"type": "string", "minLength": 1},
+        "target_id": {"type": "string", "minLength": 1},
+        "data_classes": {"$ref": "#/$defs/classes"},
+        "gate": {"enum": ["boundary", "state"]},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "classes": {
+      "type": "array",
+      "items": {"enum": ["public", "internal", "confidential", "restricted"]},
+      "uniqueItems": true
+    }
+  }
+}

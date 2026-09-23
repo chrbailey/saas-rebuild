@@ -1,0 +1,7 @@
+{
+  "schema_version": "systemone/1", "id": "process-mining", "version": "1", "purpose": "process-mining",
+  "questions": {
+    "P1": {"question": {"type": "choice", "instructions": "Which activity label best describes this distinct event signature?", "criteria": {"create": "Create a business record", "update": "Change a business record", "approve": "Approve or reject work", "communicate": "Send or record a communication", "integrate": "Exchange data with another system", "noise": "Technical noise with no process meaning"}}, "authority": "suggest", "consumer": "process-owner.mapping", "gold": "owner-confirmed"},
+    "P2": {"question": {"type": "noul", "instructions": "Does the event description indicate that a named control or approval was bypassed?"}, "authority": "prioritize", "consumer": "review.queue", "gold": "analyst"}
+  }
+}

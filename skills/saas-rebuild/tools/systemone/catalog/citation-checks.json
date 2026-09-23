@@ -1,0 +1,8 @@
+{
+  "schema_version": "systemone/1", "id": "citation-checks", "version": "1", "purpose": "citation-checks",
+  "questions": {
+    "C1": {"question": {"type": "noul", "instructions": "Does the cited source text actually support the claim and its stated scope?"}, "authority": "flag", "consumer": "validator.review", "gold": "dual-adjudicated"},
+    "C2": {"question": {"type": "choice", "instructions": "What kind of fact does the UI walk or export text contain?", "criteria": {"structure": "Configuration, fields, forms, or setup", "runtime": "Transactions, executions, events, or observed use", "human-framing": "Interview, contract, or human context", "unclear": "The text does not establish a class"}}, "authority": "flag", "consumer": "validator.review", "gold": "observed-ui"},
+    "C3": {"question": {"type": "noul", "instructions": "Does the claim text contain record contents, personal data, or another value that should not be in a citation?"}, "authority": "flag", "consumer": "validator.review", "gold": "dual-adjudicated"}
+  }
+}

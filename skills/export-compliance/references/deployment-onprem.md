@@ -54,6 +54,11 @@ worse failure than no sanctions list, because it fails silently.
 
 ## Model backends
 
+This section describes the export-compliance adjudication backends only. It
+does not authorize SaaS Rebuild's optional Jev/System One adapter. That adapter
+has a separate fail-closed endpoint ticket and raise-only authority contract in
+`skills/saas-rebuild/references/model-perception.md`.
+
 | Environment variable | Purpose |
 |---|---|
 | `XSCREEN_BACKEND` | Adjudicator: `anthropic:<model>`, `openai:<model>`, `offline` |

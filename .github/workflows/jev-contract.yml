@@ -1,0 +1,36 @@
+name: Jev contract spike
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_live:
+        description: "Spend one tightly capped Jev call on synthetic/public data"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    if: ${{ inputs.run_live }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Require an explicitly configured secret
+        run: test -n "$TYPESAFE_API_KEY"
+      - name: Run one synthetic shadow call
+        run: |
+          cp -R examples/synthetic-crm "${RUNNER_TEMP}/synthetic-crm"
+          python skills/saas-rebuild/tools/jev_run.py \
+            --mode shadow --limit 1 --max-calls 1 --max-input-tokens 2000 \
+            "${RUNNER_TEMP}/synthetic-crm"

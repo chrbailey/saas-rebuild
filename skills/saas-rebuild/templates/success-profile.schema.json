@@ -17,7 +17,9 @@
     "constraints"
   ],
   "properties": {
-    "schema_version": { "const": "0.9.0" },
+    "schema_version": {
+      "const": "0.10.0"
+    },
     "teardown_id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
@@ -25,49 +27,84 @@
     "app": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "slug"],
+      "required": [
+        "name",
+        "slug"
+      ],
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
         "slug": {
           "type": "string",
           "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         }
       }
     },
-    "created_at": { "$ref": "#/$defs/timestamp" },
-    "locked_at": { "$ref": "#/$defs/timestamp" },
-    "approved_by": { "type": "string", "minLength": 1 },
+    "created_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "locked_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "approved_by": {
+      "type": "string",
+      "minLength": 1
+    },
     "outcomes": {
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "criteria": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/criterion" }
+      "items": {
+        "$ref": "#/$defs/criterion"
+      }
     },
     "non_goals": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "constraints": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "kind", "statement"],
+        "required": [
+          "id",
+          "kind",
+          "statement"
+        ],
         "properties": {
           "id": {
             "type": "string",
             "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
           },
           "kind": {
-            "enum": ["budget", "deadline", "legal", "security", "operational", "technical"]
+            "enum": [
+              "budget",
+              "deadline",
+              "legal",
+              "security",
+              "operational",
+              "technical"
+            ]
           },
-          "statement": { "type": "string", "minLength": 1 }
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -110,32 +147,74 @@
             "cost"
           ]
         },
-        "statement": { "type": "string", "minLength": 1 },
-        "priority": { "enum": ["must", "should", "could"] },
-        "weight": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority": {
+          "enum": [
+            "must",
+            "should",
+            "could"
+          ]
+        },
+        "weight": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
         "acceptance": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["method", "target", "evidence_classes"],
+          "required": [
+            "method",
+            "target",
+            "evidence_classes"
+          ],
           "properties": {
             "method": {
-              "enum": ["metric", "replay", "inspection", "query", "interview", "contract"]
+              "enum": [
+                "metric",
+                "replay",
+                "inspection",
+                "query",
+                "interview",
+                "contract"
+              ]
             },
             "target": {
               "oneOf": [
-                { "type": "string", "minLength": 1 },
-                { "type": "number" },
-                { "type": "boolean" }
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
               ]
             },
-            "unit": { "type": "string", "minLength": 1 },
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            },
             "evidence_classes": {
               "type": "array",
               "minItems": 1,
               "uniqueItems": true,
-              "items": { "enum": ["structure", "runtime", "human-framing"] }
+              "items": {
+                "enum": [
+                  "structure",
+                  "runtime",
+                  "human-framing"
+                ]
+              }
             },
-            "notes": { "type": "string" }
+            "notes": {
+              "type": "string"
+            }
           }
         }
       }
