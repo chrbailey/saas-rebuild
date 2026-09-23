@@ -53,10 +53,22 @@
               }
             }
           },
+          "candidate_slots": {
+            "description": "The question picks one of the candidate-N options, each standing for a target code supplied in slot order. It can only suggest, and only a slot that was actually offered.",
+            "const": true
+          },
           "consumer": {"type": "string", "minLength": 1},
           "gold": {"type": ["string", "null"]}
         },
-        "not": {"required": ["trigger", "compare"]}
+        "not": {"required": ["trigger", "compare"]},
+        "if": {"required": ["candidate_slots"]},
+        "then": {
+          "properties": {
+            "authority": {"const": "suggest"},
+            "question": {"properties": {"type": {"const": "choice"}}}
+          },
+          "not": {"anyOf": [{"required": ["trigger"]}, {"required": ["compare"]}]}
+        }
       }
     }
   }

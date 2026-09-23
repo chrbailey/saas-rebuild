@@ -18,7 +18,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "0.11.0"
+      "const": "0.12.0"
     },
     "statement_id": {
       "type": "string",
@@ -130,7 +130,8 @@
     "text": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 1000
+      "maxLength": 1000,
+      "description": "One claim, paraphrased unless verbatim is true. A statement naming several features is recorded as several statements."
     },
     "verbatim": {
       "type": "boolean"

@@ -77,7 +77,7 @@ python3 skills/saas-rebuild/tools/jev_run.py --mode shadow \
 ```
 
 `--set` picks the question set. `feature-perception`, `citation-checks`,
-`graph-edges`, and `interviews` have target readers; any other set is refused
+`graph-edges`, `interviews`, and `interview-matching` have target readers; any other set is refused
 before a call, since asking its questions about the wrong kind of target would
 be noise. Each set's purpose must be approved on the endpoint. The citation
 reader sends only a citation's claim and source text, keeping its evidence
@@ -88,6 +88,19 @@ analyst linked to a feature, from respondents whose recorded consent includes
 `model-perception`. It sends only the statement text, with digits stripped, and
 keeps the respondent, role, and the feature's declared usage local. It never
 links a statement to a feature; that stays an analyst's call.
+
+The `interview-matching` set (I1) suggests that link for statements that have
+none, from respondents who consented to `model-perception`. Code picks the
+candidates: every feature when the inventory has five or fewer, otherwise the
+five whose name and navigation path share the most words with the statement,
+ties broken by id. A statement sharing no word with any feature is skipped and
+reported, never sent. Candidates are sent sorted by id, so a slot reveals
+nothing about rank, with only their names and navigation paths; usage, verdict,
+criticality, and evidence stay local. The model picks `candidate-1` to
+`candidate-5` or `none`, and the annotation records the offered feature ids in
+slot order as `candidates`. An offered slot is a `suggest`; `none` or an empty
+slot is no effect. The analyst accepts a suggestion by linking the statement,
+so record one claim per statement.
 
 Replay mode reads the content-addressed cache, refuses a cache miss, and
 reproduces the cached answers for audit. It carries no authority and appends no

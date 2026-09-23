@@ -1,10 +1,10 @@
 {
-  "schema_version": "0.11.0",
+  "schema_version": "0.12.0",
   "teardown_id": "synthetic-crm-2026",
   "evaluated_at": "2026-07-03T12:00:00Z",
   "benchmark": {
     "path": "success-profile.json",
-    "sha256": "ac28a7097c006cb11ebb9fd858409ce11093eddd6a9d09b33ef1c8a195dfcdd4"
+    "sha256": "f30650681f227e8127305870afcf54d14ca26b3344339c8d76e2d57c54c70dcc"
   },
   "entries": [
     {

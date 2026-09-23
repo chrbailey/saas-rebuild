@@ -1,0 +1,6 @@
+{
+  "schema_version": "systemone/1", "id": "interview-matching", "version": "1", "purpose": "interview-matching",
+  "questions": {
+    "I1": {"question": {"type": "choice", "instructions": "Which supplied candidate feature does this interview statement describe?", "criteria": {"candidate-1": "The first supplied candidate feature", "candidate-2": "The second supplied candidate feature", "candidate-3": "The third supplied candidate feature", "candidate-4": "The fourth supplied candidate feature", "candidate-5": "The fifth supplied candidate feature", "none": "None of the supplied candidate features"}}, "authority": "suggest", "candidate_slots": true, "consumer": "interview.feature-review", "gold": "analyst"}
+  }
+}

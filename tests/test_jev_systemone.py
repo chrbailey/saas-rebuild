@@ -680,7 +680,7 @@ def run_reader(root, reader, purpose, catalog_name, teardown, answers):
     runner = Runner(root, teardown, endpoint_id="typesafe-systemone", purpose=purpose, mode="live", client=FakeSystemOne([(body, {})] * len(targets)), budget=BudgetGuard(len(targets), 100_000))
     for target in targets:
         envelope = jev_run.target_state(target, teardown["data_boundary"]["allowed_data_classes"])
-        runner.ask(target_kind=target.kind, target_id=target.id, state=envelope.value, data_classes=envelope.data_classes, catalog_version=catalog["version"], catalog=catalog["questions"], context=target.context)
+        runner.ask(target_kind=target.kind, target_id=target.id, state=envelope.value, data_classes=envelope.data_classes, catalog_version=catalog["version"], catalog=catalog["questions"], context=target.context, candidates=target.candidates)
     runner.write_annotations()
     return runner
 
@@ -775,6 +775,145 @@ def test_interview_run_needs_its_purpose_and_flags_a_contradiction(tmp_path):
     ]
     result = subprocess.run([sys.executable, str(TOOLS / "validate_artifacts.py"), str(root)], text=True, capture_output=True)
     assert result.returncode == 0, result.stderr
+
+
+MATCHING_CATALOG = json.loads((SYSTEMONE / "catalog" / "interview-matching.json").read_text())
+I1_ITEM = MATCHING_CATALOG["questions"]["I1"]
+
+
+def fake_feature(feature_id, name, nav_path="Menu"):
+    return {"id": feature_id, "name": name, "nav_path": nav_path}
+
+
+def test_candidates_are_the_whole_small_inventory_in_id_order():
+    features = [fake_feature("zeta", "Invoice export"), fake_feature("alpha", "Customer search"), fake_feature("mid", "Tax report")]
+    chosen = jev_run.select_candidates("Searches customers every morning", features)
+    assert [feature["id"] for feature in chosen] == ["alpha", "mid", "zeta"]
+
+
+def test_a_statement_sharing_no_word_gets_no_candidates():
+    features = [fake_feature("alpha", "Customer search")]
+    assert jev_run.select_candidates("Mondays are hard", features) == []
+    # Stop words and short words never count as shared.
+    assert jev_run.select_candidates("It is on the list for them", [fake_feature("a", "The list", "On")]) == [fake_feature("a", "The list", "On")]
+    assert jev_run.select_candidates("It is on the list for them", [fake_feature("a", "The it", "On")]) == []
+
+
+def test_large_inventories_keep_the_best_overlaps_sorted_by_id():
+    features = [
+        fake_feature("f1", "Customer import", "Admin > Imports"),
+        fake_feature("f2", "Customer search"),
+        fake_feature("f3", "Invoice export"),
+        fake_feature("f4", "Customer merge"),
+        fake_feature("f5", "Customer notes"),
+        fake_feature("f6", "Customer tags"),
+        fake_feature("f7", "Customer import errors", "Admin > Imports > Errors"),
+    ]
+    chosen = jev_run.select_candidates("Fixes customer import errors in a spreadsheet", features)
+    # f7 shares 3 words, f1 shares 2, and f2/f4/f5/f6 tie on 1: the id tie-break keeps f2, f4, f5.
+    assert [feature["id"] for feature in chosen] == ["f1", "f2", "f4", "f5", "f7"]
+    assert len(chosen) == jev_run.CANDIDATE_SLOTS
+
+
+def test_matching_reader_asks_only_about_unlinked_consented_statements():
+    root = ROOT / "examples" / "synthetic-crm"
+    inventory = json.loads((root / "feature-inventory.json").read_text())
+    targets = list(jev_run.matching_targets(root, example_state()["data_boundary"]))
+    # Linked statements and the unconsented st-int-02-02 are left out.
+    assert [target.id for target in targets] == ["st-int-01-03"]
+    target = targets[0]
+    assert target.kind == "interview-statement" and target.context == {} and target.data_class == "public"
+    assert target.candidates == tuple(sorted(feature["id"] for feature in inventory))
+    names = {feature["id"]: feature["name"] for feature in inventory}
+    assert [candidate["name"] for candidate in target.source["candidates"]] == [names[feature_id] for feature_id in target.candidates]
+    sent = json.dumps(jev_run.target_state(target, ["public"]).value)
+    for local in ('"usage"', '"verdict"', '"criticality"', '"evidence"', "customer-search", "r-01"):
+        assert local not in sent
+
+
+def slot_body(choice, probability=0.8):
+    rest = (1 - probability) / 5
+    probabilities = {option: rest for option in I1_ITEM["question"]["criteria"]}
+    probabilities[choice] = probability
+    return choice_body("I1", probabilities)
+
+
+def ask_slots(tmp_path, body, candidates, mode="live"):
+    runner = Runner(tmp_path, example_state(), endpoint_id="typesafe-systemone", purpose="feature-perception", mode=mode, client=FakeSystemOne([(body, {})]), budget=BudgetGuard(1, 10_000))
+    record = runner.ask(target_kind="interview-statement", target_id="st-int-01-03", state={"statement": "synthetic"}, data_classes=("public",), catalog_version="1", catalog={"I1": I1_ITEM}, candidates=candidates)[0]
+    jsonschema.validate(record, ANNOTATION_SCHEMA)
+    return record
+
+
+@pytest.mark.parametrize(
+    ("choice", "mode", "effect"),
+    [
+        ("candidate-2", "live", "suggest"),
+        ("candidate-4", "live", "suggest"),
+        ("candidate-5", "live", "none"),
+        ("none", "live", "none"),
+        ("candidate-2", "shadow", "none"),
+    ],
+)
+def test_slot_answers_suggest_only_an_offered_candidate(tmp_path, choice, mode, effect):
+    candidates = ("annual-tax-certificate", "bulk-customer-import", "customer-search", "social-enrichment")
+    record = ask_slots(tmp_path, slot_body(choice), candidates, mode)
+    assert record["effect"] == effect
+    assert record["candidates"] == list(candidates)
+    assert record["answer"]["value"] == choice
+
+
+def test_slot_questions_refuse_to_run_without_candidates(tmp_path):
+    client = FakeSystemOne([])
+    runner = Runner(tmp_path, example_state(), endpoint_id="typesafe-systemone", purpose="feature-perception", mode="live", client=client, budget=BudgetGuard(1, 10_000))
+    with pytest.raises(ValueError, match="need candidates"):
+        runner.ask(target_kind="interview-statement", target_id="st-int-01-03", state={"statement": "x"}, data_classes=("public",), catalog_version="1", catalog={"I1": I1_ITEM})
+    with pytest.raises(ValueError, match="fewer slots"):
+        runner.ask(target_kind="interview-statement", target_id="st-int-01-03", state={"statement": "x"}, data_classes=("public",), catalog_version="1", catalog={"I1": I1_ITEM}, candidates=tuple(f"f{n}" for n in range(6)))
+    assert not client.fake_transport.calls
+
+
+def test_catalog_schema_keeps_slot_questions_suggest_only():
+    schema = json.loads((SYSTEMONE / "schemas" / "catalog.schema.json").read_text())
+    for change in ({"authority": "flag"}, {"trigger": ["candidate-1"]}, {"question": {"type": "noul", "instructions": "x"}}):
+        catalog = json.loads(json.dumps(MATCHING_CATALOG))
+        catalog["questions"]["I1"].update(change)
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(catalog, schema)
+
+
+def test_matching_run_needs_its_purpose_and_validates(tmp_path):
+    root = tmp_path / "teardown"
+    shutil.copytree(ROOT / "examples" / "synthetic-crm", root)
+    teardown = json.loads((root / "teardown.json").read_text())
+    answers = slot_body("candidate-2")["answers"]
+    with pytest.raises(BoundaryRefused, match="purpose 'interview-matching' is not approved"):
+        run_reader(root, jev_run.matching_targets, "interview-matching", "interview-matching", teardown, answers)
+    teardown["data_boundary"]["model_endpoints"][0]["purposes"].append("interview-matching")
+    (root / "teardown.json").write_text(json.dumps(teardown, indent=2) + "\n")
+    runner = run_reader(root, jev_run.matching_targets, "interview-matching", "interview-matching", teardown, answers)
+    [record] = runner.annotations
+    # Slot 2 of the id-sorted candidates is the bulk import the statement describes.
+    assert record["effect"] == "suggest" and record["candidates"][1] == "bulk-customer-import"
+    result = subprocess.run([sys.executable, str(TOOLS / "validate_artifacts.py"), str(root)], text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_matching_cli_skips_statements_without_candidates(tmp_path):
+    target = tmp_path / "teardown"
+    shutil.copytree(ROOT / "examples" / "synthetic-crm", target)
+    path = target / "interviews.jsonl"
+    path.write_text(path.read_text().replace("Copies rejected rows from the customer import screen into a spreadsheet to find what went wrong.", "Mondays are hard."))
+    env = {key: value for key, value in os.environ.items() if key != "TYPESAFE_API_KEY"}
+    result = subprocess.run(
+        [sys.executable, str(TOOLS / "jev_run.py"), "--mode", "shadow", "--set", "interview-matching", str(target)],
+        text=True, capture_output=True, env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)
+    assert output["calls"] == 0 and output["annotations"] == 0
+    assert output["skipped"] == [{"target_id": "st-int-01-03", "reason": "no feature shares a word with the statement"}]
+    assert not (target / "model-annotations.jsonl").exists()
 
 def test_systemone_runtime_has_no_third_party_imports():
     standard = set(sys.stdlib_module_names)

@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.11.0",
+  "schema_version": "0.12.0",
   "id": "invoices-aging-report",
   "nav_path": "Reports > Billing > Aging",
   "name": "Invoice aging report",

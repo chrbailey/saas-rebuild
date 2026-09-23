@@ -1,4 +1,4 @@
-"""Cross-file invariants for v0.11 interview statements."""
+"""Cross-file invariants for interview statements and candidate-slot answers."""
 
 from __future__ import annotations
 
@@ -247,3 +247,39 @@ def test_open_flag_on_a_linked_statement_blocks_drop(tmp_path):
     write_annotation(target, dict(flagged, effect="prioritize", calibrated_p=None, threshold_set_id=None))
     result = run(target)
     assert result.returncode == 0, result.stderr
+
+
+def slot_annotation(value, candidates=None):
+    record = annotation(
+        target_kind="interview-statement",
+        target_id="st-int-01-03",
+        question_id="I1",
+        effect="suggest",
+        answer={"type": "choice", "value": value, "probabilities": {value: 0.8}, "confidence": 0.8, "legend": None},
+    )
+    if candidates is not None:
+        record["candidates"] = candidates
+    return record
+
+
+def test_a_slot_answer_naming_an_offered_feature_validates(tmp_path):
+    target = copy_example(tmp_path)
+    write_annotation(target, slot_annotation("candidate-2", ["annual-tax-certificate", "bulk-customer-import"]))
+    result = run(target)
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    ("record", "message"),
+    [
+        (slot_annotation("candidate-1", ["missing-feature"]), "offers unknown candidate features: ['missing-feature']"),
+        (slot_annotation("candidate-3", ["customer-search", "social-enrichment"]), "answers candidate-3 but offered 2 candidates"),
+        (slot_annotation("candidate-1"), "answers candidate-1 but offered 0 candidates"),
+    ],
+)
+def test_slot_answers_must_name_offered_real_features(tmp_path, record, message):
+    target = copy_example(tmp_path)
+    write_annotation(target, record)
+    result = run(target)
+    assert result.returncode == 1
+    assert message in result.stderr
