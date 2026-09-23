@@ -13,7 +13,7 @@ import json
 import os
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, Iterator, NamedTuple
 
 TOOL_ROOT = Path(__file__).resolve().parent
 if str(TOOL_ROOT) not in sys.path:
@@ -50,21 +50,104 @@ def load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def feature_state(feature: dict[str, Any], default_class: str, allowed: list[str]):
-    claims = [citation.get("claim", "") for citation in feature.get("evidence", [])]
-    declared = [citation.get("sensitivity", default_class) for citation in feature.get("evidence", [])]
-    data_class = max(declared or [default_class], key=lambda value: SENSITIVITY.get(value, 99))
-    source = {
-        "name": feature.get("name"),
-        "kind": feature.get("kind"),
-        "nav_path": feature.get("nav_path"),
-        "claims": claims,
+class Target(NamedTuple):
+    """One thing to ask about: what the model sees, and what it never sees.
+
+    ``source`` is minimized and sent. ``context`` holds the target's declared
+    fields that comparators check answers against; it stays local, so the
+    model cannot echo the declared value back.
+    """
+
+    kind: str
+    id: str
+    source: dict[str, Any]
+    data_class: str
+    context: dict[str, Any]
+
+
+def strictest(classes: list[str], default: str) -> str:
+    return max(classes or [default], key=lambda value: SENSITIVITY.get(value, 99))
+
+
+def feature_targets(root: Path, boundary: dict[str, Any]) -> Iterator[Target]:
+    default = (boundary.get("source_classes") or {}).get("feature-inventory.json", "restricted")
+    for feature in load_json(root / "feature-inventory.json"):
+        evidence = feature.get("evidence", [])
+        yield Target(
+            "feature",
+            str(feature.get("id", "unknown")),
+            {
+                "name": feature.get("name"),
+                "kind": feature.get("kind"),
+                "nav_path": feature.get("nav_path"),
+                "claims": [citation.get("claim", "") for citation in evidence],
+            },
+            strictest([citation.get("sensitivity", default) for citation in evidence], default),
+            {"usage": feature.get("usage")},
+        )
+
+
+def citation_targets(root: Path, boundary: dict[str, Any]) -> Iterator[Target]:
+    # evidence_class and plane stay out of the state: C2 asks the model which
+    # class the text is, and the plane (telemetry, config-census) gives it away.
+    default = (boundary.get("source_classes") or {}).get("feature-inventory.json", "restricted")
+    seen: set[str] = set()
+    for feature in load_json(root / "feature-inventory.json"):
+        for citation in feature.get("evidence", []):
+            evidence_id = str(citation.get("evidence_id", "unknown"))
+            if evidence_id in seen:
+                continue
+            seen.add(evidence_id)
+            yield Target(
+                "citation",
+                evidence_id,
+                {"claim": citation.get("claim"), "source": citation.get("source")},
+                citation.get("sensitivity", default),
+                {"evidence_class": citation.get("evidence_class")},
+            )
+
+
+def edge_targets(root: Path, boundary: dict[str, Any]) -> Iterator[Target]:
+    # E1's criteria read "the first named object acts on the second", so
+    # `first` must be the edge's source. The edge type stays local for the
+    # comparator, and node verdicts are never read.
+    default = (boundary.get("source_classes") or {}).get("graph.json", "restricted")
+    citations = {
+        citation.get("evidence_id"): citation
+        for feature in load_json(root / "feature-inventory.json")
+        for citation in feature.get("evidence", [])
     }
-    field_classes = {key: data_class for key in source}
+    graph = load_json(root / "graph.json")
+    labels = {node.get("id"): node.get("label") or node.get("id") for node in graph.get("nodes", [])}
+    for edge in graph.get("edges", []):
+        cited = [citations[evidence_id] for evidence_id in edge.get("evidence_ids", []) if evidence_id in citations]
+        yield Target(
+            "graph-edge",
+            f"{edge.get('from')}|{edge.get('to')}|{edge.get('type')}",
+            {
+                "first": labels.get(edge.get("from"), edge.get("from")),
+                "second": labels.get(edge.get("to"), edge.get("to")),
+                "excerpt": [citation.get("claim", "") for citation in cited],
+            },
+            strictest([citation.get("sensitivity", default) for citation in cited], default),
+            {"type": edge.get("type")},
+        )
+
+
+# Question sets without a reader are refused rather than asked about the
+# wrong kind of target.
+READERS = {
+    "feature-perception": feature_targets,
+    "citation-checks": citation_targets,
+    "graph-edges": edge_targets,
+}
+
+
+def target_state(target: Target, allowed: list[str]):
     return build_state(
-        source,
-        field_classes,
-        allowed_fields=("name", "kind", "nav_path", "claims"),
+        target.source,
+        {key: target.data_class for key in target.source},
+        allowed_fields=tuple(target.source),
         allowed_data_classes=allowed,
         strip_numbers=True,
     )
@@ -101,20 +184,25 @@ def main(argv: list[str] | None = None) -> int:
         }, sort_keys=True))
         return 0
 
-    load_local_api_key()
-
     catalog_path = CATALOG_ROOT / f"{args.question_set}.json"
     if not catalog_path.is_file():
         parser().error(f"unknown question set: {args.question_set}")
+    reader = READERS.get(args.question_set)
+    if reader is None:
+        parser().error(
+            f"question set {args.question_set!r} has no target reader yet; "
+            f"supported: {', '.join(sorted(READERS))}"
+        )
+    if not isinstance(load_json(inventory_path), list):
+        parser().error("feature-inventory.json must contain an array")
+    if args.question_set == "graph-edges" and not (root / "graph.json").is_file():
+        parser().error("the graph-edges question set needs graph.json")
+
+    load_local_api_key()
     catalog_doc = load_json(catalog_path)
     teardown = load_json(teardown_path)
-    features = load_json(inventory_path)
-    if not isinstance(features, list):
-        parser().error("feature-inventory.json must contain an array")
-
     boundary = teardown.get("data_boundary") or {}
     allowed = list(boundary.get("allowed_data_classes") or [])
-    default_class = (boundary.get("source_classes") or {}).get("feature-inventory.json", "restricted")
     budget = BudgetGuard(
         max_calls=args.max_calls,
         max_input_tokens=args.max_input_tokens,
@@ -130,30 +218,32 @@ def main(argv: list[str] | None = None) -> int:
         client=SystemOne(model=args.model),
         budget=budget,
     )
-    selected = features[: args.limit] if args.limit is not None else features
+    targets = list(reader(root, boundary))
+    selected = targets[: args.limit] if args.limit is not None else targets
     refused: list[dict[str, str]] = []
-    for feature in selected:
+    for target in selected:
         try:
-            envelope = feature_state(feature, default_class, allowed)
+            envelope = target_state(target, allowed)
             runner.ask(
-                target_kind="feature",
-                target_id=feature["id"],
+                target_kind=target.kind,
+                target_id=target.id,
                 state=envelope.value,
                 data_classes=envelope.data_classes,
                 catalog_version=catalog_doc["version"],
                 catalog=catalog_doc["questions"],
+                context=target.context,
             )
         except StateRefused as error:
             runner.record_refusal(
-                target_kind="feature",
-                target_id=str(feature.get("id", "unknown")),
+                target_kind=target.kind,
+                target_id=target.id,
                 data_classes=(),
                 gate="state",
                 reason=str(error),
             )
-            refused.append({"target_id": str(feature.get("id", "unknown")), "reason": str(error)})
+            refused.append({"target_id": target.id, "reason": str(error)})
         except BoundaryRefused as error:
-            refused.append({"target_id": str(feature.get("id", "unknown")), "reason": str(error)})
+            refused.append({"target_id": target.id, "reason": str(error)})
 
     annotations_path = runner.write_annotations()
     summary = runner.summary()

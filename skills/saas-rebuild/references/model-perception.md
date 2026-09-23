@@ -74,6 +74,14 @@ python3 skills/saas-rebuild/tools/jev_run.py --mode shadow \
   --max-calls 1 --max-input-tokens 2000 examples/synthetic-crm
 ```
 
+`--set` picks the question set. `feature-perception`, `citation-checks`, and
+`graph-edges` have target readers; any other set is refused before a call,
+since asking its questions about the wrong kind of target would be noise. Each
+set's purpose must be approved on the endpoint. The citation reader sends only
+a citation's claim and source text, keeping its evidence class and plane
+local; the edge reader sends the two node labels, source first, with the
+edge's evidence claims, keeping the edge type local.
+
 Replay mode reads the content-addressed cache, refuses a cache miss, and
 reproduces the cached answers for audit. It carries no authority and appends no
 annotations, so replaying a shadow spike cannot turn it into effects that no one
