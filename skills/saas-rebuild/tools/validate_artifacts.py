@@ -367,6 +367,11 @@ class Validation:
             "graph-edge": graph_edge_ids,
             "pair": set(pair_ids),
         }
+        # Only an explicit "no" clears PHI or EU personal data; absent or
+        # "unknown" fails closed, matching the runner's boundary gate.
+        regulated = state["data_boundary"].get("regulated_data") or {}
+        phi_possible = regulated.get("phi") != "no"
+        eu_possible = regulated.get("eu_personal_data") != "no"
         open_effects: dict[tuple[str, str], set[str]] = {}
         for annotation in annotations:
             endpoint = endpoint_map.get(annotation["endpoint_id"])
@@ -382,6 +387,16 @@ class Validation:
                     self.error(
                         f"annotation {annotation['annotation_id']} sent unapproved data classes: "
                         f"{sorted(refused)}"
+                    )
+                if phi_possible and (endpoint.get("baa") or {}).get("status") != "in-force":
+                    self.error(
+                        f"annotation {annotation['annotation_id']} was produced while PHI is "
+                        "present or undeclared, without a BAA in force"
+                    )
+                if eu_possible and not endpoint.get("transfer_mechanism"):
+                    self.error(
+                        f"annotation {annotation['annotation_id']} was produced while EU personal "
+                        "data is present or undeclared, without a transfer mechanism"
                     )
             targets = target_sets.get(annotation["target_kind"])
             if targets is None or annotation["target_id"] not in targets:

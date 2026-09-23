@@ -104,3 +104,25 @@ def test_annotations_declared_elsewhere_are_refused(tmp_path):
     result = run(target)
     assert result.returncode == 1
     assert "must be the validated file model-annotations.jsonl" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("declaration", "message"),
+    [
+        (None, "PHI is present or undeclared, without a BAA in force"),
+        ({"phi": "unknown", "eu_personal_data": "no"}, "PHI is present or undeclared, without a BAA in force"),
+        ({"phi": "no", "eu_personal_data": "yes"}, "EU personal data is present or undeclared, without a transfer mechanism"),
+    ],
+)
+def test_annotations_require_regulated_data_coverage(tmp_path, declaration, message):
+    target = prepare(tmp_path, annotation())
+    state_path = target / "teardown.json"
+    state = json.loads(state_path.read_text())
+    if declaration is None:
+        del state["data_boundary"]["regulated_data"]
+    else:
+        state["data_boundary"]["regulated_data"] = declaration
+    state_path.write_text(json.dumps(state, indent=2) + "\n")
+    result = run(target)
+    assert result.returncode == 1
+    assert message in result.stderr

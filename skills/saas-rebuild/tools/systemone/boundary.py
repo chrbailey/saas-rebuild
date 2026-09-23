@@ -27,6 +27,17 @@ def _status(value: Any) -> str:
     return value.get("status", "unknown") if isinstance(value, dict) else "unknown"
 
 
+def regulated_data(teardown: dict[str, Any]) -> tuple[bool, bool]:
+    """Return (contains_phi, contains_eu_personal_data), failing closed.
+
+    Only an explicit "no" clears a category; an absent declaration or
+    "unknown" counts as present, so the BAA and transfer gates engage.
+    """
+
+    declared = (teardown.get("data_boundary") or {}).get("regulated_data") or {}
+    return declared.get("phi") != "no", declared.get("eu_personal_data") != "no"
+
+
 def open_ticket(
     teardown: dict[str, Any],
     endpoint_id: str,

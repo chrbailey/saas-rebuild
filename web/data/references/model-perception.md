@@ -39,6 +39,12 @@ contract status, and approver. The gate fails closed: restricted data requires
 ZDR in force, PHI requires a BAA in force, and EU personal data requires a
 recorded transfer mechanism.
 
+Declare PHI and EU personal data in `data_boundary.regulated_data` as `yes`,
+`no`, or `unknown`. Only an explicit `no` clears a category: an absent
+declaration or `unknown` is treated as present, so the BAA and transfer gates
+engage. The validator applies the same rule to every recorded annotation, and
+the runner refuses a client aimed at any endpoint other than the approved one.
+
 Only server-side or CLI tooling may call Jev. The browser application makes no
 Jev requests and never receives `TYPESAFE_API_KEY`.
 

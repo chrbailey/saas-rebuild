@@ -37,13 +37,17 @@ exact procedure against a v0.9 artifact set and checks both outcomes.
 ## What v0.10 adds
 
 All optional: a structured citation `measure`, `provenance.model_assist` on
-pairs, `source_classes` and `model_endpoints` in the teardown data boundary, a
-`model-vendor-review` preflight item, `annotation_ids` on decisions, a
-`model_annotations` artifact pointer, and the `model-io` preservation category.
+pairs, `source_classes`, `model_endpoints`, and `regulated_data` in the teardown
+data boundary, a `model-vendor-review` preflight item, `annotation_ids` on
+decisions, a `model_annotations` artifact pointer, and the `model-io`
+preservation category.
 
 The migration enables no network calls. To use Jev, add an approved
-`model-vendor-review` preflight record and a complete System One endpoint ticket
-to `teardown.json`, and keep `TYPESAFE_API_KEY` only in an ignored local `.env`.
+`model-vendor-review` preflight record, a complete System One endpoint ticket,
+and a `data_boundary.regulated_data` declaration to `teardown.json`, and keep
+`TYPESAFE_API_KEY` only in an ignored local `.env`. Without that declaration,
+PHI and EU personal data are presumed present, so Jev calls need a BAA and a
+transfer mechanism.
 Offline behavior stays independent of the key and the network. See
 `skills/saas-rebuild/references/model-perception.md`.
 

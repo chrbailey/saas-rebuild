@@ -19,6 +19,10 @@
     "source_classes": {
       "feature-inventory.json": "public"
     },
+    "regulated_data": {
+      "phi": "no",
+      "eu_personal_data": "no"
+    },
     "model_endpoints": [
       {
         "id": "typesafe-systemone",

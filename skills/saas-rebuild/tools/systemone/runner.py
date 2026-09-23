@@ -9,7 +9,7 @@ from pathlib import Path
 import uuid
 from typing import Any, Mapping
 
-from .boundary import BoundaryRefused, BoundaryTicket, open_ticket
+from .boundary import BoundaryRefused, BoundaryTicket, open_ticket, regulated_data
 from .calibrate import IsotonicModel
 from .cache import CacheMiss, ResponseCache, cache_key
 from .calllog import CallLog
@@ -149,13 +149,18 @@ class Runner:
         catalog: Mapping[str, dict[str, Any]],
         thresholds: ThresholdSet | None = None,
     ) -> list[dict[str, Any]]:
+        contains_phi, contains_eu_personal_data = regulated_data(self.teardown)
         try:
             ticket: BoundaryTicket = open_ticket(
                 self.teardown,
                 self.endpoint_id,
                 self.purpose,
                 data_classes,
+                contains_phi=contains_phi,
+                contains_eu_personal_data=contains_eu_personal_data,
             )
+            if self.client.endpoint != ticket.endpoint:
+                raise BoundaryRefused("client endpoint differs from the approved endpoint")
         except BoundaryRefused as error:
             self.record_refusal(
                 target_kind=target_kind,

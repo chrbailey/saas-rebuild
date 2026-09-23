@@ -314,6 +314,31 @@
               }
             }
           }
+        },
+        "regulated_data": {
+          "description": "Whether tenant data includes PHI or EU personal data. Model calls treat an absent declaration or 'unknown' as 'yes', so a BAA and a transfer mechanism are then required.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "phi",
+            "eu_personal_data"
+          ],
+          "properties": {
+            "phi": {
+              "enum": [
+                "yes",
+                "no",
+                "unknown"
+              ]
+            },
+            "eu_personal_data": {
+              "enum": [
+                "yes",
+                "no",
+                "unknown"
+              ]
+            }
+          }
         }
       }
     },

@@ -419,6 +419,57 @@ def test_refusal_events_validate_and_stay_content_free(tmp_path):
         jsonschema.validate({**entries[0], "event": "jev.gate.refused"}, call_schema)
 
 
+def regulated_teardown(declaration, **endpoint_updates):
+    state = example_state()
+    boundary = state["data_boundary"]
+    if declaration is None:
+        boundary.pop("regulated_data", None)
+    else:
+        boundary["regulated_data"] = declaration
+    boundary["model_endpoints"][0].update(endpoint_updates)
+    return state
+
+
+@pytest.mark.parametrize(
+    ("declaration", "endpoint_updates", "message"),
+    [
+        (None, {}, "PHI requires a BAA in force"),
+        ({"phi": "unknown", "eu_personal_data": "no"}, {}, "PHI requires a BAA in force"),
+        ({"phi": "yes", "eu_personal_data": "no"}, {}, "PHI requires a BAA in force"),
+        ({"phi": "no", "eu_personal_data": "unknown"}, {}, "EU personal data requires a recorded transfer mechanism"),
+        ({"phi": "no", "eu_personal_data": "yes"}, {}, "EU personal data requires a recorded transfer mechanism"),
+    ],
+)
+def test_runner_engages_phi_and_eu_gates_failing_closed(tmp_path, declaration, endpoint_updates, message):
+    client = FakeSystemOne([])
+    runner = Runner(tmp_path, regulated_teardown(declaration, **endpoint_updates), endpoint_id="typesafe-systemone", purpose="feature-perception", mode="live", client=client, budget=BudgetGuard(1, 10_000))
+    with pytest.raises(BoundaryRefused, match=message):
+        runner.ask(target_kind="feature", target_id="customer-search", state={"name": "x"}, data_classes=("public",), catalog_version="1", catalog={"Q": noul_item("veto")})
+    assert not client.fake_transport.calls
+    entry = json.loads((tmp_path / ".systemone" / "calls.jsonl").read_text().splitlines()[-1])
+    assert entry["event"] == "jev.gate.refused" and message in entry["payload"]["reason"]
+
+
+def test_runner_calls_once_regulated_data_is_covered(tmp_path):
+    covered = regulated_teardown(
+        {"phi": "yes", "eu_personal_data": "yes"},
+        baa={"status": "in-force", "ref": "baa-2026"},
+        transfer_mechanism="EU SCCs 2021/914",
+    )
+    runner = Runner(tmp_path, covered, endpoint_id="typesafe-systemone", purpose="feature-perception", mode="shadow", client=FakeSystemOne([(noul_body(0.9), {})]), budget=BudgetGuard(1, 10_000))
+    records = runner.ask(target_kind="feature", target_id="customer-search", state={"name": "x"}, data_classes=("public",), catalog_version="1", catalog={"Q": noul_item("veto")})
+    assert records[0]["effect"] == "none"
+
+
+def test_runner_refuses_a_client_aimed_at_another_endpoint(tmp_path):
+    client = FakeSystemOne([])
+    client.endpoint = "https://example.invalid/v1/systemone"
+    runner = Runner(tmp_path, example_state(), endpoint_id="typesafe-systemone", purpose="feature-perception", mode="live", client=client, budget=BudgetGuard(1, 10_000))
+    with pytest.raises(BoundaryRefused, match="differs from the approved endpoint"):
+        runner.ask(target_kind="feature", target_id="customer-search", state={"name": "x"}, data_classes=("public",), catalog_version="1", catalog={"Q": noul_item("veto")})
+    assert not client.fake_transport.calls
+
+
 def test_systemone_runtime_has_no_third_party_imports():
     standard = set(sys.stdlib_module_names)
     local = {path.stem for path in SYSTEMONE.glob("*.py")} | {"systemone"}
