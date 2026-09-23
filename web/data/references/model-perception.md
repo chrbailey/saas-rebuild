@@ -14,8 +14,13 @@ create a `DROP`, `KEEP`, approval, clearance, edge removal, or replay pass.
 
 An effect follows the answer, never just the question. A Noul answer is the
 probability that the question holds. A Choice answer counts only the options
-its catalog entry lists as `trigger`; a Choice question without a trigger can
-suggest its answer but cannot flag, veto, reject, or prioritize anything.
+its catalog entry names, in one of two ways. A `trigger` lists fixed options.
+A `compare` maps each declared value of a target field to the options that
+contradict it; the runner reads that value from the target, never sends it to
+the model, and acts on the contradicting options' probability. A Choice
+question with neither can suggest its answer but cannot flag, veto, reject, or
+prioritize anything, and a comparator whose declared value is absent or
+unmapped gives no signal.
 
 `flag`, `veto`, and `reject` fire only when the answer's calibrated probability
 meets a fitted threshold, and the annotation records both `calibrated_p` and
@@ -26,9 +31,11 @@ question has such a threshold on an eligible gold set, an affirmative answer
 (probability at least 0.5) is reduced to `prioritize` and a negative one has no
 effect. That cutoff only routes review work; it never gates a veto.
 
-C2, E1, and I2 compare an answer with target-specific evidence (the cited class,
-the declared edge direction, observed runtime), so no fixed trigger fits them.
-They stay inert until their set-specific comparators exist.
+Three questions use comparators. C2 flags a citation whose text reads as a
+different evidence class than it declares, such as configuration cited as
+runtime evidence. E1 flags a directional edge whose text runs the other way;
+`joins-on` is symmetric and never contradicts. I2 flags an interview claim at
+least two frequency bands from observed usage, or `never` against any use.
 
 ## Boundary contract
 

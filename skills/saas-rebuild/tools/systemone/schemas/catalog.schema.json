@@ -35,9 +35,28 @@
             "uniqueItems": true,
             "items": {"type": "string", "minLength": 1}
           },
+          "compare": {
+            "description": "Choice options that contradict a declared field of the target. The runner looks up the target's value for `against` and acts on the probability of the options listed for it. A value that is absent, or not listed, gives no signal. An empty list means no answer can contradict that value.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["against", "contradicts"],
+            "properties": {
+              "against": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+              "contradicts": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {"type": "string", "minLength": 1}
+                }
+              }
+            }
+          },
           "consumer": {"type": "string", "minLength": 1},
           "gold": {"type": ["string", "null"]}
-        }
+        },
+        "not": {"required": ["trigger", "compare"]}
       }
     }
   }

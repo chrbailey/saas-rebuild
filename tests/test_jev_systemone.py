@@ -415,20 +415,111 @@ def test_choice_triggers_decide_what_the_authority_acts_on(tmp_path):
     assert records["F1"]["effect"] == "none"
 
 
-def test_catalog_triggers_name_real_options_and_inert_questions_are_known():
-    inert = set()
+TEMPLATES = ROOT / "skills" / "saas-rebuild" / "templates"
+
+
+def declared_field_values():
+    """The enum of every artifact field a comparator may read."""
+
+    feature = json.loads((TEMPLATES / "feature-inventory.schema.json").read_text())
+    graph = json.loads((TEMPLATES / "dependency-graph.schema.json").read_text())
+    edge = graph["$defs"].get("edge") or graph["properties"]["edges"]["items"]
+    return {
+        "evidence_class": set(feature["$defs"]["citation"]["properties"]["evidence_class"]["enum"]),
+        "usage": set(feature["properties"]["usage"]["enum"]),
+        "type": set(edge["properties"]["type"]["enum"]),
+    }
+
+
+def test_every_acting_choice_question_has_a_trigger_or_comparator():
+    fields = declared_field_values()
     for path in (SYSTEMONE / "catalog").glob("*.json"):
         for question_id, item in json.loads(path.read_text())["questions"].items():
             question = item["question"]
+            criteria = set(question.get("criteria", {}))
             if "trigger" in item:
                 assert question["type"] == "choice", question_id
-                assert set(item["trigger"]) <= set(question["criteria"]), question_id
-            elif question["type"] != "noul" and item["authority"] != "suggest":
-                inert.add(question_id)
-    # These compare an answer against target-specific evidence (the cited
-    # class, the declared edge direction, observed runtime), so no fixed
-    # trigger fits. They stay inert until their set-specific comparators exist.
-    assert inert == {"C2", "E1", "I2"}
+                assert set(item["trigger"]) <= criteria, question_id
+            elif "compare" in item:
+                assert question["type"] == "choice", question_id
+                compare = item["compare"]
+                assert compare["against"] in fields, question_id
+                assert set(compare["contradicts"]) <= fields[compare["against"]], question_id
+                for declared, options in compare["contradicts"].items():
+                    assert set(options) <= criteria, (question_id, declared)
+                    # A declared value can never contradict itself.
+                    assert declared not in options, (question_id, declared)
+            else:
+                assert question["type"] == "noul" or item["authority"] == "suggest", (
+                    f"{question_id} can flag, veto, reject, or prioritize but names no "
+                    "trigger or comparator, so it could never act"
+                )
+
+
+C2_ITEM = json.loads((SYSTEMONE / "catalog" / "citation-checks.json").read_text())["questions"]["C2"]
+E1_ITEM = json.loads((SYSTEMONE / "catalog" / "graph-edges.json").read_text())["questions"]["E1"]
+I2_ITEM = json.loads((SYSTEMONE / "catalog" / "interviews.json").read_text())["questions"]["I2"]
+
+
+def choice_body(question_id, probabilities):
+    choice = max(probabilities, key=probabilities.get)
+    return {"model": "jev-test", "answers": {question_id: {"type": "choice", "choice": choice, "probabilities": probabilities, "confidence": 0.8}}, "usage": {"input_tokens": 10, "output_tokens": 1}}
+
+
+def ask_with(tmp_path, question_id, item, body, context, thresholds=None):
+    runner = Runner(tmp_path, example_state(), endpoint_id="typesafe-systemone", purpose="feature-perception", mode="live", client=FakeSystemOne([(body, {})]), budget=BudgetGuard(1, 10_000))
+    record = runner.ask(target_kind="feature", target_id="customer-search", state={"text": "synthetic"}, data_classes=("public",), catalog_version="1", catalog={question_id: item}, thresholds=thresholds, context=context)[0]
+    jsonschema.validate(record, ANNOTATION_SCHEMA)
+    return record
+
+
+@pytest.mark.parametrize(
+    ("declared", "answer", "effect"),
+    [
+        ("runtime", {"structure": 0.9, "runtime": 0.05, "human-framing": 0.0, "unclear": 0.05}, "prioritize"),
+        ("runtime", {"structure": 0.05, "runtime": 0.9, "human-framing": 0.0, "unclear": 0.05}, "none"),
+        ("runtime", {"structure": 0.1, "runtime": 0.1, "human-framing": 0.1, "unclear": 0.7}, "none"),
+        ("human-framing", {"structure": 0.2, "runtime": 0.7, "human-framing": 0.1, "unclear": 0.0}, "prioritize"),
+    ],
+    ids=["config-cited-as-runtime", "agrees", "unclear-is-not-a-contradiction", "interview-cited-as-runtime"],
+)
+def test_c2_flags_a_citation_whose_text_contradicts_its_declared_class(tmp_path, declared, answer, effect):
+    record = ask_with(tmp_path, "C2", C2_ITEM, choice_body("C2", answer), {"evidence_class": declared})
+    assert record["effect"] == effect
+
+
+def test_e1_reads_edge_direction_and_ignores_symmetric_joins(tmp_path):
+    reversed_answer = {"source-to-target": 0.1, "target-to-source": 0.8, "bidirectional": 0.05, "unclear": 0.05}
+    assert ask_with(tmp_path / "reads", "E1", E1_ITEM, choice_body("E1", reversed_answer), {"type": "reads"})["effect"] == "prioritize"
+    assert ask_with(tmp_path / "joins", "E1", E1_ITEM, choice_body("E1", reversed_answer), {"type": "joins-on"})["effect"] == "none"
+    both = {"source-to-target": 0.1, "target-to-source": 0.1, "bidirectional": 0.8, "unclear": 0.0}
+    assert ask_with(tmp_path / "both", "E1", E1_ITEM, choice_body("E1", both), {"type": "writes"})["effect"] == "none"
+
+
+@pytest.mark.parametrize(
+    ("observed", "claimed", "effect"),
+    [
+        ("never", "daily", "prioritize"),
+        ("never", "rare", "prioritize"),
+        ("daily", "never", "prioritize"),
+        ("daily", "weekly", "none"),
+        ("weekly", "rare", "none"),
+        ("unknown", "never", "none"),
+    ],
+)
+def test_i2_flags_interview_claims_that_contradict_observed_usage(tmp_path, observed, claimed, effect):
+    options = ["daily", "weekly", "rare", "never", "unknown"]
+    answer = {option: (0.9 if option == claimed else 0.1 / 4) for option in options}
+    assert ask_with(tmp_path, "I2", I2_ITEM, choice_body("I2", answer), {"usage": observed})["effect"] == effect
+
+
+def test_comparator_is_inert_without_context_and_calibrates_like_a_trigger(tmp_path):
+    answer = choice_body("C2", {"structure": 0.9, "runtime": 0.05, "human-framing": 0.0, "unclear": 0.05})
+    assert ask_with(tmp_path / "none", "C2", C2_ITEM, answer, None)["effect"] == "none"
+    assert ask_with(tmp_path / "unmapped", "C2", C2_ITEM, answer, {"evidence_class": "not-a-class"})["effect"] == "none"
+    thresholds = ThresholdSet("ts-c2", {"C2": CalibratedThreshold(question_hash(C2_ITEM["question"]), IsotonicModel((1.0,), (0.96,)), 0.9)})
+    record = ask_with(tmp_path / "calibrated", "C2", C2_ITEM, answer, {"evidence_class": "runtime"}, thresholds)
+    assert record["effect"] == "flag" and record["calibrated_p"] == 0.96
 
 
 def test_shadow_and_replay_never_mint_effects(tmp_path):
