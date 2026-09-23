@@ -26,12 +26,12 @@ from rules.raise_only import apply_raise  # noqa: E402
 from systemone.audit import AuditLog  # noqa: E402
 from systemone.boundary import BoundaryRefused, open_ticket  # noqa: E402
 from systemone.cache import CacheMiss, ResponseCache, cache_key  # noqa: E402
-from systemone.calibrate import CalibrationRefused, fit_isotonic, sprt  # noqa: E402
+from systemone.calibrate import CalibrationRefused, IsotonicModel, fit_isotonic, sprt  # noqa: E402
 from systemone.client import ENDPOINT, SystemOne  # noqa: E402
 from systemone.fake import FakeSystemOne, FakeTransport  # noqa: E402
 from systemone.limiter import BudgetGuard, LimitExceeded  # noqa: E402
-from systemone.questions import Choice, Noul, Score, to_wire  # noqa: E402
-from systemone.runner import Runner  # noqa: E402
+from systemone.questions import Choice, Noul, Score, question_hash, to_wire  # noqa: E402
+from systemone.runner import CalibratedThreshold, Runner, ThresholdSet  # noqa: E402
 from systemone.state import StateRefused, build_state  # noqa: E402
 from systemone.transport import post_json  # noqa: E402
 
@@ -208,8 +208,9 @@ def test_cache_calllog_runner_and_replay(tmp_path):
     jsonschema.validate(call_entry, call_schema)
     replay_client = FakeSystemOne([])
     replay = Runner(tmp_path, example_state(), endpoint_id="typesafe-systemone", purpose="feature-perception", mode="replay", client=replay_client, budget=BudgetGuard(0, 0))
-    replay.ask(target_kind="feature", target_id="customer-search", state={"name": "search"}, data_classes=("public",), catalog_version="1", catalog=catalog)
+    replayed = replay.ask(target_kind="feature", target_id="customer-search", state={"name": "search"}, data_classes=("public",), catalog_version="1", catalog=catalog)
     assert replay.cache_hits == 1 and not replay_client.fake_transport.calls
+    assert replayed[0]["answer"] == annotations[0]["answer"]
 
 
 def test_cache_miss_tamper_and_budget_guards(tmp_path):
@@ -265,6 +266,133 @@ def test_catalogs_validate_and_questions_compile():
         for item in catalog["questions"].values():
             assert to_wire(item["question"])["type"] in {"choice", "score", "noul"}
             assert item["consumer"]
+
+
+FEATURE_CATALOG = json.loads((SYSTEMONE / "catalog" / "feature-perception.json").read_text())
+PINNED_RESPONSE = json.loads((ROOT / "tests" / "fixtures" / "systemone" / "jev-1.13.0-feature-perception.json").read_text())
+ANNOTATION_SCHEMA = json.loads((ROOT / "skills" / "saas-rebuild" / "templates" / "model-annotations.schema.json").read_text())
+
+
+def run_once(tmp_path, mode, catalog, body, thresholds=None):
+    runner = Runner(tmp_path, example_state(), endpoint_id="typesafe-systemone", purpose="feature-perception", mode=mode, client=FakeSystemOne([(body, {})]), budget=BudgetGuard(1, 10_000))
+    records = runner.ask(target_kind="feature", target_id="customer-search", state={"name": "synthetic customer search"}, data_classes=("public",), catalog_version="1", catalog=catalog, thresholds=thresholds)
+    for record in records:
+        jsonschema.validate(record, ANNOTATION_SCHEMA)
+    return runner, {record["question_id"]: record for record in records}
+
+
+def noul_item(authority):
+    return {"question": {"type": "noul", "instructions": "Is this regulated?"}, "authority": authority, "consumer": "rules.raise_only", "gold": None}
+
+
+def noul_body(value):
+    return {"model": "jev-test", "answers": {"Q": {"type": "noul", "noul": value}}, "usage": {"input_tokens": 10, "output_tokens": 1}}
+
+
+def test_pinned_live_answers_only_raise_where_the_answer_says_so(tmp_path):
+    """The one real Jev response: F2 answered 0.24 ("no regulated obligation").
+
+    Uncalibrated, nothing may veto; a negative answer must not even prioritize.
+    """
+
+    _, records = run_once(tmp_path, "live", FEATURE_CATALOG["questions"], PINNED_RESPONSE)
+    effects = {question_id: record["effect"] for question_id, record in records.items()}
+    assert effects == {
+        "F1": "none",      # intraday: the rare-cadence trigger holds 0.06
+        "F2": "none",      # 0.24: no regulated obligation
+        "F3": "none",      # 0.12: no external integration
+        "F4": "none",      # 0.12: no workaround
+        "F5": "suggest",   # an untriggered choice only offers its answer
+        "F6": "suggest",
+        "F7": "none",      # "hard" holds 0.46, below the routing cutoff
+        "F8": "none",      # 0.06: not a test or demo label
+    }
+    assert not {"veto", "flag", "reject"} & set(effects.values())
+    assert all(record["calibrated_p"] is None and record["threshold_set_id"] is None for record in records.values())
+
+
+@pytest.mark.parametrize("authority", ["veto", "flag", "reject"])
+def test_uncalibrated_high_authority_only_routes_affirmative_answers(tmp_path, authority):
+    catalog = {"Q": noul_item(authority)}
+    assert run_once(tmp_path / "yes", "live", catalog, noul_body(0.9))[1]["Q"]["effect"] == "prioritize"
+    assert run_once(tmp_path / "no", "live", catalog, noul_body(0.1))[1]["Q"]["effect"] == "none"
+
+
+def test_calibrated_threshold_compares_the_answer_not_its_existence(tmp_path):
+    catalog = {"Q": noul_item("veto")}
+    model = IsotonicModel((0.5, 1.0), (0.1, 0.95))
+    thresholds = ThresholdSet("ts-2026-09", {"Q": CalibratedThreshold(question_hash(catalog["Q"]["question"]), model, 0.9)})
+
+    _, above = run_once(tmp_path / "above", "live", catalog, noul_body(0.8), thresholds)
+    assert above["Q"]["effect"] == "veto"
+    assert above["Q"]["calibrated_p"] == 0.95 and above["Q"]["threshold_set_id"] == "ts-2026-09"
+
+    _, below = run_once(tmp_path / "below", "live", catalog, noul_body(0.3), thresholds)
+    assert below["Q"]["effect"] == "none"
+    assert below["Q"]["calibrated_p"] == 0.1
+
+
+def test_threshold_fitted_on_other_question_text_does_not_apply(tmp_path):
+    catalog = {"Q": noul_item("veto")}
+    stale = ThresholdSet("ts-old", {"Q": CalibratedThreshold("0" * 64, IsotonicModel((1.0,), (1.0,)), 0.5)})
+    _, records = run_once(tmp_path, "live", catalog, noul_body(0.9), stale)
+    assert records["Q"]["effect"] == "prioritize"
+    assert records["Q"]["calibrated_p"] is None and records["Q"]["threshold_set_id"] is None
+
+
+def test_choice_triggers_decide_what_the_authority_acts_on(tmp_path):
+    f1 = FEATURE_CATALOG["questions"]["F1"]
+    body = {"model": "jev-test", "answers": {"F1": {"type": "choice", "choice": "annual-or-rarer", "probabilities": {"intraday": 0.0, "daily": 0.0, "weekly": 0.0, "monthly": 0.05, "quarterly": 0.15, "annual-or-rarer": 0.75, "irregular": 0.05}, "confidence": 0.8}}, "usage": {"input_tokens": 10, "output_tokens": 1}}
+    thresholds = ThresholdSet("ts-f1", {"F1": CalibratedThreshold(question_hash(f1["question"]), IsotonicModel((1.0,), (0.97,)), 0.9)})
+    _, records = run_once(tmp_path / "rare", "live", {"F1": f1}, body, thresholds)
+    assert records["F1"]["effect"] == "veto"
+
+    untriggered = {**f1}
+    untriggered.pop("trigger")
+    _, records = run_once(tmp_path / "untriggered", "live", {"F1": untriggered}, body, thresholds)
+    assert records["F1"]["effect"] == "none"
+
+
+def test_catalog_triggers_name_real_options_and_inert_questions_are_known():
+    inert = set()
+    for path in (SYSTEMONE / "catalog").glob("*.json"):
+        for question_id, item in json.loads(path.read_text())["questions"].items():
+            question = item["question"]
+            if "trigger" in item:
+                assert question["type"] == "choice", question_id
+                assert set(item["trigger"]) <= set(question["criteria"]), question_id
+            elif question["type"] != "noul" and item["authority"] != "suggest":
+                inert.add(question_id)
+    # These compare an answer against target-specific evidence (the cited
+    # class, the declared edge direction, observed runtime), so no fixed
+    # trigger fits. They stay inert until their set-specific comparators exist.
+    assert inert == {"C2", "E1", "I2"}
+
+
+def test_shadow_and_replay_never_mint_effects(tmp_path):
+    catalog = FEATURE_CATALOG["questions"]
+    shadow, records = run_once(tmp_path, "shadow", catalog, PINNED_RESPONSE)
+    assert {record["effect"] for record in records.values()} == {"none"}
+    written = shadow.write_annotations()
+    before = written.read_bytes()
+
+    replay = Runner(tmp_path, example_state(), endpoint_id="typesafe-systemone", purpose="feature-perception", mode="replay", client=FakeSystemOne([]), budget=BudgetGuard(0, 0))
+    replayed = replay.ask(target_kind="feature", target_id="customer-search", state={"name": "synthetic customer search"}, data_classes=("public",), catalog_version="1", catalog=catalog)
+    assert {record["effect"] for record in replayed} == {"none"}
+    assert [record["answer"] for record in replayed] == [records[key]["answer"] for key in catalog]
+    assert replay.write_annotations() is None
+    assert written.read_bytes() == before
+
+
+@pytest.mark.parametrize("effect", ["veto", "flag", "reject"])
+def test_annotation_schema_refuses_uncalibrated_high_authority(tmp_path, effect):
+    _, records = run_once(tmp_path, "live", {"Q": noul_item("veto")}, noul_body(0.9))
+    record = {**records["Q"], "effect": effect}
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(record, ANNOTATION_SCHEMA)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({**records["Q"], "calibrated_p": 0.5}, ANNOTATION_SCHEMA)
+    jsonschema.validate({**record, "calibrated_p": 0.95, "threshold_set_id": "ts-1"}, ANNOTATION_SCHEMA)
 
 
 def test_systemone_runtime_has_no_third_party_imports():

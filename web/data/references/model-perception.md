@@ -11,8 +11,24 @@ structure, and acceptance thresholds; the model receives only minimized text.
 Apply model annotations through `tools/rules/raise_only.py`. A model result may
 raise scrutiny or change `DROP` to `DEFER`. It must never lower scrutiny or
 create a `DROP`, `KEEP`, approval, clearance, edge removal, or replay pass.
-Until a question has a calibrated threshold on an eligible gold set, its
-`flag`, `veto`, or `reject` authority is reduced to `prioritize`.
+
+An effect follows the answer, never just the question. A Noul answer is the
+probability that the question holds. A Choice answer counts only the options
+its catalog entry lists as `trigger`; a Choice question without a trigger can
+suggest its answer but cannot flag, veto, reject, or prioritize anything.
+
+`flag`, `veto`, and `reject` fire only when the answer's calibrated probability
+meets a fitted threshold, and the annotation records both `calibrated_p` and
+`threshold_set_id`; the annotation schema refuses those effects without them. A
+threshold is bound to the hash of the question text it was fitted on, so editing
+a question silently drops its calibration rather than reusing it. Until a
+question has such a threshold on an eligible gold set, an affirmative answer
+(probability at least 0.5) is reduced to `prioritize` and a negative one has no
+effect. That cutoff only routes review work; it never gates a veto.
+
+C2, E1, and I2 compare an answer with target-specific evidence (the cited class,
+the declared edge direction, observed runtime), so no fixed trigger fits them.
+They stay inert until their set-specific comparators exist.
 
 ## Boundary contract
 
@@ -45,8 +61,12 @@ python3 skills/saas-rebuild/tools/jev_run.py --mode shadow \
   --max-calls 1 --max-input-tokens 2000 examples/synthetic-crm
 ```
 
-Replay mode reads the content-addressed cache and refuses a cache miss. Live
-mode remains raise-only and should not be enabled until calibration gates pass.
+Replay mode reads the content-addressed cache, refuses a cache miss, and
+reproduces the cached answers for audit. It carries no authority and appends no
+annotations, so replaying a shadow spike cannot turn it into effects that no one
+approved. Live mode remains raise-only and should not be enabled until
+calibration gates pass; `jev_run.py` does not yet load a threshold set, so its
+live runs can only prioritize or suggest.
 
 ## Gold-set separation
 

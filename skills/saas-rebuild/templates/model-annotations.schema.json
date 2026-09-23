@@ -203,6 +203,19 @@
       "$ref": "#/$defs/timestamp"
     }
   },
+  "allOf": [
+    {
+      "$comment": "A veto, flag, or reject must come from a calibrated threshold; uncalibrated answers can only prioritize or suggest.",
+      "if": {"properties": {"effect": {"enum": ["veto", "flag", "reject"]}}, "required": ["effect"]},
+      "then": {"properties": {"calibrated_p": {"type": "number"}, "threshold_set_id": {"type": "string", "minLength": 1}}}
+    },
+    {
+      "$comment": "A calibrated probability is meaningless without the threshold set that produced it, and vice versa.",
+      "if": {"properties": {"calibrated_p": {"type": "number"}}, "required": ["calibrated_p"]},
+      "then": {"properties": {"threshold_set_id": {"type": "string", "minLength": 1}}},
+      "else": {"properties": {"threshold_set_id": {"type": "null"}}}
+    }
+  ],
   "$defs": {
     "timestamp": {
       "type": "string",

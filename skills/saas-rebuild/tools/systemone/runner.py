@@ -10,6 +10,7 @@ import uuid
 from typing import Any, Mapping
 
 from .boundary import BoundaryRefused, BoundaryTicket, open_ticket
+from .calibrate import IsotonicModel
 from .cache import CacheMiss, ResponseCache, cache_key
 from .calllog import CallLog
 from .client import Answer, Response, SystemOne, estimate_request_tokens
@@ -40,13 +41,71 @@ def _answer_value(answer: Answer) -> Any:
     }
 
 
-def _effect(catalog_item: dict[str, Any], mode: str, threshold: float | None) -> str:
-    if mode == "shadow":
-        return "none"
+HIGH_AUTHORITY = frozenset({"veto", "flag", "reject"})
+# Uncalibrated signals only ever route work; this cutoff never gates a veto,
+# flag, or reject, which require a fitted threshold on eligible gold.
+ROUTING_CUTOFF = 0.5
+
+
+@dataclass(frozen=True)
+class CalibratedThreshold:
+    """A fitted threshold, bound to the exact question text it was fitted on."""
+
+    question_hash: str
+    model: IsotonicModel
+    threshold: float
+
+
+@dataclass(frozen=True)
+class ThresholdSet:
+    threshold_set_id: str
+    entries: Mapping[str, CalibratedThreshold]
+
+
+def _signal(catalog_item: dict[str, Any], answer: Answer) -> float | None:
+    """Probability that the answer is the one the question's authority acts on.
+
+    A noul answer is already that probability. A choice answer counts only the
+    options its catalog entry names as ``trigger``; without a declared trigger
+    there is no signal, so a choice question cannot act on anything.
+    """
+
+    if answer.type == "noul":
+        return float(answer.value)
+    trigger = catalog_item.get("trigger")
+    if answer.type == "choice" and trigger and answer.probabilities is not None:
+        return min(1.0, sum(answer.probabilities.get(option, 0.0) for option in trigger))
+    return None
+
+
+def _effect(
+    catalog_item: dict[str, Any],
+    answer: Answer,
+    mode: str,
+    calibration: CalibratedThreshold | None,
+) -> tuple[str, float | None]:
+    """Return the annotation effect and the calibrated probability behind it.
+
+    Shadow and replay never carry authority: shadow is a no-effect spike, and a
+    replay must not mint effects its original run was never approved to have.
+    """
+
+    if mode in {"shadow", "replay"}:
+        return "none", None
     declared = catalog_item.get("authority", "prioritize")
-    if threshold is None and declared in {"veto", "flag", "reject"}:
-        return "prioritize"
-    return declared if declared in {"veto", "flag", "reject", "prioritize", "suggest"} else "none"
+    if declared == "suggest" and answer.type == "choice" and not catalog_item.get("trigger"):
+        return "suggest", None
+    signal = _signal(catalog_item, answer)
+    if signal is None:
+        return "none", None
+    if declared in HIGH_AUTHORITY:
+        if calibration is None:
+            return ("prioritize" if signal >= ROUTING_CUTOFF else "none"), None
+        calibrated = calibration.model.predict(signal)
+        return (declared if calibrated >= calibration.threshold else "none"), calibrated
+    if declared in {"prioritize", "suggest"}:
+        return (declared if signal >= ROUTING_CUTOFF else "none"), None
+    return "none", None
 
 
 class Runner:
@@ -88,7 +147,7 @@ class Runner:
         data_classes: tuple[str, ...],
         catalog_version: str,
         catalog: Mapping[str, dict[str, Any]],
-        thresholds: Mapping[str, float] | None = None,
+        thresholds: ThresholdSet | None = None,
     ) -> list[dict[str, Any]]:
         try:
             ticket: BoundaryTicket = open_ticket(
@@ -140,7 +199,11 @@ class Runner:
         created = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         records: list[dict[str, Any]] = []
         for question_id, item in catalog.items():
-            threshold = (thresholds or {}).get(question_id)
+            calibration = thresholds.entries.get(question_id) if thresholds else None
+            if calibration is not None and calibration.question_hash != question_hash(item["question"]):
+                # A threshold fitted on different question text does not apply.
+                calibration = None
+            effect, calibrated_p = _effect(item, response.answers[question_id], self.mode, calibration)
             record = {
                 "schema_version": "0.10.0",
                 "annotation_id": f"ann-{stable_digest([self.run_id, target_kind, target_id, question_id])[:24]}",
@@ -154,9 +217,9 @@ class Runner:
                 "catalog_version": catalog_version,
                 "model_returned": response.model,
                 "answer": _answer_value(response.answers[question_id]),
-                "calibrated_p": None,
-                "threshold_set_id": None,
-                "effect": _effect(item, self.mode, threshold),
+                "calibrated_p": calibrated_p,
+                "threshold_set_id": thresholds.threshold_set_id if calibrated_p is not None else None,
+                "effect": effect,
                 "resolution": {"status": "open", "resolved_by": None, "resolved_at": None, "calllog_seq": self.calllog.head()[0]},
                 "created_at": created,
             }
@@ -195,7 +258,8 @@ class Runner:
         return Response(str(body["model"]), answers, {"input_tokens": int(usage.get("input_tokens", 0)), "output_tokens": int(usage.get("output_tokens", 0))}, None, 0, body)
 
     def write_annotations(self) -> Path | None:
-        if not self.annotations:
+        # Replay reproduces cached answers for audit; it never appends records.
+        if not self.annotations or self.mode == "replay":
             return None
         target = self.artifact_root / "model-annotations.jsonl"
         existing: set[str] = set()
