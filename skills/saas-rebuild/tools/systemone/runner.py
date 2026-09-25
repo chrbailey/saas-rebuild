@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import uuid
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from .boundary import BoundaryRefused, BoundaryTicket, open_ticket, regulated_data
 from .calibrate import IsotonicModel
@@ -92,21 +92,30 @@ def _signal(
     return min(1.0, sum(answer.probabilities.get(option, 0.0) for option in options))
 
 
+def offered_slots(candidates: Sequence[str]) -> frozenset[str]:
+    return frozenset(f"candidate-{position}" for position in range(1, len(candidates) + 1))
+
+
 def _effect(
     catalog_item: dict[str, Any],
     answer: Answer,
     mode: str,
     calibration: CalibratedThreshold | None,
     context: Mapping[str, Any] | None = None,
+    candidates: Sequence[str] = (),
 ) -> tuple[str, float | None]:
     """Return the annotation effect and the calibrated probability behind it.
 
     Shadow and replay never carry authority: shadow is a no-effect spike, and a
     replay must not mint effects its original run was never approved to have.
+    A candidate-slot question suggests only a slot that was actually offered;
+    ``none`` or an empty slot suggests nothing.
     """
 
     if mode in {"shadow", "replay"}:
         return "none", None
+    if catalog_item.get("candidate_slots"):
+        return ("suggest" if answer.value in offered_slots(candidates) else "none"), None
     declared = catalog_item.get("authority", "prioritize")
     if declared == "suggest" and answer.type == "choice" and not (catalog_item.get("trigger") or catalog_item.get("compare")):
         return "suggest", None
@@ -164,13 +173,23 @@ class Runner:
         catalog: Mapping[str, dict[str, Any]],
         thresholds: ThresholdSet | None = None,
         context: Mapping[str, Any] | None = None,
+        candidates: Sequence[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Ask the catalog about one target.
 
         ``context`` carries the target's declared fields (for example a
         citation's ``evidence_class``) that ``compare`` questions check the
-        answer against. It is never sent to the model.
+        answer against. It is never sent to the model. ``candidates`` are the
+        ids behind a candidate-slot question's options, in slot order; the
+        caller sends their descriptions in ``state`` in the same order.
         """
+        slotted = [question_id for question_id, item in catalog.items() if item.get("candidate_slots")]
+        if slotted and not candidates:
+            raise ValueError(f"candidate-slot questions need candidates: {slotted}")
+        for question_id in slotted:
+            options = set((catalog[question_id]["question"].get("criteria") or {}))
+            if not offered_slots(candidates or ()) <= options:
+                raise ValueError(f"{question_id} has fewer slots than the {len(candidates or ())} candidates offered")
         contains_phi, contains_eu_personal_data = regulated_data(self.teardown)
         try:
             ticket: BoundaryTicket = open_ticket(
@@ -230,13 +249,16 @@ class Runner:
             if calibration is not None and calibration.question_hash != question_hash(item["question"]):
                 # A threshold fitted on different question text does not apply.
                 calibration = None
-            effect, calibrated_p = _effect(item, response.answers[question_id], self.mode, calibration, context)
+            effect, calibrated_p = _effect(
+                item, response.answers[question_id], self.mode, calibration, context, candidates or ()
+            )
             record = {
-                "schema_version": "0.11.0",
+                "schema_version": "0.12.0",
                 "annotation_id": f"ann-{stable_digest([self.run_id, target_kind, target_id, question_id])[:24]}",
                 "run_id": self.run_id,
                 "target_kind": target_kind,
                 "target_id": target_id,
+                **({"candidates": list(candidates or ())} if item.get("candidate_slots") else {}),
                 "endpoint_id": ticket.endpoint_id,
                 "sent_data_classes": list(data_classes),
                 "question_id": question_id,

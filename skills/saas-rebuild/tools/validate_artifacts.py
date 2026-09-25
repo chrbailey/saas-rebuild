@@ -12,7 +12,8 @@ size/digests/path containment with normalized path comparison; and locked
 success-profile to scorecard identity, evidence coverage, score arithmetic,
 assessment coverage, and must-have gate status; and interview statements
 (unique ids, feature links, boundary classes, no contact details in text, and
-interview citations that resolve to the statements they cite).
+interview citations that resolve to the statements they cite); and model
+candidate slots that name offered, real features.
 """
 
 from __future__ import annotations
@@ -74,6 +75,7 @@ SENSITIVITY = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
 # the pseudonymous respondent fields exist so text never needs one.
 EMAIL = re.compile(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}")
 PHONE_RUN = re.compile(r"\+?\(?\d[\d\s().-]{6,}\d")
+CANDIDATE_SLOT = re.compile(r"candidate-([1-9]\d*)")
 
 
 def load_json(path: Path) -> Any:
@@ -479,6 +481,20 @@ class Validation:
                 self.error(
                     f"annotation {annotation['annotation_id']} target does not resolve: "
                     f"{annotation['target_kind']}:{annotation['target_id']}"
+                )
+            # Code chose the candidates; the model only picked a slot. Both
+            # halves must hold for the suggestion to name a real feature.
+            offered = annotation.get("candidates", [])
+            unknown = sorted(set(offered) - set(feature_ids))
+            if unknown:
+                self.error(
+                    f"annotation {annotation['annotation_id']} offers unknown candidate features: {unknown}"
+                )
+            slot = CANDIDATE_SLOT.fullmatch(str(annotation["answer"]["value"]))
+            if slot and int(slot.group(1)) > len(offered):
+                self.error(
+                    f"annotation {annotation['annotation_id']} answers {slot.group(0)} but offered "
+                    f"{len(offered)} candidates"
                 )
             if annotation["resolution"]["status"] == "open":
                 key = (annotation["target_kind"], annotation["target_id"])

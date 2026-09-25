@@ -169,7 +169,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "0.11.0"
+      "const": "0.12.0"
     },
     "pair_id": {
       "type": "string",

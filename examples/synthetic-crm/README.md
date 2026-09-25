@@ -10,7 +10,7 @@ and the Claude Code plugin emit for a tenant you administer; the preserved
 export files and their digests come from exports you run yourself, since the
 workspace has no connector into a tenant.
 
-The directory is an internally consistent example of the v0.11 artifact
+The directory is an internally consistent example of the v0.12 artifact
 contracts. It is not evidence from a customer engagement, and every number in
 it was invented to exercise the rules.
 
@@ -62,7 +62,7 @@ python skills/saas-rebuild/tools/validate_artifacts.py examples/synthetic-crm
 | `graph.json` | `templates/dependency-graph.schema.json` — feature, entity, integration, and business-process nodes with evidence-bearing edges |
 | `preservation-manifest.json` | `templates/preservation-manifest.schema.json` — exported files with SHA-256 digests, record counts, and one accepted gap |
 | `pairs.jsonl` | `templates/pairs.schema.json` — four behavior and judgment pairs across development, regression, and holdout-eval roles |
-| `interviews.jsonl` | `templates/interviews.schema.json` — four pseudonymous interview statements from two sessions; the customer-search interview citation links the one it rests on |
+| `interviews.jsonl` | `templates/interviews.schema.json` — five pseudonymous interview statements from two sessions; the customer-search interview citation links the one it rests on |
 
 Files under `exports/`, `audit/`, and `config/` contain invented data only.
 Organization names use reserved `SYNTHETIC_ORG_*` tokens; there are no real

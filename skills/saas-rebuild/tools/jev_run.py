@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import sys
 from typing import Any, Iterator, NamedTuple
 
@@ -28,6 +29,15 @@ from systemone.state import StateRefused, build_state  # noqa: E402
 
 CATALOG_ROOT = TOOL_ROOT / "systemone" / "catalog"
 SENSITIVITY = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
+# I1 offers at most this many candidate features; its catalog has one
+# candidate-N option per slot.
+CANDIDATE_SLOTS = 5
+STOP_WORDS = frozenset(
+    "about after all and any are before but can does each every for from has have into its "
+    "just more most not only other our out over some than that the their them then there "
+    "these they this those through too very was were what when where which while who why "
+    "will with would you your".split()
+)
 
 
 def load_local_api_key() -> None:
@@ -67,6 +77,9 @@ class Target(NamedTuple):
     source: dict[str, Any]
     data_class: str
     context: dict[str, Any]
+    # Feature ids behind a candidate-slot question's options, in slot order.
+    # An empty tuple means no candidate qualified, so the target is skipped.
+    candidates: tuple[str, ...] | None = None
 
 
 def strictest(classes: list[str], default: str) -> str:
@@ -161,6 +174,68 @@ def interview_targets(root: Path, boundary: dict[str, Any]) -> Iterator[Target]:
         )
 
 
+def words(text: str) -> set[str]:
+    """Lowercase letter runs of three or more, minus stop words, crudely singular."""
+
+    found = set()
+    for word in re.findall(r"[a-z]+", text.lower()):
+        if len(word) < 3 or word in STOP_WORDS:
+            continue
+        if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
+            word = word[:-1]
+        found.add(word)
+    return found
+
+
+def select_candidates(text: str, features: list[dict[str, Any]], limit: int = CANDIDATE_SLOTS) -> list[dict[str, Any]]:
+    """Deterministic candidate features for one statement, in feature-id order.
+
+    A statement sharing no word with any feature's name or navigation path
+    gets no candidates. Otherwise a small inventory is offered whole, and a
+    larger one by shared-word count with ties broken by id. The result is
+    sorted by id, so a candidate's slot says nothing about its rank.
+    """
+
+    statement = words(text)
+    scored = [
+        (len(statement & words(f"{feature.get('name', '')} {feature.get('nav_path', '')}")), str(feature.get("id")), feature)
+        for feature in features
+    ]
+    if not any(score for score, _, _ in scored):
+        return []
+    if len(scored) > limit:
+        scored = sorted(scored, key=lambda item: (-item[0], item[1]))[:limit]
+    return [feature for _, _, feature in sorted(scored, key=lambda item: item[1])]
+
+
+def matching_targets(root: Path, boundary: dict[str, Any]) -> Iterator[Target]:
+    # Unlinked statements from respondents who consented to model perception.
+    # Only the statement and the candidates' names and navigation paths are
+    # sent; usage, verdict, criticality, and evidence would bias the match.
+    inventory_class = (boundary.get("source_classes") or {}).get("feature-inventory.json", "restricted")
+    features = load_json(root / "feature-inventory.json")
+    for statement in load_jsonl(root / "interviews.jsonl"):
+        consent = statement.get("consent") or {}
+        if (
+            statement.get("feature_id") is not None
+            or consent.get("recorded") is not True
+            or "model-perception" not in (consent.get("scopes") or [])
+        ):
+            continue
+        chosen = select_candidates(str(statement.get("text", "")), features)
+        yield Target(
+            "interview-statement",
+            str(statement.get("statement_id", "unknown")),
+            {
+                "statement": statement.get("text"),
+                "candidates": [{"name": feature.get("name"), "nav_path": feature.get("nav_path")} for feature in chosen],
+            },
+            strictest([statement.get("sensitivity", "restricted"), inventory_class], "restricted"),
+            {},
+            tuple(str(feature.get("id")) for feature in chosen),
+        )
+
+
 # Question sets without a reader are refused rather than asked about the
 # wrong kind of target.
 READERS = {
@@ -168,6 +243,7 @@ READERS = {
     "citation-checks": citation_targets,
     "graph-edges": edge_targets,
     "interviews": interview_targets,
+    "interview-matching": matching_targets,
 }
 
 
@@ -225,8 +301,8 @@ def main(argv: list[str] | None = None) -> int:
         parser().error("feature-inventory.json must contain an array")
     if args.question_set == "graph-edges" and not (root / "graph.json").is_file():
         parser().error("the graph-edges question set needs graph.json")
-    if args.question_set == "interviews" and not (root / "interviews.jsonl").is_file():
-        parser().error("the interviews question set needs interviews.jsonl")
+    if args.question_set in {"interviews", "interview-matching"} and not (root / "interviews.jsonl").is_file():
+        parser().error(f"the {args.question_set} question set needs interviews.jsonl")
 
     load_local_api_key()
     catalog_doc = load_json(catalog_path)
@@ -251,7 +327,11 @@ def main(argv: list[str] | None = None) -> int:
     targets = list(reader(root, boundary))
     selected = targets[: args.limit] if args.limit is not None else targets
     refused: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = []
     for target in selected:
+        if target.candidates == ():
+            skipped.append({"target_id": target.id, "reason": "no feature shares a word with the statement"})
+            continue
         try:
             envelope = target_state(target, allowed)
             runner.ask(
@@ -262,6 +342,7 @@ def main(argv: list[str] | None = None) -> int:
                 catalog_version=catalog_doc["version"],
                 catalog=catalog_doc["questions"],
                 context=target.context,
+                candidates=target.candidates,
             )
         except StateRefused as error:
             runner.record_refusal(
@@ -286,6 +367,7 @@ def main(argv: list[str] | None = None) -> int:
         "output_tokens": summary.output_tokens,
         "annotations": summary.annotations,
         "refused": refused,
+        "skipped": skipped,
         "calllog_head": summary.calllog_head,
         "annotations_path": annotations_path.name if annotations_path else None,
         "estimated_cost_usd": budget.estimated_cost_usd,

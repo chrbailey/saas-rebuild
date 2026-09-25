@@ -177,8 +177,9 @@ parity, and whitespace checks.
   (a catalog `compare` spec read against the target's declared field), and
   `jev_run.py` has readers for `citation-checks` and `graph-edges` as well as
   `feature-perception`; any other set is refused before a call. v0.11 adds
-  `interviews.jsonl` and an `interviews` reader for I2. I1 (statement-to-feature
-  matching) is removed from the catalog until candidate selection is designed.
+  `interviews.jsonl` and an `interviews` reader for I2. v0.12 adds I1
+  (statement-to-feature matching) as the `interview-matching` set, with
+  code-selected candidate slots recorded on the annotation.
   Still open: process-mining, sanitization, and replay-residuals have no reader.
 - `jev_run.py` loads no threshold set, so live runs can only prioritize or
   suggest. This is intentional until calibration exists.

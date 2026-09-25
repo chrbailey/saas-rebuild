@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/chrbailey/saas-rebuild/schemas/extraction-recipe-v0.11.json",
+  "$id": "https://github.com/chrbailey/saas-rebuild/schemas/extraction-recipe-v0.12.json",
   "title": "Per-app extraction recipe (one file of corpus/extraction-recipes/)",
   "description": "A document-derived route map for an authorized tenant teardown. A recipe is a hypothesis until verified: doc-derived-unverified recipes must be checked against current documentation, entitlements, region, and the live tenant before their claims enter an evidence base. The v0.7 sources array is a recipe-level bibliography, not machine-enforced claim-to-source lineage.",
   "type": "object",
@@ -20,7 +20,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "0.11.0"
+      "const": "0.12.0"
     },
     "app": {
       "type": "string",

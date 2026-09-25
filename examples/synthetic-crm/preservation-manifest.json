@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.11.0",
+  "schema_version": "0.12.0",
   "teardown_id": "synthetic-crm-2026",
   "generated_at": "2026-08-01T16:45:00Z",
   "artifacts": [
@@ -78,7 +78,7 @@
       "files": [
         {
           "path": "pairs.jsonl",
-          "sha256": "a4dda71f6b045c2e8a433fc258c6fc4427b402dbae63a17f677e31beb038c842",
+          "sha256": "2278b2e0744a863a9dc22b490f301ad49a9bd6ad9d69dd74eabd5763b484afbb",
           "bytes": 3686
         }
       ],
