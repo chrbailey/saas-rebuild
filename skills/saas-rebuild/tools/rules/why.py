@@ -8,6 +8,8 @@ from .matrix import Decision
 
 
 TEMPLATES = {
+    "RAISE-JEV-VETO": "The deterministic DROP is held as DEFER by an open model veto; human resolution is required.",
+    "RAISE-JEV-FLAG": "The deterministic DROP is held as DEFER by an open model flag; human resolution is required.",
     "MATRIX-RUNTIME-WORKAROUND": (
         "Observed runtime evidence and a documented workaround show the job is active; "
         "simplify the workflow around the workaround rather than remove it."

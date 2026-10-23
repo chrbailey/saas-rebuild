@@ -71,11 +71,20 @@ def _validate_records(records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]
     rows = list(records)
     roles: dict[str, set[str]] = {}
     for row in rows:
+        probability = row.get("probability")
+        if isinstance(probability, bool) or not isinstance(probability, (int, float)) or not math.isfinite(probability) or not 0 <= probability <= 1:
+            raise CalibrationRefused("calibration probabilities must be finite and between 0 and 1")
+        if type(row.get("label")) is not bool or type(row.get("model_assist")) is not bool:
+            raise CalibrationRefused("gold labels and model_assist must be explicit booleans")
         if row.get("dataset_role") == "holdout-eval":
             raise CalibrationRefused("holdout-eval records cannot be used to fit calibration")
         if row.get("model_assist"):
             raise CalibrationRefused("model-assisted labels cannot be used to fit calibration")
-        split_group = str(row.get("split_group", ""))
+        split_group = row.get("split_group_hash") or row.get("split_group")
+        if not isinstance(split_group, str) or not split_group:
+            raise CalibrationRefused("calibration requires a split lineage")
+        if row.get("dataset_role") not in {"development", "regression"}:
+            raise CalibrationRefused("unknown calibration dataset role")
         roles.setdefault(split_group, set()).add(str(row.get("dataset_role", "")))
         if row.get("gold_source") not in {"system-of-record", "observed-ui"}:
             raise CalibrationRefused("calibration requires system-of-record or observed-ui gold")
@@ -91,8 +100,11 @@ def fit_isotonic(records: Iterable[dict[str, Any]]) -> IsotonicModel:
     if not points:
         raise CalibrationRefused("calibration needs at least one record")
     blocks: list[dict[str, float]] = []
+    grouped: dict[float, list[int]] = {}
     for probability, label in points:
-        blocks.append({"lo": probability, "hi": probability, "sum": float(label), "count": 1.0})
+        grouped.setdefault(probability, []).append(label)
+    for probability, labels in grouped.items():
+        blocks.append({"lo": probability, "hi": probability, "sum": float(sum(labels)), "count": float(len(labels))})
         while len(blocks) >= 2:
             left, right = blocks[-2], blocks[-1]
             if left["sum"] / left["count"] <= right["sum"] / right["count"]:

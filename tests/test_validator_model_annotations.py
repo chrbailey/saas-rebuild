@@ -67,6 +67,7 @@ def test_valid_model_annotation_resolves(tmp_path):
         (annotation(sent_data_classes=["restricted"]), "unapproved data classes"),
         (annotation(target_id="missing-feature"), "target does not resolve"),
         (annotation(target_id="social-enrichment", effect="veto"), "DROP despite an open model flag or veto"),
+        (annotation(target_kind="citation", target_id="ev-enrich-runtime", effect="flag"), "DROP despite an open model flag or veto"),
     ],
 )
 def test_invalid_model_annotation_fails_closed(tmp_path, record, message):

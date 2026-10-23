@@ -1,5 +1,10 @@
 # Handoff: SaaS Rebuild + Jev/System One
 
+**Update 2026-10-23:** local implementation resumed in the same session with
+no subagents or paid API calls. See
+[the current build status](jev-build-status-2026-10-23.md) for fixes to the
+gaps listed below. This handoff remains the historical September snapshot.
+
 ## Stop condition and budget warning
 
 The user reported that this session exhausted their available Codex/agent

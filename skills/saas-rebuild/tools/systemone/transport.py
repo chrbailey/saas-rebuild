@@ -53,6 +53,7 @@ def post_json(
     timeout: int = 60,
     *,
     sleep: Callable[[float], None] | None = None,
+    max_attempts: int = MAX_TRANSPORT_ATTEMPTS,
 ) -> tuple[dict[str, Any], dict[str, str]]:
     """POST JSON, returning parsed body and lower-cased response headers."""
 
@@ -61,7 +62,9 @@ def post_json(
     sleeper = sleep or time.sleep
     body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     last = ""
-    for attempt in range(MAX_TRANSPORT_ATTEMPTS):
+    if not 1 <= max_attempts <= MAX_TRANSPORT_ATTEMPTS:
+        raise ValueError("transport attempts must be between 1 and 4")
+    for attempt in range(max_attempts):
         request = urllib.request.Request(url, data=body, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(request, timeout=timeout, context=_ssl_ctx()) as response:
@@ -71,14 +74,14 @@ def post_json(
                 return parsed, {key.lower(): value for key, value in response.headers.items()}
         except urllib.error.HTTPError as error:
             last = f"HTTP {error.code}"
-            if error.code not in RETRYABLE_STATUS or attempt == MAX_TRANSPORT_ATTEMPTS - 1:
+            if error.code not in RETRYABLE_STATUS or attempt == max_attempts - 1:
                 raise TransportError(_redacted_error(error)) from error
             retry_after = error.headers.get("Retry-After") if error.headers else None
             sleeper(_sleep_for(attempt, retry_after))
         except (TimeoutError, urllib.error.URLError, ConnectionError) as error:
             last = f"{type(error).__name__}: {error}"
-            if attempt == MAX_TRANSPORT_ATTEMPTS - 1:
-                raise TransportError(f"{last} (after {MAX_TRANSPORT_ATTEMPTS} attempts)") from error
+            if attempt == max_attempts - 1:
+                raise TransportError(f"{type(error).__name__}: request failed (after {max_attempts} attempts)") from error
             sleeper(_sleep_for(attempt, None))
         except (json.JSONDecodeError, UnicodeDecodeError) as error:
             raise TransportError("System One returned invalid JSON") from error
@@ -87,3 +90,8 @@ def post_json(
         except Exception as error:  # noqa: BLE001 - non-transient, fail closed
             raise TransportError(f"{type(error).__name__}: {error}") from error
     raise TransportError(f"exhausted {MAX_TRANSPORT_ATTEMPTS} attempts: {last}")
+
+
+def single_post_json(url, headers, payload, timeout=60):
+    """Budgeted calls never silently retry a potentially billable request."""
+    return post_json(url, headers, payload, timeout, max_attempts=1)

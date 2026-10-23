@@ -33,6 +33,8 @@ def apply_raise(
     rule_id = baseline.rule_id
 
     for annotation in annotations:
+        if annotation.get("resolution", {}).get("status", "open") != "open":
+            continue
         effect = annotation.get("effect", "none")
         if effect not in ALLOWED_EFFECTS:
             raise ValueError(f"unsupported annotation effect: {effect!r}")
@@ -41,9 +43,9 @@ def apply_raise(
             consumed.append(str(annotation_id))
         if effect != "none":
             review.add(f"jev:{effect}:{annotation.get('question_id', 'unknown')}")
-        if effect == "veto" and verdict == "DROP":
+        if effect in {"veto", "flag"} and verdict == "DROP":
             verdict = "DEFER"
-            rule_id = "RAISE-JEV-VETO"
+            rule_id = "RAISE-JEV-VETO" if effect == "veto" else "RAISE-JEV-FLAG"
 
     raised = Decision(verdict, rule_id, baseline.evidence_ids)
     return RaisedDecision(raised, tuple(sorted(review)), tuple(sorted(set(consumed))))

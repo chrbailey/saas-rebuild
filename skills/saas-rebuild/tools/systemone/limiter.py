@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+import math
 import time
 from typing import Callable
 
@@ -20,36 +21,54 @@ class BudgetGuard:
     price_per_million_input_tokens: float | None = None
     calls: int = 0
     input_tokens: int = 0
+    _reserved: int = 0
+
+    def __post_init__(self) -> None:
+        if any(type(x) is not int or x < 0 for x in (self.max_calls, self.max_input_tokens)):
+            raise ValueError("call and token budgets must be non-negative integers")
+        for value in (self.max_cost_usd, self.price_per_million_input_tokens):
+            if value is not None and (isinstance(value, bool) or not math.isfinite(value) or value <= 0):
+                raise ValueError("cost cap and token price must be finite positive numbers")
 
     def reserve(self, estimated_input_tokens: int) -> None:
         if estimated_input_tokens < 0:
             raise ValueError("estimated tokens must be non-negative")
         if self.calls + 1 > self.max_calls:
             raise LimitExceeded("live call budget exhausted")
-        if self.input_tokens + estimated_input_tokens > self.max_input_tokens:
+        if self.input_tokens + self._reserved + estimated_input_tokens > self.max_input_tokens:
             raise LimitExceeded("live input-token budget exhausted")
         if self.max_cost_usd is not None:
             if self.price_per_million_input_tokens is None:
                 raise LimitExceeded("a dollar cap requires an explicit verified price")
             projected = (
-                (self.input_tokens + estimated_input_tokens)
+                (self.input_tokens + self._reserved + estimated_input_tokens)
                 * self.price_per_million_input_tokens
                 / 1_000_000
             )
             if projected > self.max_cost_usd:
                 raise LimitExceeded("live dollar budget exhausted")
+        # Reserve before sending. Failed/ambiguous attempts continue to count.
+        self.calls += 1
+        self._reserved += estimated_input_tokens
 
     def record(self, actual_input_tokens: int) -> None:
-        self.calls += 1
+        self._reserved = 0
         self.input_tokens += max(0, int(actual_input_tokens))
         if self.input_tokens > self.max_input_tokens:
             raise LimitExceeded("provider-reported usage exceeded the input-token budget")
+        if self.max_cost_usd is not None and self.estimated_cost_usd > self.max_cost_usd:
+            raise LimitExceeded("provider-reported usage exceeded the dollar budget")
 
     @property
     def estimated_cost_usd(self) -> float | None:
         if self.price_per_million_input_tokens is None:
             return None
-        return self.input_tokens * self.price_per_million_input_tokens / 1_000_000
+        return (self.input_tokens + self._reserved) * self.price_per_million_input_tokens / 1_000_000
+
+    @property
+    def reserved_input_tokens(self) -> int:
+        """Unsettled reservations remain visible after ambiguous failures."""
+        return self._reserved
 
 
 class RateLimiter:
@@ -73,6 +92,8 @@ class RateLimiter:
         self._tokens: deque[tuple[float, int]] = deque()
 
     def acquire(self, request_tokens: int, state_question_tokens: int) -> None:
+        if self.requests_per_minute < 1 or self.tokens_per_second < 1 or request_tokens > self.tokens_per_second:
+            raise LimitExceeded("request cannot fit the configured rate limits")
         if request_tokens > self.max_request_tokens:
             raise LimitExceeded("request exceeds the provider token limit")
         if state_question_tokens > self.max_state_question_tokens:

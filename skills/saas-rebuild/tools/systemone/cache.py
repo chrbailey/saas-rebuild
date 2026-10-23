@@ -35,13 +35,22 @@ class ResponseCache:
             raise CacheMiss(key) from error
         if not isinstance(value, dict) or value.get("cache_key") != key:
             raise ValueError(f"invalid cache record: {target}")
+        if value.get("response_sha256") != stable_digest(value.get("response")):
+            raise ValueError(f"cache response digest mismatch: {target}")
+        if value.get("annotations_sha256") != stable_digest(value.get("annotations")):
+            raise ValueError(f"cache annotation digest mismatch: {target}")
         return value
 
-    def put(self, key: str, response: dict[str, Any]) -> Path:
+    def put(self, key: str, response: dict[str, Any], annotations: list[dict[str, Any]] | None = None) -> Path:
         self.root.mkdir(parents=True, exist_ok=True)
         target = self._path(key)
         temporary = target.with_suffix(f".{os.getpid()}.tmp")
-        record = {"cache_key": key, "response": response}
+        record = {
+            "cache_key": key, "response": response,
+            "response_sha256": stable_digest(response),
+            "annotations": annotations,
+            "annotations_sha256": stable_digest(annotations),
+        }
         temporary.write_text(
             json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n",
             encoding="utf-8",

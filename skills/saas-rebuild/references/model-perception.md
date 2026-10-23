@@ -13,6 +13,12 @@ raise scrutiny or change `DROP` to `DEFER`. It must never lower scrutiny or
 create a `DROP`, `KEEP`, approval, clearance, edge removal, or replay pass.
 Until a question has a calibrated threshold on an eligible gold set, its
 `flag`, `veto`, or `reject` authority is reduced to `prioritize`.
+The runner's policy API binds calibration to the returned model, exact question
+hash, catalog version, validation reference, human approval, and a passing
+canary for that model. It applies the isotonic probability before the threshold;
+the uncertainty band adds review. Vetoes additionally require a separately
+hashed paraphrase question to agree. The CLI supplies no authority policies,
+so its high-authority answers remain prioritization only.
 
 ## Boundary contract
 
@@ -37,16 +43,84 @@ python3 skills/saas-rebuild/tools/jev_run.py --mode offline examples/synthetic-c
 ```
 
 For an approved synthetic/public contract spike, use shadow mode with explicit
-hard limits. Inspect `model-annotations.jsonl` and the hash-chained
+limits and `--allow-network`. A dollar cap also requires an explicitly supplied,
+current verified input price. Inspect `model-annotations.jsonl` and the hash-chained
 `.systemone/calls.jsonl`; shadow annotations have no operational effect.
 
 ```bash
-python3 skills/saas-rebuild/tools/jev_run.py --mode shadow \
-  --max-calls 1 --max-input-tokens 2000 examples/synthetic-crm
+python3 skills/saas-rebuild/tools/jev_run.py examples/synthetic-crm --mode shadow \
+  --allow-network --limit 1 --max-calls 1 --max-input-tokens 20000 \
+  --max-cost-usd 0.01 --price-per-million-input-tokens <verified-current-price>
 ```
 
-Replay mode reads the content-addressed cache and refuses a cache miss. Live
-mode remains raise-only and should not be enabled until calibration gates pass.
+The byte-based reservation allows for state billing per question and overhead.
+Failed attempts consume the call reservation, and budgeted requests never
+silently retry. These are per-run local controls; they do not enforce an
+account-wide monthly limit or know about usage elsewhere. Use the provider's
+account cap for the monthly $5 constraint. No account setting is changed by
+this tool.
+
+Replay reads the cache and restores the original annotations, including run ids,
+effects, timestamps, and call-log sequence. Repeated writes deduplicate them.
+A miss or old cache without frozen annotations fails without a network call.
+The strengthened cache format intentionally does not accept the old prototype
+cache. Keep old records as evidence; do not relabel them as new recordings.
+
+## Local demo and decision review
+
+From the repository root, run this once with a new output directory:
+
+```bash
+python3 scripts/demo_jev.py .jev-demo
+python3 skills/saas-rebuild/tools/validate_artifacts.py .jev-demo
+python3 skills/saas-rebuild/tools/jev_report.py .jev-demo
+```
+
+The demo copies the synthetic CRM and injects the committed, historical Jev
+response through a fake transport. It needs no key, makes no network request,
+costs nothing, verifies the audit chain and exact replay, and writes
+`.jev-demo/jev-review.json`. It never overwrites an existing directory.
+
+The read-only report compares recorded verdicts with deterministic proposals and
+open annotations. It preserves the baseline reason when a flag/veto holds a
+DROP as DEFER. Existing synthetic citations lack structured `measure` values,
+so their prose counts cannot establish deterministic use: the report explicitly
+defers those entries rather than inventing measurements. Human review remains
+required for DROP, DEFER, undefined cells, and model review items.
+
+## Inputs for each question set
+
+Feature perception reads classified feature inventory fields automatically.
+Other sets use `model-inputs.jsonl`, one bounded item per line. Classify that
+file under `data_boundary.source_classes` and classify every supplied field;
+missing classifications are restricted. For example:
+
+```json
+{"question_set":"citation-checks","target_id":"ev-search-runtime","fields":{"source_text":"Customer lookup is an observed service action."},"field_classes":{"source_text":"public"},"contains_phi":false,"contains_eu_personal_data":false}
+```
+
+That example shows the format only; source text must be an actual authorized
+excerpt in an engagement. The original claim comes from the registered citation.
+
+| Set | Target registry | Allowed fields |
+|---|---|---|
+| citation-checks | Inventory evidence id | claim (read from inventory), scope, source_text |
+| graph-edges | `from\|to\|type` in graph.json | source_label, target_label, script_body, deployment_text |
+| process-mining | Distinct event signature id in model-inputs | description, control, activity_labels |
+| sanitization | Pair id in pairs.jsonl | input, output (read from pair; overrides ignored) |
+| replay-residuals | Residual id in model-inputs | difference, registered_divergences, legacy_notes |
+| interviews | Statement id in model-inputs | statement, candidate_features |
+
+Supplemental event signatures, residuals, and interview ids also let the artifact
+validator resolve those annotations. Duplicate ids within a question set fail.
+Holdout pairs cannot receive model assistance. PHI/EU flags propagate through
+the runner to the contract gate; whole-run flags are available on the CLI too.
+The default catalogs provide bounded suggestions; domain-specific target choices
+still need a reviewed catalog and new hashes/calibration.
+
+The conventional `model-annotations.jsonl` sidecar is discovered even without
+the optional `artifacts.model_annotations` pointer, keeping evidence artifacts
+unchanged. When supplied, that pointer must resolve to the same validated file.
 
 ## Gold-set separation
 

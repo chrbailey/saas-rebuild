@@ -22,6 +22,11 @@ from pathlib import Path
 import sys
 from typing import Any
 
+TOOL_ROOT = Path(__file__).resolve().parent
+if str(TOOL_ROOT) not in sys.path:
+    sys.path.insert(0, str(TOOL_ROOT))
+from systemone.inputs import SETS, load_registry
+
 try:
     import jsonschema
 except ImportError as error:  # pragma: no cover - exercised before test deps exist
@@ -367,6 +372,13 @@ class Validation:
             "graph-edge": graph_edge_ids,
             "pair": set(pair_ids),
         }
+        try:
+            for record in load_registry(self.root):
+                kind = SETS[record["question_set"]][0]
+                if kind in {"event-signature", "replay-residual", "interview-statement"}:
+                    target_sets.setdefault(kind, set()).add(record["target_id"])
+        except (ValueError, KeyError) as error:
+            self.error(str(error))
         open_effects: dict[tuple[str, str], set[str]] = {}
         for annotation in annotations:
             endpoint = endpoint_map.get(annotation["endpoint_id"])
@@ -395,6 +407,8 @@ class Validation:
 
         for feature in features:
             effects = open_effects.get(("feature", feature["id"]), set())
+            for citation in feature.get("evidence", []):
+                effects = effects | open_effects.get(("citation", citation["evidence_id"]), set())
             if feature.get("verdict") == "DROP" and effects & {"flag", "veto"}:
                 self.error(f"feature {feature['id']} is DROP despite an open model flag or veto")
         for pair in pairs:
@@ -411,7 +425,7 @@ class Validation:
             if (
                 pair["sanitization_tier"] == "sanitized-shareable"
                 and review.get("status") == "approved"
-                and review.get("method") == "model-prescreen-reject"
+                and "model" in review.get("method", "").lower()
             ):
                 self.error(f"pair {pair['pair_id']} cannot be approved by a rejected model prescreen")
 

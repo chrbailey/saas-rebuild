@@ -80,10 +80,14 @@ def _scrub(value: Any, *, strip_numbers: bool, redactions: set[str]) -> Any:
     if isinstance(value, list):
         return [_scrub(item, strip_numbers=strip_numbers, redactions=redactions) for item in value]
     if isinstance(value, dict):
-        return {
-            str(key): _scrub(item, strip_numbers=strip_numbers, redactions=redactions)
-            for key, item in value.items()
-        }
+        cleaned = {}
+        for key, item in value.items():
+            safe_key, found = scrub_text(str(key), strip_numbers=strip_numbers)
+            redactions.update(found)
+            if safe_key in cleaned:
+                raise StateRefused("scrubbing would collide object keys; supply text fields instead")
+            cleaned[safe_key] = _scrub(item, strip_numbers=strip_numbers, redactions=redactions)
+        return cleaned
     if isinstance(value, (int, float)) and not isinstance(value, bool) and strip_numbers:
         redactions.add("number")
         return "[NUMBER]"

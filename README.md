@@ -349,6 +349,13 @@ giving the model ownership of any teardown decision. The deterministic core
 still runs fully offline; Jev annotations are server-side/CLI only and may
 only raise scrutiny. See the [model-perception contract](skills/saas-rebuild/references/model-perception.md).
 
+Try the complete local workflow with `python3 scripts/demo_jev.py .jev-demo`.
+It uses the recorded synthetic Jev response, requires no API key, and writes
+`.jev-demo/jev-review.json` with deterministic proposals and a review queue.
+The demo verifies exact replay and unchanged source evidence without a paid call.
+See the [October implementation status](docs/jev-build-status-2026-10-23.md)
+for verified behavior and the remaining real-engagement evaluation gates.
+
 Existing users should read the [v0.9 → v0.10 migration guide](docs/migration-v0.10.md),
 the [v0.8 → v0.9 migration guide](docs/migration-v0.9.md),
 and, for older outputs, the [v0.7 → v0.8 guide](docs/migration-v0.8.md) and

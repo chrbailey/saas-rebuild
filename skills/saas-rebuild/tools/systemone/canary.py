@@ -11,6 +11,7 @@ class CanaryResult:
     passed: bool
     reasons: tuple[str, ...]
     authority: str
+    model: str | None = None
 
 
 def compare_canary(
@@ -28,7 +29,9 @@ def compare_canary(
             reasons.append(f"missing canary answer: {question_id}")
         elif actual[question_id] != expected_answer:
             reasons.append(f"canary answer drift: {question_id}")
-    return CanaryResult(not reasons, tuple(reasons), "configured" if not reasons else "prioritize-only")
+    if set(actual) != set(expected):
+        reasons.append("canary question set changed")
+    return CanaryResult(not reasons, tuple(reasons), "configured" if not reasons else "prioritize-only", actual_model)
 
 
 def agreement_rate(repeats: list[dict[str, Any]]) -> dict[str, float]:

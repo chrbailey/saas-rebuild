@@ -36,7 +36,7 @@ def decide(feature: dict[str, Any]) -> Decision:
     declared_usage = feature.get("usage")
     workaround = declared_usage in {"workaround-external", "workaround-internal"}
 
-    if runtime and workaround:
+    if usage in {"daily", "weekly", "rare"} and workaround:
         return Decision("SIMPLIFY", "MATRIX-RUNTIME-WORKAROUND", _ids(runtime))
     if runtime and usage in {"daily", "weekly", "rare"} and critical:
         evidence = runtime + _criticality_evidence(feature)

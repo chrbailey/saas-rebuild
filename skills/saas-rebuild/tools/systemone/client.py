@@ -10,7 +10,7 @@ import time
 from typing import Any, Callable, Mapping
 
 from .questions import Question, to_wire
-from .transport import TransportError, post_json
+from .transport import TransportError, single_post_json
 
 
 ENDPOINT = "https://api.typesafe.ai/v1/systemone"
@@ -40,12 +40,18 @@ class Response:
     raw: dict[str, Any]
 
 
+def _number(value: Any, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise SystemOneError(f"{label} must be a finite number")
+    return float(value)
+
+
 def _probabilities(value: Any) -> dict[str, float] | None:
     if value is None:
         return None
     if not isinstance(value, dict):
         raise SystemOneError("answer probabilities must be an object")
-    result = {str(key): float(probability) for key, probability in value.items()}
+    result = {str(key): _number(probability, "probability") for key, probability in value.items()}
     if any(not math.isfinite(probability) or not 0 <= probability <= 1 for probability in result.values()):
         raise SystemOneError("answer probabilities must be finite values from 0 to 1")
     if result and not math.isclose(sum(result.values()), 1.0, rel_tol=1e-4, abs_tol=1e-4):
@@ -60,14 +66,14 @@ def parse_answer(question: dict[str, Any], raw: Any) -> Answer:
     if raw.get("type") != expected:
         raise SystemOneError(f"answer type {raw.get('type')!r} does not match {expected!r}")
     if expected == "noul":
-        value = float(raw.get("noul"))
+        value = _number(raw.get("noul"), "noul")
         if not math.isfinite(value) or not 0 <= value <= 1:
             raise SystemOneError("noul must be a finite value from 0 to 1")
         if "confidence" in raw:
             raise SystemOneError("noul answers must not contain confidence")
         return Answer(expected, value, None, None, None, raw)
     probabilities = _probabilities(raw.get("probabilities"))
-    confidence = float(raw.get("confidence"))
+    confidence = _number(raw.get("confidence"), "confidence")
     if not math.isfinite(confidence) or not 0 <= confidence <= 1:
         raise SystemOneError("confidence must be a finite value from 0 to 1")
     if expected == "choice":
@@ -76,7 +82,7 @@ def parse_answer(question: dict[str, Any], raw: Any) -> Answer:
             raise SystemOneError("choice answer does not match the declared criteria")
         return Answer(expected, str(choice), probabilities, confidence, None, raw)
     if expected == "score":
-        score = float(raw.get("score"))
+        score = _number(raw.get("score"), "score")
         legend = raw.get("legend")
         if not isinstance(legend, dict) or probabilities is None:
             raise SystemOneError("score answer requires legend and probabilities")
@@ -100,7 +106,7 @@ class SystemOne:
         endpoint: str = ENDPOINT,
         timeout: int = 60,
         api_key: str | None = None,
-        transport: Transport = post_json,
+        transport: Transport = single_post_json,
     ) -> None:
         self.model = model
         self.endpoint = endpoint
@@ -117,6 +123,8 @@ class SystemOne:
     def ask(self, state: Any, questions: Mapping[str, Question | Mapping[str, Any]]) -> Response:
         if not questions:
             raise SystemOneError("at least one question is required")
+        if self.endpoint != ENDPOINT:
+            raise SystemOneError("only the approved System One endpoint is supported")
         wire_questions = {question_id: to_wire(question) for question_id, question in questions.items()}
         payload = {"state": state, "model": self.model, "questions": wire_questions}
         started = time.monotonic()
@@ -135,12 +143,12 @@ class SystemOne:
         model = body.get("model")
         if not isinstance(model, str) or not model:
             raise SystemOneError("response model is missing")
-        usage = body.get("usage") or {}
+        usage = body.get("usage")
         if not isinstance(usage, dict):
             raise SystemOneError("response usage must be an object")
         normalized_usage: dict[str, int] = {}
         for key in ("input_tokens", "output_tokens"):
-            value = usage.get(key, 0)
+            value = usage.get(key)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise SystemOneError(f"usage.{key} must be a non-negative integer")
             normalized_usage[key] = value
@@ -156,3 +164,15 @@ class SystemOne:
 def estimate_request_tokens(state: Any, questions: Mapping[str, Any]) -> int:
     rendered = json.dumps({"state": state, "questions": questions}, ensure_ascii=False)
     return math.ceil(len(rendered.encode("utf-8")) / 4)
+
+
+def reserve_request_tokens(state: Any, questions: Mapping[str, Any]) -> int:
+    """Conservative byte estimate, allowing state billing per question and overhead.
+
+    Provider-reported usage remains authoritative. This is a local preflight
+    bound, not a replacement for a provider account spending cap.
+    """
+    return sum(
+        len(json.dumps({"state": state, "question": question}, ensure_ascii=False).encode("utf-8")) + 256
+        for question in questions.values()
+    )

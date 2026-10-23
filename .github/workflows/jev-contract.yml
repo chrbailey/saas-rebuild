@@ -8,6 +8,10 @@ on:
         required: true
         default: false
         type: boolean
+      verified_input_price:
+        description: "Current verified USD per million input tokens (required for a live run)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -19,6 +23,7 @@ jobs:
     timeout-minutes: 5
     env:
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+      VERIFIED_INPUT_PRICE: ${{ inputs.verified_input_price }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -32,5 +37,6 @@ jobs:
         run: |
           cp -R examples/synthetic-crm "${RUNNER_TEMP}/synthetic-crm"
           python skills/saas-rebuild/tools/jev_run.py \
-            --mode shadow --limit 1 --max-calls 1 --max-input-tokens 2000 \
+            --mode shadow --allow-network --limit 1 --max-calls 1 --max-input-tokens 20000 \
+            --max-cost-usd 0.01 --price-per-million-input-tokens "$VERIFIED_INPUT_PRICE" \
             "${RUNNER_TEMP}/synthetic-crm"

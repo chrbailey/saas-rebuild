@@ -197,7 +197,7 @@ def test_cache_calllog_runner_and_replay(tmp_path):
     catalog = {"F2": {"question": {"type": "noul", "instructions": "Is this regulated?"}, "authority": "veto", "consumer": "rules.raise_only", "gold": None}}
     response = ({"model": "jev-test", "answers": {"F2": {"type": "noul", "noul": 0.9}}, "usage": {"input_tokens": 20, "output_tokens": 3}}, {"x-request-id": "req"})
     client = FakeSystemOne([response])
-    runner = Runner(tmp_path, example_state(), endpoint_id="typesafe-systemone", purpose="feature-perception", mode="shadow", client=client, budget=BudgetGuard(1, 100))
+    runner = Runner(tmp_path, example_state(), endpoint_id="typesafe-systemone", purpose="feature-perception", mode="shadow", client=client, budget=BudgetGuard(1, 1000))
     annotations = runner.ask(target_kind="feature", target_id="customer-search", state={"name": "search"}, data_classes=("public",), catalog_version="1", catalog=catalog)
     assert annotations[0]["effect"] == "none"
     assert client.fake_transport.calls
@@ -208,7 +208,7 @@ def test_cache_calllog_runner_and_replay(tmp_path):
     jsonschema.validate(call_entry, call_schema)
     replay_client = FakeSystemOne([])
     replay = Runner(tmp_path, example_state(), endpoint_id="typesafe-systemone", purpose="feature-perception", mode="replay", client=replay_client, budget=BudgetGuard(0, 0))
-    replay.ask(target_kind="feature", target_id="customer-search", state={"name": "search"}, data_classes=("public",), catalog_version="1", catalog=catalog)
+    assert replay.ask(target_kind="feature", target_id="customer-search", state={"name": "search"}, data_classes=("public",), catalog_version="1", catalog=catalog) == annotations
     assert replay.cache_hits == 1 and not replay_client.fake_transport.calls
 
 

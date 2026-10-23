@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Iterable
 
 
@@ -43,11 +44,35 @@ def open_ticket(
         raise BoundaryRefused("model-vendor-review preflight is not ready")
 
     endpoints = boundary.get("model_endpoints") or []
-    endpoint = next((item for item in endpoints if item.get("id") == endpoint_id), None)
+    matches = [item for item in endpoints if item.get("id") == endpoint_id]
+    if len(matches) > 1:
+        raise BoundaryRefused("model endpoint id is duplicated")
+    endpoint = matches[0] if matches else None
     if endpoint is None:
         raise BoundaryRefused(f"model endpoint {endpoint_id!r} is not declared")
     if endpoint.get("endpoint") != "https://api.typesafe.ai/v1/systemone":
         raise BoundaryRefused("unapproved System One endpoint")
+    for field in ("vendor", "terms_version", "approved_by", "approved_at"):
+        if not isinstance(endpoint.get(field), str) or not endpoint[field].strip():
+            raise BoundaryRefused(f"endpoint ticket is missing {field}")
+    try:
+        approved_at = datetime.fromisoformat(endpoint["approved_at"].replace("Z", "+00:00"))
+        if approved_at.utcoffset() is None:
+            raise ValueError("timezone missing")
+    except ValueError:
+        raise BoundaryRefused("endpoint approval timestamp is invalid") from None
+    if endpoint.get("boundary") != "vendor-cloud":
+        raise BoundaryRefused("System One requires a vendor-cloud boundary")
+    if endpoint.get("training_on_customer_data") not in {"unknown", "yes", "no"}:
+        raise BoundaryRefused("endpoint ticket is missing training status")
+    for control in ("zdr", "baa"):
+        value = endpoint.get(control)
+        if not isinstance(value, dict) or value.get("status") not in {"unknown", "not-in-force", "in-force"} or "ref" not in value:
+            raise BoundaryRefused(f"endpoint ticket is missing {control} status")
+        if value["status"] == "in-force" and not value.get("ref"):
+            raise BoundaryRefused(f"{control} in force requires a contract reference")
+    if "transfer_mechanism" not in endpoint:
+        raise BoundaryRefused("endpoint ticket is missing transfer status")
     if purpose not in endpoint.get("purposes", []):
         raise BoundaryRefused(f"purpose {purpose!r} is not approved")
 

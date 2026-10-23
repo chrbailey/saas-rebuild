@@ -19,15 +19,16 @@ TOOL_ROOT = Path(__file__).resolve().parent
 if str(TOOL_ROOT) not in sys.path:
     sys.path.insert(0, str(TOOL_ROOT))
 
-from systemone.client import SystemOne  # noqa: E402
+from systemone.client import SystemOne, SystemOneError  # noqa: E402
 from systemone.boundary import BoundaryRefused  # noqa: E402
-from systemone.limiter import BudgetGuard  # noqa: E402
+from systemone.cache import CacheMiss  # noqa: E402
+from systemone.inputs import SETS, feature_job, jobs  # noqa: E402
+from systemone.limiter import BudgetGuard, LimitExceeded  # noqa: E402
 from systemone.runner import Runner  # noqa: E402
-from systemone.state import StateRefused, build_state  # noqa: E402
+from systemone.state import StateRefused  # noqa: E402
 
 
 CATALOG_ROOT = TOOL_ROOT / "systemone" / "catalog"
-SENSITIVITY = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
 
 
 def load_local_api_key() -> None:
@@ -51,29 +52,13 @@ def load_json(path: Path) -> Any:
 
 
 def feature_state(feature: dict[str, Any], default_class: str, allowed: list[str]):
-    claims = [citation.get("claim", "") for citation in feature.get("evidence", [])]
-    declared = [citation.get("sensitivity", default_class) for citation in feature.get("evidence", [])]
-    data_class = max(declared or [default_class], key=lambda value: SENSITIVITY.get(value, 99))
-    source = {
-        "name": feature.get("name"),
-        "kind": feature.get("kind"),
-        "nav_path": feature.get("nav_path"),
-        "claims": claims,
-    }
-    field_classes = {key: data_class for key in source}
-    return build_state(
-        source,
-        field_classes,
-        allowed_fields=("name", "kind", "nav_path", "claims"),
-        allowed_data_classes=allowed,
-        strip_numbers=True,
-    )
+    return feature_job(feature, default_class).envelope(allowed)
 
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("artifact_root", type=Path)
-    result.add_argument("--set", dest="question_set", default="feature-perception")
+    result.add_argument("--set", dest="question_set", choices=tuple(SETS), default="feature-perception")
     result.add_argument("--mode", choices=("offline", "shadow", "live", "replay"), default="offline")
     result.add_argument("--endpoint-id", default="typesafe-systemone")
     result.add_argument("--model", default="jev-latest")
@@ -82,6 +67,9 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--max-input-tokens", type=int, default=20_000)
     result.add_argument("--max-cost-usd", type=float, default=None)
     result.add_argument("--price-per-million-input-tokens", type=float, default=None)
+    result.add_argument("--allow-network", action="store_true", help="Explicitly enable paid calls in shadow/live mode")
+    result.add_argument("--contains-phi", action="store_true")
+    result.add_argument("--contains-eu-personal-data", action="store_true")
     return result
 
 
@@ -101,20 +89,27 @@ def main(argv: list[str] | None = None) -> int:
         }, sort_keys=True))
         return 0
 
-    load_local_api_key()
+    if args.limit is not None and args.limit < 1:
+        parser().error("--limit must be positive")
+    if args.mode in {"shadow", "live"}:
+        if not args.allow_network:
+            parser().error("paid calls require --allow-network; use replay for local runs")
+        if args.max_cost_usd is None or args.price_per_million_input_tokens is None:
+            parser().error("paid calls require an explicit dollar cap and current verified input price")
+        load_local_api_key()
 
     catalog_path = CATALOG_ROOT / f"{args.question_set}.json"
     if not catalog_path.is_file():
         parser().error(f"unknown question set: {args.question_set}")
     catalog_doc = load_json(catalog_path)
     teardown = load_json(teardown_path)
-    features = load_json(inventory_path)
-    if not isinstance(features, list):
-        parser().error("feature-inventory.json must contain an array")
+    try:
+        selected_jobs = jobs(root, teardown, args.question_set)
+    except (ValueError, KeyError, OSError) as error:
+        parser().error(str(error))
 
     boundary = teardown.get("data_boundary") or {}
     allowed = list(boundary.get("allowed_data_classes") or [])
-    default_class = (boundary.get("source_classes") or {}).get("feature-inventory.json", "restricted")
     budget = BudgetGuard(
         max_calls=args.max_calls,
         max_input_tokens=args.max_input_tokens,
@@ -130,30 +125,37 @@ def main(argv: list[str] | None = None) -> int:
         client=SystemOne(model=args.model),
         budget=budget,
     )
-    selected = features[: args.limit] if args.limit is not None else features
+    selected = selected_jobs[: args.limit] if args.limit is not None else selected_jobs
     refused: list[dict[str, str]] = []
-    for feature in selected:
+    failure = None
+    for job in selected:
         try:
-            envelope = feature_state(feature, default_class, allowed)
+            envelope = job.envelope(allowed)
             runner.ask(
-                target_kind="feature",
-                target_id=feature["id"],
+                target_kind=job.kind,
+                target_id=job.target_id,
                 state=envelope.value,
                 data_classes=envelope.data_classes,
                 catalog_version=catalog_doc["version"],
                 catalog=catalog_doc["questions"],
+                contains_phi=args.contains_phi or job.contains_phi,
+                contains_eu_personal_data=args.contains_eu_personal_data or job.contains_eu_personal_data,
             )
         except StateRefused as error:
             runner.record_refusal(
-                target_kind="feature",
-                target_id=str(feature.get("id", "unknown")),
+                target_kind=job.kind,
+                target_id=job.target_id,
                 data_classes=(),
                 gate="state",
                 reason=str(error),
             )
-            refused.append({"target_id": str(feature.get("id", "unknown")), "reason": str(error)})
+            refused.append({"target_id": job.target_id, "reason": str(error)})
         except BoundaryRefused as error:
-            refused.append({"target_id": str(feature.get("id", "unknown")), "reason": str(error)})
+            refused.append({"target_id": job.target_id, "reason": str(error)})
+        except (LimitExceeded, CacheMiss, SystemOneError, ValueError) as error:
+            # Preserve completed items on exhaustion, replay misses, or service failure.
+            failure = {"type": type(error).__name__, "target_id": job.target_id}
+            break
 
     annotations_path = runner.write_annotations()
     summary = runner.summary()
@@ -169,9 +171,11 @@ def main(argv: list[str] | None = None) -> int:
         "calllog_head": summary.calllog_head,
         "annotations_path": annotations_path.name if annotations_path else None,
         "estimated_cost_usd": budget.estimated_cost_usd,
+        "reserved_input_tokens": budget.reserved_input_tokens,
+        "failure": failure,
     }
     print(json.dumps(output, sort_keys=True))
-    return 0
+    return 1 if failure else 0
 
 
 if __name__ == "__main__":

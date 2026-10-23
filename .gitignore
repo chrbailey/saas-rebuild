@@ -4,6 +4,7 @@
 .env.*
 !.env.example
 .systemone/
+/.jev-demo/
 exports/
 !examples/synthetic-crm/exports/
 !examples/synthetic-crm/exports/**

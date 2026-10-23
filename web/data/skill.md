@@ -41,7 +41,6 @@ disjoint historical cases.
    label, not a claim that browser, connector, or model traffic stayed local.
 6. **Keep model perception optional and raise-only.** Deterministic rules own recorded decisions.
    Jev may add review or veto `DROP` into `DEFER`; see `references/model-perception.md`.
-
 ## Phase 0 — Scope
 
 Ask (one AskUserQuestion batch): which app, login URL, which modules matter

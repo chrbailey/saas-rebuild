@@ -115,6 +115,9 @@ def update_teardown() -> None:
     schema["properties"]["decisions"]["items"]["properties"]["annotation_ids"] = {
         "type": "array", "uniqueItems": True, "items": {"type": "string", "minLength": 1}
     }
+    schema["properties"]["artifacts"]["properties"]["model_annotations"] = {
+        "type": "string", "minLength": 1
+    }
     write(path, schema)
 
 
