@@ -12,13 +12,19 @@ Apply model annotations through `tools/rules/raise_only.py`. A model result may
 raise scrutiny or change `DROP` to `DEFER`. It must never lower scrutiny or
 create a `DROP`, `KEEP`, approval, clearance, edge removal, or replay pass.
 Until a question has a calibrated threshold on an eligible gold set, its
-`flag`, `veto`, or `reject` authority is reduced to `prioritize`.
+affirmative `flag`, `veto`, or `reject` signal is reduced to `prioritize`.
+Negative answers remain inert. Choice questions act only on their catalog's
+trigger options or contradictions with a local declared value (C2, E1, I2);
+the declared value is never sent to the model.
 The runner's policy API binds calibration to the returned model, exact question
 hash, catalog version, validation reference, human approval, and a passing
 canary for that model. It applies the isotonic probability before the threshold;
 the uncertainty band adds review. Vetoes additionally require a separately
 hashed paraphrase question to agree. The CLI supplies no authority policies,
 so its high-authority answers remain prioritization only.
+The former `ThresholdSet`/`CalibratedThreshold` types are accepted for routing
+compatibility, but cannot grant authority because they lack the pinned provider
+model, approval, validation reference, canary, and veto-twin bindings.
 
 ## Boundary contract
 
@@ -28,6 +34,10 @@ The record fixes the exact endpoint, approved purposes, allowed data classes,
 contract status, and approver. The gate fails closed: restricted data requires
 ZDR in force, PHI requires a BAA in force, and EU personal data requires a
 recorded transfer mechanism.
+Record `data_boundary.regulated_data` explicitly, for example
+`{"phi":"no","eu_personal_data":"no"}` for synthetic data. Missing or
+`unknown` declarations presume those categories are present. Per-item and CLI
+privacy flags may raise those controls but cannot clear them.
 
 Only server-side or CLI tooling may call Jev. The browser application makes no
 Jev requests and never receives `TYPESAFE_API_KEY`.
@@ -62,6 +72,8 @@ this tool.
 
 Replay reads the cache and restores the original annotations, including run ids,
 effects, timestamps, and call-log sequence. Repeated writes deduplicate them.
+Replay itself never appends annotation records, including when the original run
+had authority; its returned records are historical results for inspection.
 A miss or old cache without frozen annotations fails without a network call.
 The strengthened cache format intentionally does not accept the old prototype
 cache. Keep old records as evidence; do not relabel them as new recordings.
@@ -91,7 +103,11 @@ required for DROP, DEFER, undefined cells, and model review items.
 ## Inputs for each question set
 
 Feature perception reads classified feature inventory fields automatically.
-Other sets use `model-inputs.jsonl`, one bounded item per line. Classify that
+The existing citation and graph readers are preserved: without a supplemental
+registry they inspect citation metadata and ordered graph evidence, keeping
+declared classes/types local for comparison. A source pointer by itself cannot
+prove claim support; supply actual excerpts for that assessment.
+For richer context and the remaining sets, use `model-inputs.jsonl`, one bounded item per line. Classify that
 file under `data_boundary.source_classes` and classify every supplied field;
 missing classifications are restricted. For example:
 

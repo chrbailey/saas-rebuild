@@ -8,6 +8,7 @@ from typing import Any
 
 from .client import Answer
 from .questions import question_hash
+from .signals import _signal, ROUTING_CUTOFF
 
 
 @dataclass(frozen=True)
@@ -21,14 +22,20 @@ def evaluate(
     item: dict[str, Any], answer: Answer, *, mode: str, model: str,
     catalog_version: str, policy: dict[str, Any] | None,
     canary_model: str | None = None, twin: Answer | None = None,
+    context: dict[str, Any] | None = None,
 ) -> Effect:
     if mode == "shadow":
         return Effect("none")
     authority = item.get("authority", "prioritize")
+    signal = _signal(item, answer, context)
+    if answer.type == "choice" and item.get("compare") and signal is None:
+        return Effect("none")
     if authority not in {"flag", "veto", "reject"}:
-        return Effect(authority if authority in {"prioritize", "suggest"} else "none")
+        if authority == "suggest" and answer.type == "choice" and not (item.get("trigger") or item.get("compare")):
+            return Effect("suggest")
+        return Effect(authority if authority in {"prioritize", "suggest"} and signal is not None and signal >= ROUTING_CUTOFF else "none")
     if policy is None:
-        return Effect("prioritize")
+        return Effect("prioritize" if signal is not None and signal >= ROUTING_CUTOFF else "none")
     if not isinstance(policy, dict):
         raise ValueError("thresholds require a calibrated policy, not a bare number")
     if (

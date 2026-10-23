@@ -13,7 +13,7 @@ import json
 import os
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, Iterator, NamedTuple
 
 TOOL_ROOT = Path(__file__).resolve().parent
 if str(TOOL_ROOT) not in sys.path:
@@ -22,13 +22,15 @@ if str(TOOL_ROOT) not in sys.path:
 from systemone.client import SystemOne, SystemOneError  # noqa: E402
 from systemone.boundary import BoundaryRefused  # noqa: E402
 from systemone.cache import CacheMiss  # noqa: E402
-from systemone.inputs import SETS, feature_job, jobs  # noqa: E402
+from systemone.inputs import SETS, Job, feature_job, jobs  # noqa: E402
 from systemone.limiter import BudgetGuard, LimitExceeded  # noqa: E402
 from systemone.runner import Runner  # noqa: E402
 from systemone.state import StateRefused  # noqa: E402
+from systemone.state import build_state  # noqa: E402
 
 
 CATALOG_ROOT = TOOL_ROOT / "systemone" / "catalog"
+SENSITIVITY = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
 
 
 def load_local_api_key() -> None:
@@ -54,6 +56,108 @@ def load_json(path: Path) -> Any:
 def feature_state(feature: dict[str, Any], default_class: str, allowed: list[str]):
     return feature_job(feature, default_class).envelope(allowed)
 
+
+class Target(NamedTuple):
+    """One thing to ask about: what the model sees, and what it never sees.
+
+    ``source`` is minimized and sent. ``context`` holds the target's declared
+    fields that comparators check answers against; it stays local, so the
+    model cannot echo the declared value back.
+    """
+
+    kind: str
+    id: str
+    source: dict[str, Any]
+    data_class: str
+    context: dict[str, Any]
+
+
+def strictest(classes: list[str], default: str) -> str:
+    return max([default, *classes], key=lambda value: SENSITIVITY.get(value, 99))
+
+
+def feature_targets(root: Path, boundary: dict[str, Any]) -> Iterator[Target]:
+    default = (boundary.get("source_classes") or {}).get("feature-inventory.json", "restricted")
+    for feature in load_json(root / "feature-inventory.json"):
+        evidence = feature.get("evidence", [])
+        yield Target(
+            "feature",
+            str(feature.get("id", "unknown")),
+            {
+                "name": feature.get("name"),
+                "kind": feature.get("kind"),
+                "nav_path": feature.get("nav_path"),
+                "claims": [citation.get("claim", "") for citation in evidence],
+            },
+            strictest([citation.get("sensitivity", default) for citation in evidence], default),
+            {"usage": feature.get("usage")},
+        )
+
+
+def citation_targets(root: Path, boundary: dict[str, Any]) -> Iterator[Target]:
+    # evidence_class and plane stay out of the state: C2 asks the model which
+    # class the text is, and the plane (telemetry, config-census) gives it away.
+    default = (boundary.get("source_classes") or {}).get("feature-inventory.json", "restricted")
+    seen: set[str] = set()
+    for feature in load_json(root / "feature-inventory.json"):
+        for citation in feature.get("evidence", []):
+            evidence_id = str(citation.get("evidence_id", "unknown"))
+            if evidence_id in seen:
+                continue
+            seen.add(evidence_id)
+            yield Target(
+                "citation",
+                evidence_id,
+                {"claim": citation.get("claim"), "source": citation.get("source")},
+                strictest([citation.get("sensitivity", "restricted")], default),
+                {"evidence_class": citation.get("evidence_class")},
+            )
+
+
+def edge_targets(root: Path, boundary: dict[str, Any]) -> Iterator[Target]:
+    # E1's criteria read "the first named object acts on the second", so
+    # `first` must be the edge's source. The edge type stays local for the
+    # comparator, and node verdicts are never read.
+    default = (boundary.get("source_classes") or {}).get("graph.json", "restricted")
+    citations = {
+        citation.get("evidence_id"): citation
+        for feature in load_json(root / "feature-inventory.json")
+        for citation in feature.get("evidence", [])
+    }
+    graph = load_json(root / "graph.json")
+    labels = {node.get("id"): node.get("label") or node.get("id") for node in graph.get("nodes", [])}
+    for edge in graph.get("edges", []):
+        cited = [citations[evidence_id] for evidence_id in edge.get("evidence_ids", []) if evidence_id in citations]
+        yield Target(
+            "graph-edge",
+            f"{edge.get('from')}|{edge.get('to')}|{edge.get('type')}",
+            {
+                "first": labels.get(edge.get("from"), edge.get("from")),
+                "second": labels.get(edge.get("to"), edge.get("to")),
+                "excerpt": [citation.get("claim", "") for citation in cited],
+            },
+            strictest([citation.get("sensitivity", default) for citation in cited], default),
+            {"type": edge.get("type")},
+        )
+
+
+# Question sets without a reader are refused rather than asked about the
+# wrong kind of target.
+READERS = {
+    "feature-perception": feature_targets,
+    "citation-checks": citation_targets,
+    "graph-edges": edge_targets,
+}
+
+
+def target_state(target: Target, allowed: list[str]):
+    return build_state(
+        target.source,
+        {key: target.data_class for key in target.source},
+        allowed_fields=tuple(target.source),
+        allowed_data_classes=allowed,
+        strip_numbers=True,
+    )
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
@@ -104,7 +208,14 @@ def main(argv: list[str] | None = None) -> int:
     catalog_doc = load_json(catalog_path)
     teardown = load_json(teardown_path)
     try:
-        selected_jobs = jobs(root, teardown, args.question_set)
+        if args.question_set in {"citation-checks", "graph-edges"} and not (root / "model-inputs.jsonl").exists():
+            boundary = teardown.get("data_boundary") or {}
+            selected_jobs = [
+                Job(target.kind, target.id, target.source, {key: target.data_class for key in target.source}, tuple(target.source), context=target.context)
+                for target in READERS[args.question_set](root, boundary)
+            ]
+        else:
+            selected_jobs = jobs(root, teardown, args.question_set)
     except (ValueError, KeyError, OSError) as error:
         parser().error(str(error))
 
@@ -138,6 +249,7 @@ def main(argv: list[str] | None = None) -> int:
                 data_classes=envelope.data_classes,
                 catalog_version=catalog_doc["version"],
                 catalog=catalog_doc["questions"],
+                context=job.context,
                 contains_phi=args.contains_phi or job.contains_phi,
                 contains_eu_personal_data=args.contains_eu_personal_data or job.contains_eu_personal_data,
             )

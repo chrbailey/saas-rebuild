@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 from pathlib import Path
 from typing import Any
@@ -69,6 +69,7 @@ class Job:
     allowed_fields: tuple[str, ...]
     contains_phi: bool = False
     contains_eu_personal_data: bool = False
+    context: dict[str, Any] = field(default_factory=dict)
 
     def envelope(self, allowed: list[str]) -> StateEnvelope:
         return build_state(self.fields, self.classes, allowed_fields=self.allowed_fields, allowed_data_classes=allowed)
@@ -78,7 +79,7 @@ def feature_job(feature: dict[str, Any], source_class: str) -> Job:
     sensitivity = _class(source_class, *(citation.get("sensitivity", "restricted") for citation in feature.get("evidence", [])))
     fields = {key: feature.get(key) for key in ("name", "kind", "nav_path")}
     fields["claims"] = [citation.get("claim", "") for citation in feature.get("evidence", [])]
-    return Job("feature", feature["id"], fields, {key: sensitivity for key in fields}, SETS["feature-perception"][1])
+    return Job("feature", feature["id"], fields, {key: sensitivity for key in fields}, SETS["feature-perception"][1], context={"usage": feature.get("usage")})
 
 
 def jobs(root: Path, teardown: dict[str, Any], name: str) -> list[Job]:
@@ -128,7 +129,12 @@ def jobs(root: Path, teardown: dict[str, Any], name: str) -> list[Job]:
         field_classes = {key: _class(floor, row["field_classes"].get(key, "restricted")) for key in fields}
         if name == "citation-checks":
             field_classes["claim"] = floor  # Copied from classified inventory, not a user field.
-        result.append(Job(SETS[name][0], target_id, fields, field_classes, SETS[name][1], row.get("contains_phi", False), row.get("contains_eu_personal_data", False)))
+        context = {}
+        if name == "citation-checks":
+            context = {"evidence_class": targets[target_id].get("evidence_class")}
+        if name == "graph-edges":
+            context = {"type": targets[target_id].get("type")}
+        result.append(Job(SETS[name][0], target_id, fields, field_classes, SETS[name][1], row.get("contains_phi", False), row.get("contains_eu_personal_data", False), context))
     if not result:
         raise ValueError(f"{name} requires classified {name} records in model-inputs.jsonl")
     return result

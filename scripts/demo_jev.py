@@ -35,7 +35,7 @@ def main() -> int:
     catalog = json.loads((TOOLS / "systemone" / "catalog" / "feature-perception.json").read_text())
     fixture = json.loads((ROOT / "tests" / "fixtures" / "systemone" / "jev-1.13.0-feature-perception.json").read_text())
     envelope = feature_state(feature, "public", ["public"])
-    request = dict(target_kind="feature", target_id=feature["id"], state=envelope.value, data_classes=envelope.data_classes, catalog_version=catalog["version"], catalog=catalog["questions"])
+    request = dict(target_kind="feature", target_id=feature["id"], state=envelope.value, data_classes=envelope.data_classes, catalog_version=catalog["version"], catalog=catalog["questions"], context={"usage": feature.get("usage")})
     shadow = Runner(args.output, teardown, endpoint_id="typesafe-systemone", purpose=catalog["purpose"], mode="shadow", client=FakeSystemOne([(fixture, {})]), budget=BudgetGuard(1, 20_000))
     original = shadow.ask(**request)
     shadow.write_annotations()

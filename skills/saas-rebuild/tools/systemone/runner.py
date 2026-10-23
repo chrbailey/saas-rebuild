@@ -10,7 +10,7 @@ from pathlib import Path
 import uuid
 from typing import Any, Mapping
 
-from .boundary import BoundaryRefused, BoundaryTicket, open_ticket
+from .boundary import BoundaryRefused, BoundaryTicket, open_ticket, regulated_data
 from .audit import _exclusive
 from .cache import CacheMiss, ResponseCache
 from .canary import CanaryResult
@@ -19,6 +19,7 @@ from .client import Answer, Response, SystemOne, estimate_request_tokens, reserv
 from .digest import stable_digest
 from .limiter import BudgetGuard, RateLimiter
 from .policy import evaluate
+from .signals import CalibratedThreshold, ThresholdSet
 from .questions import question_hash, to_wire
 
 
@@ -85,10 +86,14 @@ class Runner:
         data_classes: tuple[str, ...],
         catalog_version: str,
         catalog: Mapping[str, dict[str, Any]],
-        thresholds: Mapping[str, dict[str, Any]] | None = None,
+        thresholds: Mapping[str, dict[str, Any]] | ThresholdSet | None = None,
+        context: Mapping[str, Any] | None = None,
         contains_phi: bool = False,
         contains_eu_personal_data: bool = False,
     ) -> list[dict[str, Any]]:
+        declared_phi, declared_eu = regulated_data(self.teardown)
+        contains_phi = contains_phi or declared_phi
+        contains_eu_personal_data = contains_eu_personal_data or declared_eu
         try:
             ticket: BoundaryTicket = open_ticket(
                 self.teardown,
@@ -99,7 +104,7 @@ class Runner:
                 contains_eu_personal_data=contains_eu_personal_data,
             )
             if self.client.endpoint != ticket.endpoint:
-                raise BoundaryRefused("client endpoint does not match the approved ticket")
+                raise BoundaryRefused("client endpoint differs from the approved endpoint")
         except BoundaryRefused as error:
             self.record_refusal(
                 target_kind=target_kind,
@@ -119,6 +124,7 @@ class Runner:
             "target_kind": target_kind, "target_id": target_id,
             "data_classes": sorted(ticket.allowed_data_classes),
             "contains_phi": contains_phi, "contains_eu_personal_data": contains_eu_personal_data,
+            "context": context,
         })
         response: Response
         source_seq = None
@@ -169,7 +175,9 @@ class Runner:
         created = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         records: list[dict[str, Any]] = []
         for question_id, item in catalog.items():
-            policy = (thresholds or {}).get(question_id)
+            # The former ThresholdSet lacks a pinned provider model, approval,
+            # validation reference and canary. Retain it as routing-only input.
+            policy = None if isinstance(thresholds, ThresholdSet) else (thresholds or {}).get(question_id)
             twin_id = policy.get("twin_question_id") if isinstance(policy, dict) else None
             twin = None
             if twin_id in catalog and twin_id != question_id and policy.get("twin_question_hash") == question_hash(catalog[twin_id]["question"]):
@@ -178,6 +186,7 @@ class Runner:
                 item, response.answers[question_id], mode=self.mode, model=response.model,
                 catalog_version=catalog_version, policy=policy, twin=twin,
                 canary_model=self.canary.model if self.canary and self.canary.passed else None,
+                context=context,
             )
             record = {
                 "schema_version": "0.10.0",
@@ -235,7 +244,7 @@ class Runner:
         return Response(str(body["model"]), answers, {"input_tokens": int(usage.get("input_tokens", 0)), "output_tokens": int(usage.get("output_tokens", 0))}, None, 0, body)
 
     def write_annotations(self) -> Path | None:
-        if not self.annotations:
+        if not self.annotations or self.mode == "replay":
             return None
         target = self.artifact_root / "model-annotations.jsonl"
         with _exclusive(target.with_suffix(".lock")):

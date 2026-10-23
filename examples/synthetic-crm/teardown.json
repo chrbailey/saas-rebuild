@@ -17,7 +17,12 @@
     "artifact_root": "examples/synthetic-crm/",
     "allowed_data_classes": ["public"],
     "source_classes": {
-      "feature-inventory.json": "public"
+      "feature-inventory.json": "public",
+      "graph.json": "public"
+    },
+    "regulated_data": {
+      "phi": "no",
+      "eu_personal_data": "no"
     },
     "model_endpoints": [
       {

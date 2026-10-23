@@ -5,11 +5,18 @@ This continuation uses one agent and local tests/recorded responses only.
 No additional Jev call, deployment, account setting change, or paid live
 experiment was performed.
 
+The remote branch contained additional takeover work through `2cc5b96` when
+the first push was attempted. That work is integrated here, including
+fail-closed regulated-data declarations, catalog triggers/comparators,
+safe transport retry classification, migration guards/tests, annotation
+schema authority requirements, and the canonical citation/edge readers.
+
 ## Implemented since the handoff
 
 - Exact replay preserves original annotation identity, effects, timestamps,
-  and call-log references; repeat annotation writes deduplicate and conflicting
-  ids fail. Appends are locked and flushed to disk.
+  and call-log references. Replay never appends; other repeated annotation
+  writes deduplicate and conflicting ids fail. Appends are locked and flushed
+  to disk.
 - Cache keys bind responses to target, endpoint ticket, purpose, classification,
   privacy flags, and catalog. Response/annotation digests detect accidental
   corruption. Cache format changed; legacy recordings are not promoted.
@@ -19,7 +26,8 @@ experiment was performed.
   question to agree. CLI operation remains shadow/prioritization/suggestion;
   no production authority policy or calibration was fabricated.
 - Every set has a dedicated input shape. Features use inventory; other sets
-  use classified, bounded `model-inputs.jsonl` records. Citations, edges, and
+  use classified, bounded `model-inputs.jsonl` records. Canonical citation/edge
+  readers also remain available without that registry. Citations, edges, and
   pairs resolve to canonical artifacts. Supplemental signatures, residuals,
   and interview statements have a local target registry.
 - Source classifications cannot be downgraded by public citation labels.
@@ -56,11 +64,12 @@ It writes `.jev-demo/jev-review.json`; canonical example files stay unchanged.
 
 ## Remaining acceptance gates
 
-Local verification on this build: `747 passed in 8.34s`; the canonical synthetic
+Local verification on the integrated build: `810 passed in 9.68s`; the canonical synthetic
 teardown and generated demo both validate (`4 features, 4 pairs`); both skill
 packages pass reproducibility/source-parity/checksum checks; Git whitespace
 checks pass. The executed demo reports zero network calls, zero cost, a valid
 audit chain, exact replay, and unchanged source evidence.
+The current local demo report is `.jev-demo/integrated/jev-review.json`.
 
 - Independent review has not been completed. No additional agents were used.
 - M1's 500-state, three-repeat agreement and billing-semantics experiments,
