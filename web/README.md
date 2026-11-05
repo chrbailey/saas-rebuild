@@ -7,6 +7,10 @@ Anthropic API key, and start.
 
 **Hosted:** [saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app)
 
+The `#/netsuite` page has a fictional result and a copyable prompt for the
+signed-in Claude in Chrome side panel. It works without an API key for this
+site. Start the audit with the NetSuite tab active in Chrome.
+
 ## What you can do with it
 
 - **Run a teardown as a chat.** Pick the protocol (teardown or the
@@ -15,11 +19,13 @@ Anthropic API key, and start.
   administer, and paste evidence: exports, audit-log samples, contract line
   items, interview notes. The assistant opens with the Phase 0 scoping
   questions and works through the protocol from there.
-- **Download every artifact.** `teardown.json`, `feature-inventory.json`,
+- **Download artifacts from complete responses.** `teardown.json`, `feature-inventory.json`,
   `usage-analysis.md`, `preservation-manifest.json`, `REBUILD_PLAN.md`, and
   the rest arrive as fenced blocks with a download button. The web preamble
   instructs the assistant to re-emit the full artifact, not a diff, whenever
-  state changes, so a download is complete.
+  state changes. The browser withholds downloads from incomplete responses and
+  rejects invalid JSON or JSONL syntax. Schema, business rules, and cross-file
+  checks still use the [local validator](../skills/saas-rebuild/tools/validate_artifacts.py).
 - **Attach context.** Tick any of the three reference playbooks (extraction,
   process mining, dependency graph) to append it to the system prompt, and
   attach any of the 29 extraction recipes for the application you are

@@ -627,7 +627,19 @@ document.addEventListener("click", (e) => {
     });
   } else if (dlId) {
     const pre = document.getElementById(dlId);
-    if (pre) download(e.target.dataset.fname || "artifact.txt", pre.textContent);
+    if (!pre) return;
+    const filename = e.target.dataset.fname || "artifact.txt";
+    const text = pre.textContent;
+    try {
+      if (filename.endsWith(".json")) JSON.parse(text);
+      if (filename.endsWith(".jsonl")) {
+        text.split("\n").filter((line) => line.trim()).forEach((line) => JSON.parse(line));
+      }
+    } catch (_) {
+      note(`Invalid JSON in ${filename}. Ask Claude to re-emit the full artifact before downloading.`, true);
+      return;
+    }
+    download(filename, text);
   } else if (e.target.dataset && e.target.dataset.recipeDl) {
     const slug = e.target.dataset.recipeDl;
     fetchText(dataUrl(`recipes/${slug}.json`))
