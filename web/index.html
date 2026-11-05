@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SaaS Rebuild — evidence-driven teardown workspace</title>
-  <meta name="description" content="Run the SaaS Rebuild teardown protocol from your browser. Bring your own Anthropic API key — it never leaves your machine.">
+  <meta name="description" content="Assess which SaaS features your team uses. The optional chat workspace sends your API key and messages directly to Anthropic.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
@@ -30,10 +30,9 @@
   <h1>Prove what your SaaS actually does.<br>Keep every byte of your data.<br>Rebuild only what you need.</h1>
   <p class="lede">
     Most companies pay for all of a SaaS product, use a fraction, and can't say which fraction.
-    SaaS Rebuild gives every feature an evidence-cited KEEP / SIMPLIFY / DROP / DEFER verdict,
-    exports and checksums everything you can reach whether or not you keep it, and validates
-    any replacement by replaying your own history. This workspace runs the open protocol in
-    your browser, guided by Claude, with your own API key.
+    SaaS Rebuild guides you through evidence-backed KEEP / SIMPLIFY / DROP / DEFER decisions,
+    planning exports, and specifying what a replacement must preserve. The chat workspace uses
+    your own Anthropic API key. You collect the evidence and run the export and validation tools.
   </p>
   <div class="btn-row">
     <a class="btn" href="#/workspace">Open the workspace</a>
@@ -45,7 +44,8 @@
       <h3><span class="num">01</span>Bring your own key</h3>
       <p>The app is fully static. Your Anthropic API key is stored in your browser's
       localStorage and sent only to <span class="mono">api.anthropic.com</span> — there is
-      no backend, and the key never touches any other server.</p>
+      no project backend. Your chat messages and any attached evidence are sent to
+      Anthropic with each request.</p>
     </div>
     <div class="card">
       <h3><span class="num">02</span>Feed it evidence</h3>
@@ -154,7 +154,7 @@
 <footer class="site">
   SaaS Rebuild &middot; MIT licensed &middot;
   <a href="https://github.com/chrbailey/saas-rebuild">chrbailey/saas-rebuild</a> &middot;
-  static app, no backend — your key and your data stay in this browser
+  Static app. Chat requests and the API key go directly to Anthropic.
 </footer>
 
 <!-- ============ key modal ============ -->
@@ -162,8 +162,8 @@
   <div class="modal">
     <h2 id="key-modal-title">Anthropic API key</h2>
     <p>Calls go directly from your browser to <span class="mono">api.anthropic.com</span>.
-    The key is stored only in this browser's localStorage — this site has no backend and
-    never sees it. Create a key in the
+    Your browser saves the key in localStorage and sends it with each chat request.
+    The request includes your messages and attached evidence. Create a key in the
     <a href="https://platform.claude.com/" target="_blank" rel="noopener">Claude Console</a>;
     heavy LLM usage means real spend, so consider a workspace with a budget limit.</p>
     <input type="password" id="key-input" placeholder="sk-ant-...">

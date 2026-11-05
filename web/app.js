@@ -208,7 +208,7 @@ function scrollChat() {
   sc.scrollTop = sc.scrollHeight;
 }
 
-function addMessage(role, content) {
+function addMessage(role, content, complete = true) {
   const wrap = document.createElement("div");
   wrap.className = "msg " + role;
   const who = document.createElement("div");
@@ -217,7 +217,7 @@ function addMessage(role, content) {
   const body = document.createElement("div");
   body.className = "body";
   if (role === "user") body.textContent = content;
-  else body.innerHTML = renderMarkdown(content);
+  else body.innerHTML = renderAssistant(content, complete);
   wrap.appendChild(who);
   wrap.appendChild(body);
   $("chat-scroll").appendChild(wrap);
@@ -262,6 +262,8 @@ async function streamAssistant(key) {
   const bodyEl = addMessage("assistant", "");
   let acc = "";
   let stopReason = null;
+  let messageStopped = false;
+  let complete = false;
   const ctrl = new AbortController();
   state.abort = ctrl;
 
@@ -308,25 +310,31 @@ async function streamAssistant(key) {
           acc += ev.delta.text;
           const now = Date.now();
           if (now - lastRender > 120) {           // throttle DOM updates
-            bodyEl.innerHTML = renderMarkdown(acc);
+            bodyEl.innerHTML = renderMarkdown(acc, false);
             scrollChat();
             lastRender = now;
           }
         } else if (ev.type === "message_delta" && ev.delta && ev.delta.stop_reason) {
           stopReason = ev.delta.stop_reason;
+        } else if (ev.type === "message_stop") {
+          messageStopped = true;
         } else if (ev.type === "error") {
           throw new Error(ev.error && ev.error.message ? ev.error.message : "stream error");
         }
       }
     }
 
-    bodyEl.innerHTML = renderMarkdown(acc);
+    if (!messageStopped) throw new Error("Connection ended before Claude finished. Any partial text is marked incomplete.");
     if (stopReason === "refusal") {
       note("The model declined this request for safety reasons (stop_reason: refusal). Rephrase, or confirm the work is on a tenant you administer.", true);
     } else if (stopReason === "max_tokens") {
       note("Response hit the output-token cap — say “continue” to resume.", false);
+    } else if (stopReason === "end_turn" || stopReason === "stop_sequence") {
+      complete = true;
+    } else {
+      note("Claude ended the stream without a final answer.", true);
     }
-    setStatus("ready");
+    setStatus(complete ? "ready" : "incomplete");
   } catch (err) {
     if (err.name === "AbortError") {
       setStatus("stopped");
@@ -336,8 +344,10 @@ async function streamAssistant(key) {
       note(String(err.message || err), true);
     }
   } finally {
-    if (acc) state.messages.push({ role: "assistant", content: acc });
-    else bodyEl.parentElement.remove();
+    if (acc) {
+      bodyEl.innerHTML = renderAssistant(acc, complete);
+      state.messages.push({ role: "assistant", content: acc, complete });
+    } else bodyEl.parentElement.remove();
     persistSession();
     state.streaming = false;
     state.abort = null;
@@ -400,7 +410,7 @@ function restoreSession() {
     const sess = JSON.parse(localStorage.getItem(STORE.session) || "null");
     if (sess && Array.isArray(sess.messages) && sess.messages.length) {
       state.messages = sess.messages;
-      for (const m of state.messages) addMessage(m.role, m.content);
+      for (const m of state.messages) addMessage(m.role, m.content, m.complete !== false);
       note("Restored previous session from this browser.", false);
     }
   } catch (_) { /* corrupt storage — start fresh */ }
@@ -432,7 +442,7 @@ $("import-file").addEventListener("change", async (e) => {
     $("chat-scroll").querySelectorAll(".msg, .sysnote").forEach((n) => {
       if (n.id !== "welcome-note") n.remove();
     });
-    for (const m of state.messages) addMessage(m.role, m.content);
+    for (const m of state.messages) addMessage(m.role, m.content, m.complete !== false);
     persistSession();
     note("Session imported.", false);
   } catch (err) {
@@ -443,7 +453,7 @@ $("import-file").addEventListener("change", async (e) => {
 
 $("export-transcript").addEventListener("click", () => {
   const md = state.messages
-    .map((m) => `## ${m.role === "user" ? "You" : "Claude"}\n\n${m.content}`)
+    .map((m) => `## ${m.role === "user" ? "You" : "Claude"}${m.complete === false ? " (incomplete)" : ""}\n\n${m.content}`)
     .join("\n\n---\n\n");
   download("saas-rebuild-transcript.md", md, "text/markdown");
 });
@@ -483,7 +493,12 @@ function parseFenceInfo(info) {
 
 let blockCounter = 0;
 
-function renderMarkdown(src) {
+function renderAssistant(content, complete) {
+  const notice = complete ? "" : '<p><strong>Incomplete response. Artifact downloads are disabled.</strong></p>';
+  return notice + renderMarkdown(content, complete);
+}
+
+function renderMarkdown(src, allowDownloads = true) {
   const lines = src.split("\n");
   const out = [];
   let i = 0;
@@ -504,6 +519,7 @@ function renderMarkdown(src) {
       const code = [];
       i++;
       while (i < lines.length && !/^```\s*$/.test(lines[i])) { code.push(lines[i]); i++; }
+      const closed = i < lines.length;
       i++; // closing fence (or EOF while streaming)
       const codeText = code.join("\n");
       const id = "cb" + (++blockCounter);
@@ -512,7 +528,9 @@ function renderMarkdown(src) {
       out.push(
         `<div class="codeblock"><div class="bar">${label}<span class="spacer"></span>` +
         `<button data-copy="${id}">copy</button>` +
-        `<button data-download="${id}" data-fname="${escapeHtml(filename || (lang ? "snippet." + lang : "snippet.txt"))}">download</button>` +
+        (closed && allowDownloads
+          ? `<button data-download="${id}" data-fname="${escapeHtml(filename || (lang ? "snippet." + lang : "snippet.txt"))}">download</button>`
+          : "") +
         `</div><pre id="${id}">${escapeHtml(codeText)}</pre></div>`);
       continue;
     }
@@ -547,7 +565,7 @@ function renderMarkdown(src) {
       flushPara(para);
       const q = [];
       while (i < lines.length && /^\s*>\s?/.test(lines[i])) { q.push(lines[i].replace(/^\s*>\s?/, "")); i++; }
-      out.push("<blockquote>" + renderMarkdown(q.join("\n")) + "</blockquote>");
+      out.push("<blockquote>" + renderMarkdown(q.join("\n"), allowDownloads) + "</blockquote>");
       continue;
     }
 
