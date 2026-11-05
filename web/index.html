@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SaaS Rebuild — evidence-driven teardown workspace</title>
-  <meta name="description" content="Run the SaaS Rebuild teardown protocol from your browser. Bring your own Anthropic API key — it never leaves your machine.">
+  <meta name="description" content="Assess which SaaS features your team uses. The optional chat workspace sends your API key and messages directly to Anthropic.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
@@ -17,6 +17,7 @@
   <a class="brand" href="#/"><span class="tick">&#9633;</span> saas-rebuild</a>
   <nav>
     <a href="#/" data-view="landing">About</a>
+    <a href="#/netsuite" data-view="netsuite">NetSuite audit</a>
     <a href="#/workspace" data-view="workspace">Workspace</a>
     <a href="#/corpus" data-view="corpus">Recipe corpus</a>
     <a href="https://github.com/chrbailey/saas-rebuild" target="_blank" rel="noopener">GitHub &#8599;</a>
@@ -30,13 +31,13 @@
   <h1>Prove what your SaaS actually does.<br>Keep every byte of your data.<br>Rebuild only what you need.</h1>
   <p class="lede">
     Most companies pay for all of a SaaS product, use a fraction, and can't say which fraction.
-    SaaS Rebuild gives every feature an evidence-cited KEEP / SIMPLIFY / DROP / DEFER verdict,
-    exports and checksums everything you can reach whether or not you keep it, and validates
-    any replacement by replaying your own history. This workspace runs the open protocol in
-    your browser, guided by Claude, with your own API key.
+    SaaS Rebuild guides you through evidence-backed KEEP / SIMPLIFY / DROP / DEFER decisions,
+    planning exports, and specifying what a replacement must preserve. The chat workspace uses
+    your own Anthropic API key. You collect the evidence and run the export and validation tools.
   </p>
   <div class="btn-row">
-    <a class="btn" href="#/workspace">Open the workspace</a>
+    <a class="btn" href="#/netsuite">Start a NetSuite audit</a>
+    <a class="btn secondary" href="#/workspace">Open the API workspace</a>
     <a class="btn secondary" href="#/corpus">Browse extraction recipes</a>
   </div>
 
@@ -45,7 +46,8 @@
       <h3><span class="num">01</span>Bring your own key</h3>
       <p>The app is fully static. Your Anthropic API key is stored in your browser's
       localStorage and sent only to <span class="mono">api.anthropic.com</span> — there is
-      no backend, and the key never touches any other server.</p>
+      no project backend. Your chat messages and any attached evidence are sent to
+      Anthropic with each request.</p>
     </div>
     <div class="card">
       <h3><span class="num">02</span>Feed it evidence</h3>
@@ -57,9 +59,9 @@
       <h3><span class="num">03</span>Take the artifacts</h3>
       <p>The assistant emits <span class="mono">teardown.json</span>,
       <span class="mono">feature-inventory.json</span>, usage analysis, preservation
-      manifests, and a rebuild plan as downloadable files that follow the
-      project's published JSON schemas. The browser cannot run the validator;
-      check the downloads with the one in the repository.</p>
+      manifests, and a rebuild plan as downloads. The browser checks JSON syntax
+      before download. Use the <a href="https://github.com/chrbailey/saas-rebuild#five-minute-quickstart-no-tenant-required">local validator</a>
+      for schema and cross-file checks.</p>
     </div>
   </div>
 
@@ -77,6 +79,23 @@
     expect real API spend on a serious engagement. Claude Opus 5 is the default; switch to
     Sonnet 5 or Haiku 4.5 for lighter passes.
   </div>
+</main>
+
+<main id="view-netsuite" class="landing hidden">
+  <h1>NetSuite usage audit</h1>
+  <p class="lede">See which scripts are set up to run on transactions, which actually ran, and which need a closer look.</p>
+  <ol>
+    <li>Sign in to the NetSuite account you administer and open the Claude in Chrome side panel.</li>
+    <li>Click <strong>Copy audit prompt</strong>. Paste it into Claude on the NetSuite tab and press Enter.</li>
+  </ol>
+  <div class="btn-row">
+    <button class="btn" id="copy-netsuite-prompt">Copy audit prompt</button>
+    <a class="btn secondary" href="data/references/netsuite-chrome-audit.md">Open prompt text</a>
+  </div>
+  <p id="netsuite-copy-status" role="status"></p>
+  <p>Use this when your organization allows Claude to see NetSuite setup metadata and summary activity. Claude starts in Setup and reports on the first batch of scripts. Type <strong>continue</strong> to go further.</p>
+  <p><a href="https://support.claude.com/en/articles/12012173-get-started-with-claude-in-chrome">Set up Claude in Chrome</a></p>
+  <section id="netsuite-example" aria-label="Fictional audit example"></section>
 </main>
 
 <!-- ============ workspace ============ -->
@@ -154,7 +173,7 @@
 <footer class="site">
   SaaS Rebuild &middot; MIT licensed &middot;
   <a href="https://github.com/chrbailey/saas-rebuild">chrbailey/saas-rebuild</a> &middot;
-  static app, no backend — your key and your data stay in this browser
+  Static app. Chat requests and the API key go directly to Anthropic.
 </footer>
 
 <!-- ============ key modal ============ -->
@@ -162,8 +181,8 @@
   <div class="modal">
     <h2 id="key-modal-title">Anthropic API key</h2>
     <p>Calls go directly from your browser to <span class="mono">api.anthropic.com</span>.
-    The key is stored only in this browser's localStorage — this site has no backend and
-    never sees it. Create a key in the
+    Your browser saves the key in localStorage and sends it with each chat request.
+    The request includes your messages and attached evidence. Create a key in the
     <a href="https://platform.claude.com/" target="_blank" rel="noopener">Claude Console</a>;
     heavy LLM usage means real spend, so consider a workspace with a budget limit.</p>
     <input type="password" id="key-input" placeholder="sk-ant-...">

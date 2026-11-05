@@ -58,16 +58,10 @@ resumability is not a state contract.
 
 ### Phase 0 pre-flight (do these before the walk — some clocks are already running)
 
-1. **Snapshot volatile logs today.** Login/audit/access-log retention is often
-   30–90 days and every day waited is a day lost off the back of the window.
-   Export whatever the admin panel offers now, crudely — refine later. Verify
-   the actual retention window in the vendor's docs rather than assuming.
-2. **Request the paper trail now.** Order forms, renewal quotes, and module
-   line items usually live with finance/procurement and take days to surface;
-   they are Phase 2's strongest stream. Ask on day one. While you're there,
-   ask for the vendor agreement and note two things: the data-export/return
-   clause, and the post-termination data-retrieval window — that window's end
-   date is the project's hardest deadline.
+1. **Check volatile logs.** Verify retention and prioritize approved snapshots
+   after confirming the data boundary.
+2. **Request the paper trail.** Ask finance for order forms, renewal quotes,
+   module line items, export rights, and the post-termination retrieval deadline.
 3. **Check your access, and name who fills the gaps.** The pipeline wants:
    full admin UI, audit-log area (sometimes a paid SKU — file the vendor
    ticket now if missing), report builder, user/role administration, and an
@@ -162,6 +156,8 @@ critic that checks tiers must not be the pass that assigned them.
 
 ## Phase 1 — Feature inventory (browser walk)
 
+For signed-in Claude in Chrome, use the [NetSuite audit prompt](references/netsuite-chrome-audit.md).
+
 Load browser-automation tools (e.g. Claude in Chrome MCP; one ToolSearch
 call). Have the user log in if not already. Then walk the app breadth-first:
 
@@ -173,9 +169,9 @@ call). Have the user log in if not already. Then walk the app breadth-first:
   automation), business processes, data entities, actions, observed signals,
   and typed evidence. Give every citation a stable `evidence_id`, coverage
   horizon, sensitivity, support scope, and derivation parents.
-- Record counts where the UI shows them ("312 records", empty-state screens,
-  "last modified" columns) — this is usage evidence, capture it inline as
-  `observed_signals` on the feature.
+- Record counts, empty states, and timestamps as `observed_signals`. Treat them
+  as runtime evidence only when their meaning, grain, coverage, and filters
+  support the usage claim.
 - Cap the walk sensibly: if the app has more than ~60 screens, inventory nav
   labels for the long tail and deep-walk only the modules the user named in
   Phase 0. Log what was skipped — no silent truncation.
@@ -291,6 +287,8 @@ better evidence. Criticality follows the same citation discipline as usage:
 `critical` requires a citation naming the business process that breaks
 (interview, contract SLA, or a dependency-graph path to a critical process)
 — an uncited `critical` is `important`.
+The validator enforces DROP eligibility independently of decision notes. DROP
+requires credible all-time non-use evidence and explicit noncriticality.
 
 Run the deterministic matrix first. Store Jev results in `model-annotations.jsonl`; the
 raise-only combiner may add review or veto `DROP` into `DEFER`, never create a verdict.

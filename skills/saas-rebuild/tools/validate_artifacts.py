@@ -26,6 +26,9 @@ import re
 import sys
 from typing import Any
 
+from rules.derive import COUNT_METRICS, runtime_citations
+from rules.matrix import decide
+
 try:
     import jsonschema
 except ImportError as error:  # pragma: no cover - exercised before test deps exist
@@ -329,6 +332,27 @@ class Validation:
                 self.error(f"feature {feature['id']} says never without all-time runtime evidence")
             if usage == "unknown" and feature.get("verdict") not in (None, "DEFER"):
                 self.error(f"feature {feature['id']} has unknown usage but verdict is not DEFER")
+            if feature.get("verdict") != "DROP":
+                continue
+            if usage != "never" or feature.get("criticality") not in ("none", "nice-to-have", "important"):
+                self.error(
+                    f"feature {feature['id']} cannot be DROP without never-used evidence "
+                    "and an explicitly noncritical classification"
+                )
+                continue
+            # Existing packages can cite a human-reviewed, all-time observation
+            # without a numeric measure. When counts exist, enforce the matrix.
+            measured = any(
+                (citation.get("measure") or {}).get("metric") in COUNT_METRICS
+                for citation in runtime_citations(feature)
+            )
+            if measured:
+                decision = decide(feature)
+                if decision.verdict != "DROP":
+                    self.error(
+                        f"feature {feature['id']} cannot be DROP: structured evidence "
+                        f"yields {decision.verdict or 'no verdict'} ({decision.rule_id})"
+                    )
 
         node_ids = [node["id"] for node in graph["nodes"]]
         repeated = duplicates(node_ids)

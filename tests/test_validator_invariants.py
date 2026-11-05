@@ -152,6 +152,23 @@ def feature_node_without_inventory_entry(target):
     write_json(target, "graph.json", graph)
 
 
+def critical_used_feature_dropped_in_both_files(target):
+    features = read_json(target, "feature-inventory.json")
+    next(feature for feature in features if feature["id"] == "customer-search")["verdict"] = "DROP"
+    write_json(target, "feature-inventory.json", features)
+    graph = read_json(target, "graph.json")
+    next(node for node in graph["nodes"] if node["id"] == "customer-search")["verdict"] = "DROP"
+    write_json(target, "graph.json", graph)
+
+
+def positive_runtime_count_on_dropped_feature(target):
+    features = read_json(target, "feature-inventory.json")
+    feature = next(item for item in features if item["id"] == "social-enrichment")
+    evidence = next(item for item in feature["evidence"] if item["evidence_class"] == "runtime")
+    evidence["measure"] = {"metric": "execution-count", "value": 1, "unit": "executions"}
+    write_json(target, "feature-inventory.json", features)
+
+
 # --- teardown.json references resolve ---------------------------------------
 
 
@@ -202,6 +219,14 @@ CASES = [
     ),
     (feature_verdict_without_node_verdict, "verdict mismatch for customer-search: inventory=KEEP graph=None"),
     (feature_node_without_inventory_entry, "graph feature node has no inventory entry: ghost"),
+    (
+        critical_used_feature_dropped_in_both_files,
+        "feature customer-search cannot be DROP without never-used evidence",
+    ),
+    (
+        positive_runtime_count_on_dropped_feature,
+        "feature social-enrichment cannot be DROP: structured evidence",
+    ),
     (decision_cites_unknown_evidence, "teardown decision decision-hybrid-target has unknown evidence: ['ev-nope']"),
     (
         state_declares_a_different_pairs_file,
