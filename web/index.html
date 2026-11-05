@@ -17,6 +17,7 @@
   <a class="brand" href="#/"><span class="tick">&#9633;</span> saas-rebuild</a>
   <nav>
     <a href="#/" data-view="landing">About</a>
+    <a href="#/netsuite" data-view="netsuite">NetSuite audit</a>
     <a href="#/workspace" data-view="workspace">Workspace</a>
     <a href="#/corpus" data-view="corpus">Recipe corpus</a>
     <a href="https://github.com/chrbailey/saas-rebuild" target="_blank" rel="noopener">GitHub &#8599;</a>
@@ -35,7 +36,8 @@
     your own Anthropic API key. You collect the evidence and run the export and validation tools.
   </p>
   <div class="btn-row">
-    <a class="btn" href="#/workspace">Open the workspace</a>
+    <a class="btn" href="#/netsuite">Start a NetSuite audit</a>
+    <a class="btn secondary" href="#/workspace">Open the API workspace</a>
     <a class="btn secondary" href="#/corpus">Browse extraction recipes</a>
   </div>
 
@@ -77,6 +79,23 @@
     expect real API spend on a serious engagement. Claude Opus 5 is the default; switch to
     Sonnet 5 or Haiku 4.5 for lighter passes.
   </div>
+</main>
+
+<main id="view-netsuite" class="landing hidden">
+  <h1>NetSuite usage audit</h1>
+  <p class="lede">See what is configured, which transactions and fields people use, and what a smaller internal app could handle.</p>
+  <ol>
+    <li>Sign in to the NetSuite account you administer and open the Claude in Chrome side panel.</li>
+    <li>Copy the audit prompt into that panel. Start with one process and confirm the scope and data boundary.</li>
+  </ol>
+  <div class="btn-row">
+    <button class="btn" id="copy-netsuite-prompt">Copy audit prompt</button>
+    <a class="btn secondary" href="data/references/netsuite-chrome-audit.md">Open prompt text</a>
+  </div>
+  <p id="netsuite-copy-status" role="status"></p>
+  <p>Claude uses the signed-in tab to inspect approved views. If the account lacks a suitable aggregate report, the prompt asks the operator for a scoped summary.</p>
+  <p><a href="https://support.claude.com/en/articles/12012173-get-started-with-claude-in-chrome">Set up Claude in Chrome</a></p>
+  <section id="netsuite-example" aria-label="Fictional audit example"></section>
 </main>
 
 <!-- ============ workspace ============ -->

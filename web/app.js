@@ -41,21 +41,38 @@ const $ = (id) => document.getElementById(id);
 
 /* ------------------------------------------------ routing */
 
-const VIEWS = ["landing", "workspace", "corpus"];
+const VIEWS = ["landing", "workspace", "corpus", "netsuite"];
 
 function route() {
   const hash = location.hash.replace(/^#\//, "");
   const view = hash.startsWith("workspace") ? "workspace"
-    : hash.startsWith("corpus") ? "corpus" : "landing";
+    : hash.startsWith("corpus") ? "corpus"
+    : hash === "netsuite" ? "netsuite" : "landing";
   for (const v of VIEWS) $("view-" + v).classList.toggle("hidden", v !== view);
   document.querySelectorAll("header.site nav a[data-view]").forEach((a) => {
     a.classList.toggle("active", a.dataset.view === view);
   });
   if (view === "corpus") renderCorpus();
+  if (view === "netsuite" && !$("netsuite-example").textContent.trim()) {
+    fetchText(dataUrl("references/netsuite-audit-example.md"))
+      .then((content) => { $("netsuite-example").innerHTML = renderMarkdown(content, false); })
+      .catch(() => { $("netsuite-example").textContent = "Could not load the example."; });
+  }
   if (view === "workspace" && !localStorage.getItem(STORE.key)) showKeyModal();
   else hideKeyModal();
 }
 window.addEventListener("hashchange", route);
+
+$("copy-netsuite-prompt").addEventListener("click", async () => {
+  const status = $("netsuite-copy-status");
+  try {
+    const prompt = await fetchText(dataUrl("references/netsuite-chrome-audit.md"));
+    await navigator.clipboard.writeText(prompt);
+    status.textContent = "Prompt copied. Paste it into Claude in Chrome on the NetSuite tab.";
+  } catch (_) {
+    status.textContent = "Open the prompt text and copy it from that tab.";
+  }
+});
 
 /* ------------------------------------------------ api key */
 
