@@ -9,7 +9,8 @@ Anthropic API key, and start.
 
 The `#/netsuite` page has a fictional result and a copyable prompt for the
 signed-in Claude in Chrome side panel. It works without an API key for this
-site. Start the audit with the NetSuite tab active in Chrome.
+site. With the signed-in NetSuite tab active, paste the prompt and press Enter.
+The first result covers transaction script deployments and observed activity.
 
 ## What you can do with it
 

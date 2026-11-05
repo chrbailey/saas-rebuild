@@ -54,8 +54,10 @@ test("NetSuite preview and copied prompt load without an API key", async () => {
   context.navigator = { clipboard: { writeText: async (value) => { copied = value; } } };
   context.route();
   await getElementById("copy-netsuite-prompt").click();
-  assert.match(getElementById("netsuite-example").innerHTML, /480 distinct headers/);
-  assert.match(copied, /Confirm scope before reading the tenant/);
+  assert.match(getElementById("netsuite-example").innerHTML, /3 of 7 visible transaction script/);
+  assert.equal(copied, fs.readFileSync(path.resolve(
+    web, "../skills/saas-rebuild/references/netsuite-chrome-audit.md",
+  ), "utf8"));
 });
 
 for (const reason of [null, "max_tokens", "end_turn"]) {

@@ -8,10 +8,10 @@
 
 **Auditing NetSuite?** Sign in to NetSuite in Chrome, open the Claude in Chrome
 side panel, and paste the [audit prompt](skills/saas-rebuild/references/netsuite-chrome-audit.md).
-Start with one process and one subsidiary. The prompt separates configuration
-from observed activity and asks for evidence on which transaction types and
-fields are used, why they matter, and what a small internal app could replace.
-See the [fictional order-to-cash result](skills/saas-rebuild/references/netsuite-audit-example.md).
+Claude starts with transaction script deployments and returns a first report
+with the records they affect, their triggers, and any evidence they ran.
+Type **continue** to review more deployments and related forms, fields, and
+workflows. See the [fictional first report](skills/saas-rebuild/references/netsuite-audit-example.md).
 
 **Optional API workspace:**
 **[saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app)**
