@@ -1,6 +1,6 @@
 ---
 name: saas-rebuild
-description: Audit a SaaS tenant the user owns or administers, preserve its data, identify which configured capabilities are actually used, and derive a smaller replacement architecture from cited evidence. Start supported applications from cited extraction recipes, but verify every document-derived route in the tenant. Use for live-tenant or document-based teardowns, process and integration discovery, KEEP/SIMPLIFY/DROP/DEFER decisions, historical replay, and migration planning. Select the honest target for each capability—a Claude skill, deterministic code, service, application, workflow engine, or hybrid.
+description: Audit a SaaS tenant the user owns or administers, preserve its data, identify which configured capabilities are actually used, and derive a smaller replacement architecture from cited evidence. Start supported applications from cited extraction recipes, but verify every document-derived route in the tenant. Offers a hands-off autopilot first pass for one login when the user says autopilot, just run it, or map what I actually use, with a live status page and role-scoped findings for non-admin or view-only accounts. Use for live-tenant or document-based teardowns, process and integration discovery, KEEP/SIMPLIFY/DROP/DEFER decisions, historical replay, and migration planning. Select the honest target for each capability—a Claude skill, deterministic code, service, application, workflow engine, or hybrid.
 ---
 
 # SaaS Rebuild — evidence-driven teardown and replacement design
@@ -32,8 +32,8 @@ disjoint historical cases.
    rate limits, is the normal case — do it and log it; don't stall on it.
 3. Never capture credentials. The user logs in themselves in the browser; you
    drive the already-authenticated session.
-4. All outputs go to `~/Dev/teardowns/<app-slug>/` (create it; ask the user for
-   a different location if they prefer). Never use scratch/tmp directories.
+4. All outputs go to `~/Documents/saas-rebuild/teardowns/<app-slug>/` (create it; ask the
+   user for a different location if they prefer). Never use scratch/tmp directories.
 5. **Approve the actual data boundary before acquisition.** Record whether the
    model and each connector are local, self-hosted, vendor-cloud, or mixed;
    which data classifications may cross each boundary; who approved it; and
@@ -43,12 +43,17 @@ disjoint historical cases.
    Jev may add review or veto `DROP` into `DEFER`; see `references/model-perception.md`.
 ## Phase 0 — Scope
 
+**Autopilot.** For a hands-off run ("autopilot", "just run it", "map what I actually use"), follow `references/autopilot.md`
+instead of the question batch below: the user's own login, one approval, then no questions; role recorded first, findings
+role-scoped for non-admins. Write `autopilot.json` (`templates/autopilot-run.schema.json`), re-run `tools/render_status.py
+<output-dir>` after each step, and for HubSpot read `references/autopilot-hubspot.md`.
+
 Ask (one AskUserQuestion batch): which app, login URL, which modules matter
 most, who are the users (names/roles count), and whether an admin/audit-log
 area is accessible. Create the output dir and `teardown.json` state file:
 
 ```json
-{"schema_version":"0.12.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Dev/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl","success_profile":"success-profile.json"},"extraction":[],"decisions":[],"action_log":[]}
+{"schema_version":"0.12.0","teardown_id":"example-app-2026","app":{"name":"Example App","slug":"example-app","url":null,"methodology":"live-tenant"},"started_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","phase":0,"status":"in-progress","data_boundary":{"model_boundary":"unknown","connector_boundary":"unknown","artifact_root":"~/Documents/saas-rebuild/teardowns/example-app/","allowed_data_classes":["internal"],"approved_by":"project-owner","approved_at":"2026-01-01T00:00:00Z"},"preflight":[{"id":"authorization","status":"ready","owner":"project-owner"}],"artifacts":{"feature_inventory":"feature-inventory.json","pairs":"pairs.jsonl","success_profile":"success-profile.json"},"extraction":[],"decisions":[],"action_log":[]}
 ```
 
 State is resumable — on re-invocation, read `teardown.json` and continue from
@@ -475,25 +480,20 @@ selection plus phased
 milestones (walking skeleton → core workflow → bridges → parallel-run →
 cutover), each milestone with a verification step.
 
-**If the target includes a Claude skill:** package it as a versioned zip (no angle
-brackets in the SKILL.md description — the workspace uploader rejects them),
-upload to the org's Claude workspace, and verify the installed version
-end-to-end after upload. Plan the operational envelope: corpus refresh cadence
-and owner, append-only audit log location, role/permission mapping from the
-old system's SoD model (mined, not copied), and a rollback path (previous zip
-version retained).
+**If the target includes a Claude skill:** package it as a versioned zip (no angle brackets in the
+SKILL.md description — the workspace uploader rejects them), upload to the org's Claude workspace,
+and verify the installed version end-to-end after upload. Plan the operational envelope: corpus
+refresh cadence and owner, append-only audit log location, role/permission mapping from the old
+system's SoD model (mined, not copied), and a rollback path (previous zip version retained).
 
 ## Deliverables recap
 
-`~/Dev/teardowns/<app-slug>/`: `teardown.json`, `success-profile.json`,
-`evaluation-scorecard.json`, `graph.json`, `inventory.md`,
-`usage-analysis.md`, `extraction-runbook.md`,
-`preservation-manifest.json`, `exports/`, `pairs.jsonl`, `interviews.jsonl`
-and `interview-questions.md` (if used), and `REBUILD_PLAN.md`. Validate every JSON
-or JSONL artifact against its template before delivery. When Python and the
-declared `requirements.txt` dependency are available, run
-`tools/validate_artifacts.py <output-dir>` to enforce cross-file identities,
-lineage isolation, graph references, and preservation digests. Summarize
-KEEP/SIMPLIFY/DROP/DEFER counts, benchmark score and coverage, gate status,
-target-runtime counts, top findings, material unknowns, holdout status, and
-preservation gaps.
+`~/Documents/saas-rebuild/teardowns/<app-slug>/`: `teardown.json`, `success-profile.json`,
+`evaluation-scorecard.json`, `graph.json`, `inventory.md`, `usage-analysis.md`,
+`extraction-runbook.md`, `preservation-manifest.json`, `exports/`, `pairs.jsonl`, `interviews.jsonl`
+and `interview-questions.md` (if used), and `REBUILD_PLAN.md`. Validate every JSON or JSONL artifact
+against its template before delivery. When Python and the declared `requirements.txt` dependency are
+available, run `tools/validate_artifacts.py <output-dir>` to enforce cross-file identities, lineage
+isolation, graph references, and preservation digests. Summarize KEEP/SIMPLIFY/DROP/DEFER counts,
+benchmark score and coverage, gate status, target-runtime counts, top findings, material unknowns,
+holdout status, and preservation gaps.

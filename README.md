@@ -186,6 +186,29 @@ cannot demote an annual obligation, and the feature is DEFER with usage
 `unknown`. That asymmetry is the rule the validator enforces: configuration
 alone does not prove use, and a short window does not prove non-use.
 
+## Autopilot: log in, approve once, watch
+
+For a first pass that needs no setup, ask for an autopilot run:
+
+```text
+/saas-rebuild:saas-rebuild Autopilot my HubSpot. Just run it and show me what I actually use.
+```
+
+You log in yourself and answer one question about what may be read. The run
+then records what your role can do, starts the app's own exports, maps every
+screen, and attaches usage evidence, while a local `status.html` page shows
+live progress and ends on one number: how many of the features found show
+evidence of use. Accounts without admin access get findings scoped to that
+role, and "not yet known" is never counted as unused.
+
+Autopilot is a first pass, not the full teardown. It runs no interviews,
+reads no contracts, uses no API token, calls no model endpoint, and produces
+no scorecard; it lists those as follow-ups. The
+[autopilot protocol](skills/saas-rebuild/references/autopilot.md) is
+app-neutral. The first app-specific
+[run sheet is for HubSpot](skills/saas-rebuild/references/autopilot-hubspot.md)
+and has not yet been verified against a live account.
+
 ## Every documented way to get your data out of 29 B2B apps
 
 Even if you never run a teardown, the
