@@ -207,7 +207,23 @@ no scorecard; it lists those as follow-ups. The
 [autopilot protocol](skills/saas-rebuild/references/autopilot.md) is
 app-neutral. The first app-specific
 [run sheet is for HubSpot](skills/saas-rebuild/references/autopilot-hubspot.md)
-and has not yet been verified against a live account.
+and has been checked twice against a live Free-plan account.
+
+When the pass finishes, one command turns the run folder into a portable
+spec, `rebuild-spec.json` with a readable `rebuild-spec.html` beside it:
+
+```text
+python skills/saas-rebuild/tools/build_spec.py ~/Documents/saas-rebuild/teardowns/hubspot
+```
+
+The spec lists what to build (only features with usage evidence), what not to
+build, what is still undecided, and the recorded history cases a rebuild has
+to reproduce. Any person or language model can build from that one file.
+
+The results page can end with an optional paid review by ERP Access, the
+maintainer. The button appears only when `skills/saas-rebuild/offer.json`
+carries a payment link; delete the link, or the file, to remove it. Nothing
+is sent anywhere unless you choose to share it.
 
 ## Every documented way to get your data out of 29 B2B apps
 

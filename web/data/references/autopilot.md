@@ -198,8 +198,23 @@ leave model perception to a later, reviewed run.
 ## What the person sees at the end
 
 - `status.html`: the headline count ("N of M features show evidence of
-  use"), never-used and not-yet-known counts, verdict totals, what was saved,
-  and the full feature table. "Not yet known" is never counted as unused.
+  use"), then three smaller counts, verdict totals, what was saved, and the
+  full feature table. The three counts are never used (needs all-time
+  evidence), opened and empty so far (a screen that was read and held
+  nothing, inside a window too short to call it unused; set
+  `observed_signals.empty_state` to true), and not yet known. Neither of the
+  last two is ever counted as unused.
+- `rebuild-spec.json` and `rebuild-spec.html`, written by
+  `python tools/build_spec.py <run-dir>` as the last act of the `report`
+  step. The spec is the portable result: what to build (only features with a
+  positive runtime measure), what not to build (DROP verdicts and all-time
+  never), what is undecided, the saved data sets, and every
+  system-of-record replay pair as an acceptance test. The tool copies and
+  counts; it makes no judgment, and it writes the spec's limits itself.
+  Never edit the spec by hand: fix the evidence and rebuild it.
+- An optional review offer at the foot of a finished page, shown only when
+  `offer.json` beside `SKILL.md` carries an `https://` payment link. The run
+  never opens that link and sends nothing to its seller.
 - The artifacts a first pass can honestly produce: `teardown.json`,
   `success-profile.json`, `feature-inventory.json`, `pairs.jsonl`
   (perception pairs from the walk), `graph.json`, and

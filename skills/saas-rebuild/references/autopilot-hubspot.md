@@ -2,8 +2,8 @@
 
 **Status: partly verified.** One live run on a Free-plan account, signed in
 as Super Admin, on 2026-11-12, confirmed the role, navigation, list-page
-counts, audit log, and billing overview paths below. Exports, paid-tier
-screens, and non-admin accounts are still unverified. HubSpot renames and
+counts, audit log, billing overview, and list and audit-log exports below.
+Paid-tier screens and non-admin accounts are still unverified. HubSpot renames and
 moves menus often: confirm each path on screen, and when the screen
 disagrees, follow the screen and note the difference in `action_log`.
 
@@ -26,8 +26,51 @@ disagrees, follow the screen and note the difference in `action_log`.
   Audit Log), with All Logs, Login History and Security Activity tabs, a
   365-day window, and an Export report button. Integration installs appear
   there with dates.
-- **Sample records.** A new account contains a deal and a contact the vendor
-  labels "(Sample ...)". Exclude them from counts.
+- **Export dialog.** Export on a list page opens "Export view". The default
+  is only the columns in the current view: open Customize and choose "All
+  properties and all associations on records". Choosing it lengthens the
+  dialog and moves the Export button, so re-read the dialog before clicking.
+  A banner confirms the export and each one appears in the audit log.
+- **Delivery.** Files go to the user's email and the notification center,
+  not to disk. The run cannot checksum them until the user saves them into
+  the run folder, so record the manifest item as pending until then.
+- **Audit log export** covers only the date filter shown (30 days by
+  default) and gave no confirmation banner. Widen the filter first on older
+  accounts.
+- **One page with every count.** Data Management > Data Model
+  (`/data-model/<hub-id>`) lists each standard object with its record count:
+  contacts, companies, deals, tickets, calls, emails, meetings, tasks, orders,
+  invoices, payments and more. Set it to 100 per page and read it first; it
+  replaces most list-page visits. That page-size control is a view setting.
+- **Direct addresses.** The hub id is in every address after signing in. On
+  the second live run these opened without using the menus: object lists at
+  `/contacts/<hub-id>/objects/<type>/views/all/list` (deals `0-3`, tickets
+  `0-5`, products `0-7`, orders `0-123`, calls `0-48`, meetings `0-47`,
+  invoices `0-53`, payments `0-101`, subscriptions `0-69`), plus
+  `/contacts/<hub-id>/objectLists/all` (segments), `/live-messages/`,
+  `/tasks/<hub-id>/view/all`, `/templates/`, `/email/<hub-id>/manage/state/all`,
+  `/ads/`, `/forms/`, `/website/<hub-id>/pages/site/all`,
+  `/website/<hub-id>/pages/landing/all`, `/website/<hub-id>/blog/posts`,
+  `/design-manager/`, `/meetings/`, `/calendar/`, `/payment-links/`,
+  `/chatflows/`, `/reports-dashboard/`, `/reports-list/`, `/activity-feed/`,
+  `/settings/<hub-id>/users` and `/account-and-billing/`, each followed by
+  the hub id unless shown. A guessed audit-log address returned "page not
+  found"; reach the audit log from the Settings sidebar.
+- **Filters hide records.** The Tasks list opens with an owner filter and
+  showed none while the Data Model page counted two. Trust the object count
+  over a filtered list, and say so in the citation.
+- **Data that arrived by itself.** Connected apps fill the account without
+  anyone typing: a connected mailbox logs emails, a connected calendar adds
+  meetings, Stripe sync adds products, and companies are made from contact
+  email domains. Record these as in use, and name the app that made them in
+  the claim, so the owner can tell work from plumbing.
+- **Sample records.** A new account contains a deal, two calls, two meetings
+  and contacts the vendor made at setup. Only some are labelled "(Sample
+  ...)". Exclude them from counts, and treat an unowned record created in
+  the setup minute as a sample.
+- **System-made lists and reports.** A new account already has two segments
+  and about 29 reports on four dashboards. They show no creator or 0 views.
+  Do not count them as use.
 - **First-visit dialogs.** Dashboards opens a welcome dialog. Leave it alone
   and read the page another way; dismissing it changes account state.
 

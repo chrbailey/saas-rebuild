@@ -51,6 +51,7 @@ def test_unknown_usage_is_never_counted_as_unused():
         "total": 4,
         "used": 2,
         "never": 1,
+        "empty": 0,
         "unknown": 1,
         "verdicts": {"KEEP": 1, "SIMPLIFY": 1, "DROP": 1, "DEFER": 1},
     }
@@ -60,7 +61,7 @@ def test_finished_first_pass_renders_headline_and_stops_refreshing(run_dir):
     edit(run_dir / "teardown.json", status="in-progress", phase=3)
     page = load_renderer().write_status(run_dir).read_text()
     assert "2 <small>of 4 features" in page
-    assert "1 never used · 1 not yet known" in page
+    assert "1 never used · 0 opened and empty so far · 1 not yet known" in page
     assert "http-equiv=refresh" not in page
     assert "First pass done" in page
     assert "does not have admin access" in page
@@ -101,3 +102,60 @@ def test_skill_points_at_autopilot_files(skill_md_text):
                  "templates/autopilot-run.schema.json", "tools/render_status.py"):
         assert name in skill_md_text
         assert (SKILL_DIR / name).is_file()
+
+
+def test_opened_and_empty_is_its_own_count_not_unused():
+    renderer = load_renderer()
+    features = [
+        {"name": "A", "usage": "unknown", "observed_signals": {"empty_state": True}},
+        {"name": "B", "usage": "unknown"},
+        {"name": "C", "usage": "rare", "observed_signals": {"empty_state": False}},
+    ]
+    counts = renderer.summarize(features)
+    assert (counts["used"], counts["never"], counts["empty"], counts["unknown"]) == (1, 0, 1, 1)
+    assert renderer.usage_label("unknown", renderer.is_empty_so_far(features[0])) == "empty so far"
+    assert renderer.usage_label("unknown", renderer.is_empty_so_far(features[1])) == "not yet known"
+
+
+def finish(run_dir):
+    edit(run_dir / "teardown.json", status="in-progress", phase=3)
+    data = json.loads((run_dir / "autopilot.json").read_text())
+    for step in data["steps"]:
+        step["status"] = "done"
+    (run_dir / "autopilot.json").write_text(json.dumps(data))
+
+
+def test_offer_is_hidden_until_it_has_a_payment_link(run_dir, tmp_path):
+    renderer = load_renderer()
+    finish(run_dir)
+    offer = tmp_path / "offer.json"
+    offer.write_text(json.dumps({"seller": "ERP Access", "name": "Review", "price": "$1", "url": ""}))
+    renderer.load_offer = lambda: load_renderer().load_offer(offer)
+    assert "class=pay" not in renderer.render(run_dir)
+
+
+def test_offer_shows_only_on_a_finished_first_pass(run_dir, tmp_path):
+    renderer = load_renderer()
+    offer = tmp_path / "offer.json"
+    offer.write_text(json.dumps({"seller": "ERP <Access>", "name": "Review", "price": "$1",
+                                 "promise": "p", "url": "https://buy.example/abc"}))
+    assert renderer.load_offer(offer)["url"] == "https://buy.example/abc"
+    offer_bad = tmp_path / "bad.json"
+    offer_bad.write_text(json.dumps({"url": "javascript:alert(1)"}))
+    assert renderer.load_offer(offer_bad) is None
+    assert renderer.load_offer(tmp_path / "missing.json") is None
+    renderer.load_offer = lambda: load_renderer().load_offer(offer)
+    data = json.loads((run_dir / "autopilot.json").read_text())
+    data["steps"][-1]["status"] = "running"
+    (run_dir / "autopilot.json").write_text(json.dumps(data))
+    assert "class=pay" not in renderer.render(run_dir)  # still running
+    finish(run_dir)
+    page = renderer.render(run_dir)
+    assert 'href="https://buy.example/abc"' in page
+    assert "ERP &lt;Access&gt;" in page
+
+
+def test_shipped_offer_file_is_well_formed():
+    offer = json.loads((SKILL_DIR / "offer.json").read_text())
+    assert offer["seller"] == "ERP Access"
+    assert offer["url"] == "" or offer["url"].startswith("https://")

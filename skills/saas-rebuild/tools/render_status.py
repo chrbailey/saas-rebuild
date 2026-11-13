@@ -3,7 +3,9 @@
 
 Standard library only. Reads whichever of teardown.json, autopilot.json,
 feature-inventory.json and preservation-manifest.json exist, so it is safe to
-run after every step of a run that is still in progress.
+run after every step of a run that is still in progress. When the first pass
+is finished it also shows the review offer from offer.json, if that file
+carries a payment link.
 
     python render_status.py <run-dir>
 """
@@ -23,6 +25,7 @@ USED = {"daily", "weekly", "rare", "workaround-external", "workaround-internal"}
 VERDICTS = ("KEEP", "SIMPLIFY", "DROP", "DEFER")
 STEP_MARK = {"done": "✓", "running": "●", "pending": "○", "skipped": "–", "blocked": "!"}
 REFRESH_SECONDS = 5
+OFFER_FILE = Path(__file__).resolve().parent.parent / "offer.json"
 
 
 def load(path: Path, default: Any) -> Any:
@@ -33,21 +36,33 @@ def load(path: Path, default: Any) -> Any:
         return default
 
 
+def is_empty_so_far(feature: dict[str, Any]) -> bool:
+    """Opened and found empty, but without the all-time evidence "never" needs."""
+    signals = feature.get("observed_signals")
+    return (
+        feature.get("usage") not in USED
+        and feature.get("usage") != "never"
+        and isinstance(signals, dict)
+        and signals.get("empty_state") is True
+    )
+
 def summarize(features: list[dict[str, Any]]) -> dict[str, Any]:
     used = sum(1 for f in features if f.get("usage") in USED)
     never = sum(1 for f in features if f.get("usage") == "never")
+    empty = sum(1 for f in features if is_empty_so_far(f))
     return {
         "total": len(features),
         "used": used,
         "never": never,
-        "unknown": len(features) - used - never,
+        "empty": empty,
+        "unknown": len(features) - used - never - empty,
         "verdicts": {v: sum(1 for f in features if f.get("verdict") == v) for v in VERDICTS},
     }
 
 
-def usage_label(usage: Any) -> str:
+def usage_label(usage: Any, empty: bool = False) -> str:
     if usage in (None, "", "unknown"):
-        return "not yet known"
+        return "empty so far" if empty else "not yet known"
     if usage == "rare":
         return "used"  # the rules default to "rare" when cadence is not measured
     return str(usage).replace("-", " ")
@@ -55,6 +70,16 @@ def usage_label(usage: Any) -> str:
 
 def esc(value: Any) -> str:
     return html.escape("" if value is None else str(value), quote=True)
+
+def load_offer(path: Path = OFFER_FILE) -> dict[str, Any] | None:
+    """Return the review offer, or None unless it has a real https payment link."""
+    offer = load(path, None)
+    if not isinstance(offer, dict):
+        return None
+    url = offer.get("url")
+    if not isinstance(url, str) or not url.startswith("https://"):
+        return None
+    return offer
 
 
 CSS = """
@@ -97,6 +122,12 @@ th{color:var(--mute);font-weight:600;border-top:0}
 .v{font-weight:700;white-space:nowrap}
 .v.KEEP{color:var(--keep)}.v.SIMPLIFY{color:var(--simp)}.v.DROP{color:var(--drop)}.v.DEFER{color:var(--defer)}
 .note{border-left:3px solid var(--simp);padding-left:12px;color:var(--mute);margin-top:12px}
+.offer{border:2px solid var(--accent)}
+.offer h3{font-size:22px;margin:0 0 6px}
+.offer p{margin:6px 0}
+.pay{display:inline-block;margin-top:12px;padding:12px 26px;border-radius:10px;
+background:var(--accent);color:var(--card);font-weight:700;font-size:17px;text-decoration:none}
+.brand{font-size:13px;color:var(--mute);letter-spacing:.04em}
 footer{color:var(--mute);font-size:13px;margin-top:20px}
 """
 
@@ -139,7 +170,8 @@ def render(run_dir: Path) -> str:
     if counts["total"]:
         add(f'<div class=big>{counts["used"]} <small>of {counts["total"]} features '
             "show evidence of use</small></div>")
-        add(f'<div class=sub>{counts["never"]} never used · {counts["unknown"]} not yet known'
+        add(f'<div class=sub>{counts["never"]} never used · {counts["empty"]} opened and empty so far'
+            f' · {counts["unknown"]} not yet known'
             + (" · still counting" if live else "") + "</div>")
     else:
         add("<div class=big><small>Mapping the app…</small></div>")
@@ -202,9 +234,22 @@ def render(run_dir: Path) -> str:
         for f in rows:
             verdict = f.get("verdict") or ""
             add(f'<tr><td>{esc(f.get("name"))}</td><td>{esc(f.get("nav_path"))}</td>'
-                f'<td>{esc(usage_label(f.get("usage")))}</td>'
+                f'<td>{esc(usage_label(f.get("usage"), is_empty_so_far(f)))}</td>'
                 f'<td class="v {esc(verdict)}">{esc(verdict) or "—"}</td><td>{esc(f.get("why"))}</td></tr>')
         add("</table></div></section>")
+
+    offer = load_offer() if first_pass_done else None
+    if offer:
+        add('<section class="card offer">'
+            f'<div class=brand>{esc(offer.get("seller"))}</div>'
+            f'<h3>{esc(offer.get("name"))} — {esc(offer.get("price"))}</h3>'
+            f'<p>{esc(offer.get("promise"))}</p>')
+        if offer.get("guarantee"):
+            add(f'<p class=sub>{esc(offer["guarantee"])}</p>')
+        add(f'<a class=pay href="{esc(offer["url"])}" rel="noopener">'
+            f'{esc(offer.get("button") or "Book the review")}</a>'
+            '<p class=sub>Optional. Nothing on this page is sent anywhere unless you choose to '
+            "share it.</p></section>")
 
     stamp = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
     tail = f" · refreshes every {REFRESH_SECONDS} seconds" if live else ""
