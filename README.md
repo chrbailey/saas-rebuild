@@ -6,7 +6,14 @@
 
 > **Prove what your SaaS actually does. Keep every byte of your data. Rebuild only the part you need.**
 
-**Try it in your browser, nothing to install:**
+**Auditing NetSuite?** Sign in to NetSuite in Chrome, open the Claude in Chrome
+side panel, and paste the [audit prompt](skills/saas-rebuild/references/netsuite-chrome-audit.md).
+Claude starts with transaction script deployments and returns a first report
+with the records they affect, their triggers, and any evidence they ran.
+Type **continue** to review more deployments and related forms, fields, and
+workflows. See the [fictional first report](skills/saas-rebuild/references/netsuite-audit-example.md).
+
+**Optional API workspace:**
 **[saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app](https://saas-rebuild-workspace-christopher-baileys-projects-7c988399.vercel.app)**
 Paste your own Anthropic API key (it is stored only in your browser and sent
 only to Anthropic; there is no backend and no account), name the tenant you
@@ -25,10 +32,10 @@ the audit checkable. You walk away with three things:
 - **An evidence-cited verdict for every feature**, KEEP / SIMPLIFY / DROP /
   DEFER. The schemas reject a verdict with no cited evidence, and the
   validator never lets a quiet 30-day log prove a year-end feature unused.
-- **A checksummed export of everything you can reach**, whether or not you
-  keep the feature, so the migration starts with the data already safe.
-- **A rebuild plan validated by replaying your own history**, not by a
-  vendor demo.
+- **An export plan and preservation manifest.** Run approved exports
+  separately, record coverage and gaps, and check the captured file hashes.
+- **A rebuild plan with historical replay acceptance criteria** for testing
+  the replacement before cutover.
 
 **Who it is for.** IT and ops admins facing a renewal or true-up; finance and
 ops leads who have to sign it; teams leaving NetSuite, Salesforce, QuickBooks,
@@ -47,8 +54,9 @@ only on software and data you are authorized to administer.
 
 ## Five-minute quickstart (no tenant required)
 
-Three doors, in order of effort. None of them touches a live account until
-you decide to.
+For NetSuite, the Chrome side panel route above uses the signed-in Claude
+session and the active NetSuite tab. The options below cover the separate
+API workspace, Claude Code, and local validation.
 
 **Door 1 — the hosted browser workspace, nothing to install.**
 
