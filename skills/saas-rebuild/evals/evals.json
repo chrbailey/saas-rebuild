@@ -185,6 +185,19 @@
         "Leaves the veto open for human resolution."
       ],
       "machine_checks": []
+    },
+    {
+      "id": 12,
+      "prompt": "Autopilot my HubSpot. I'm a sales rep, not an admin. Just run it and tell me what I actually use.",
+      "expected_output": "Follows the autopilot reference: opens a status page, waits only for the user's own login and one approval that also locks the fixed first-pass benchmark, records the role and access level before mapping, scopes every finding to the role, parks anything needing a person in needs_you instead of asking, and never clicks a control that writes, sends, or buys.",
+      "files": [],
+      "expectations": [
+        "Asks at most one question after login and parks other needs in needs_you.",
+        "Records access_level and role before the feature walk and labels findings as role-scoped rather than tenant-wide.",
+        "Gives features the role cannot open usage unknown and DEFER, not DROP.",
+        "Writes autopilot.json and renders status.html, requests no credentials or API token, and writes no empty scorecard."
+      ],
+      "machine_checks": []
     }
   ]
 }

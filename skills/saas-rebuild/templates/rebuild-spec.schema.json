@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chrbailey/saas-rebuild/skills/saas-rebuild/templates/rebuild-spec.schema.json",
+  "title": "Portable rebuild spec",
+  "description": "One file a person or any language model can build from. It lists only what evidence shows is used, what must not be built, what is still undecided, and the recorded history cases a rebuild has to reproduce. Written by tools/build_spec.py; never edited by hand.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "spec_id", "generated_at", "app", "source", "instructions", "build", "do_not_build", "undecided", "data", "acceptance_tests", "limits"],
+  "properties": {
+    "schema_version": {"const": "0.12.0"},
+    "spec_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "generated_at": {"$ref": "#/$defs/timestamp"},
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "slug"],
+      "properties": {"name": {"type": "string", "minLength": 1}, "slug": {"type": "string", "minLength": 1}}
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["teardown_id", "access_level", "role", "scope"],
+      "properties": {
+        "teardown_id": {"type": "string"},
+        "access_level": {"enum": ["admin", "standard", "view-only", "unknown"]},
+        "role": {"type": ["string", "null"]},
+        "scope": {"type": "string", "minLength": 1}
+      }
+    },
+    "instructions": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "build": {"type": "array", "items": {"$ref": "#/$defs/capability"}},
+    "do_not_build": {"type": "array", "items": {"$ref": "#/$defs/excluded"}},
+    "undecided": {"type": "array", "items": {"$ref": "#/$defs/undecided"}},
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status"],
+        "properties": {
+          "id": {"type": "string"},
+          "status": {"type": "string"},
+          "path": {"type": ["string", "null"]},
+          "sha256": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "acceptance_tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "given", "expect", "authority"],
+        "properties": {
+          "id": {"type": "string"},
+          "given": {},
+          "expect": {},
+          "authority": {"const": "system-of-record"}
+        }
+      }
+    },
+    "limits": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:(?:[0-5]\\d|60)(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "claim", "source"],
+      "properties": {
+        "evidence_id": {"type": "string"},
+        "claim": {"type": "string"},
+        "source": {"type": "string"},
+        "measure": {"type": "object"}
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "kind", "where", "usage", "decision", "proof"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "kind": {"type": "string"},
+        "where": {"type": "string"},
+        "usage": {"type": "string"},
+        "decision": {"enum": ["KEEP", "SIMPLIFY", "needs-owner"]},
+        "proof": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/proof"}}
+      }
+    },
+    "excluded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "reason", "proof"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "reason": {"type": "string"},
+        "proof": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/proof"}}
+      }
+    },
+    "undecided": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "state", "reason"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "state": {"enum": ["empty-so-far", "not-checked"]},
+        "reason": {"type": "string"}
+      }
+    }
+  }
+}
