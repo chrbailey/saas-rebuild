@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-VERSION = "0.12.0"
+VERSION = "0.13.0"
 USED = {"daily", "weekly", "rare", "workaround-external", "workaround-internal"}
 INSTRUCTIONS = [
     "Build every item under build, and nothing else.",
