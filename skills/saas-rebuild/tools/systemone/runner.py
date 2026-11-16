@@ -253,7 +253,7 @@ class Runner:
                 item, response.answers[question_id], self.mode, calibration, context, candidates or ()
             )
             record = {
-                "schema_version": "0.12.0",
+                "schema_version": "0.13.0",
                 "annotation_id": f"ann-{stable_digest([self.run_id, target_kind, target_id, question_id])[:24]}",
                 "run_id": self.run_id,
                 "target_kind": target_kind,

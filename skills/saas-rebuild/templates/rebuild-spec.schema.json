@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "spec_id", "generated_at", "app", "source", "instructions", "build", "do_not_build", "undecided", "data", "acceptance_tests", "limits"],
   "properties": {
-    "schema_version": {"const": "0.12.0"},
+    "schema_version": {"const": "0.13.0"},
     "spec_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "generated_at": {"$ref": "#/$defs/timestamp"},
     "app": {
