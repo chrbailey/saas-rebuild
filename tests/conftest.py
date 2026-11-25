@@ -21,6 +21,9 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 SKIP_DIRS = frozenset({
     ".git", ".claude", ".venv", "venv", ".pytest_cache", "__pycache__",
     "node_modules", ".mypy_cache", ".ruff_cache", "dist",
+    # teardowns/ is a separate private repo (git-ignored here); its local
+    # browser profiles and exports are not this repo's files.
+    "teardowns",
 })
 
 
